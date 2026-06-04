@@ -99,6 +99,14 @@
             android:layout_weight="1"
             android:textSize="11sp"
             android:text="DUMP TREE" />
+
+        <Button
+            android:id="@+id/btnToggleSchema"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textSize="11sp"
+            android:text="SCHEMA:f28" />
     </LinearLayout>
 
     <ScrollView

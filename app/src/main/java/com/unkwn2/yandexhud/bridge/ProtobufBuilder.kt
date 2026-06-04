@@ -3,14 +3,16 @@ package com.unkwn2.yandexhud.bridge
 import java.io.ByteArrayOutputStream
 
 object ProtobufBuilder {
+
+    private const val MANEUVER_FIELD = 28
+
     fun build(
         counter: Int,
         maneuver: Int,
         distance: Int,
         road: String,
         lat: Double, lon: Double,
-        etaString: String,
-        etaMinutes: Int = 0
+        etaString: String
     ): ByteArray {
         val inner = ByteArrayOutputStream()
         writeVarintField(inner, 2, counter.toLong())
@@ -20,7 +22,35 @@ object ProtobufBuilder {
         writeDoubleField(inner, 19, lon)
         writeDoubleField(inner, 20, lat)
         writeStringField(inner, 26, etaString)
-        writeVarintField(inner, 28, maneuver.toLong())
+        writeVarintField(inner, MANEUVER_FIELD, maneuver.toLong())
+        writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver))
+        writeStringField(inner, 31, "$lon,$lat,0")
+        val innerBytes = inner.toByteArray()
+
+        val outer = ByteArrayOutputStream()
+        outer.write(0x0A)
+        writeVarint(outer, innerBytes.size.toLong())
+        outer.write(innerBytes)
+        return outer.toByteArray()
+    }
+
+    fun buildAlt(
+        counter: Int,
+        maneuver: Int,
+        distance: Int,
+        road: String,
+        lat: Double, lon: Double,
+        etaString: String
+    ): ByteArray {
+        val inner = ByteArrayOutputStream()
+        writeVarintField(inner, 2, counter.toLong())
+        writeVarintField(inner, 5, maneuver.toLong())
+        writeVarintField(inner, 9, distance.toLong())
+        writeStringField(inner, 10, road)
+        writeVarintField(inner, 16, 2L)
+        writeDoubleField(inner, 19, lon)
+        writeDoubleField(inner, 20, lat)
+        writeStringField(inner, 26, etaString)
         writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver))
         writeStringField(inner, 31, "$lon,$lat,0")
         val innerBytes = inner.toByteArray()
@@ -66,11 +96,6 @@ object ProtobufBuilder {
 
     private fun writeStringField(o: ByteArrayOutputStream, tag: Int, s: String) =
         writeBytesField(o, tag, s.toByteArray(Charsets.UTF_8))
-
-    private fun writeFixed64Field(o: ByteArrayOutputStream, tag: Int, v: Long) {
-        writeVarint(o, ((tag shl 3) or 1).toLong())
-        for (k in 0..7) o.write(((v ushr (k * 8)) and 0xff).toInt())
-    }
 
     private fun writeVarint(o: ByteArrayOutputStream, v: Long) {
         var x = v

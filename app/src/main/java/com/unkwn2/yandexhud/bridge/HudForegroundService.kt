@@ -18,17 +18,13 @@ class HudForegroundService : Service() {
         private const val NOTIF_ID = 1
 
         fun start(ctx: Context) {
-            val intent = Intent(ctx, HudForegroundService::class.java)
-            ctx.startForegroundService(intent)
+            ctx.startForegroundService(Intent(ctx, HudForegroundService::class.java))
         }
 
         fun stop(ctx: Context) {
             ctx.stopService(Intent(ctx, HudForegroundService::class.java))
         }
     }
-
-    private var bridge: SomeIpBridge? = null
-    private var loopRunner: LoopRunner? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -44,36 +40,14 @@ class HudForegroundService : Service() {
             .setOngoing(true)
             .build()
         startForeground(NOTIF_ID, notif)
-
-        bridge = SomeIpBridge(this)
-        bridge?.bind { ok ->
-            if (ok) {
-                val startRc = bridge?.startService(SomeIpBridge.TOPIC_NAVI) ?: -1
-                Logger.i(TAG, "startService rc=$startRc")
-                loopRunner = LoopRunner(bridge!!)
-                loopRunner?.start()
-            } else {
-                Logger.e(TAG, "bind failed")
-            }
-        }
-        Logger.i(TAG, "created")
+        Logger.i(TAG, "foreground started")
     }
 
     override fun onDestroy() {
-        loopRunner?.stop()
-        loopRunner = null
-        bridge?.stopService(SomeIpBridge.TOPIC_NAVI)
-        bridge?.unbind()
-        bridge = null
+        stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
         Logger.i(TAG, "destroyed")
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
-
-    override fun onTaskRemoved(rootIntent: Intent?) {
-        stopForeground(true)
-        stopSelf()
-        super.onTaskRemoved(rootIntent)
-    }
 }

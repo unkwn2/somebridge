@@ -32,10 +32,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnMockGps: Button
     private lateinit var btnSniffer: Button
     private lateinit var btnA11y: Button
+    private lateinit var btnToggleSchema: Button
 
     private var yandexOn = false
     private var mockOn = false
     private var snifferOn = false
+    private var useAltSchema = false
     private var statusRefreshThread: Thread? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,11 +55,13 @@ class MainActivity : AppCompatActivity() {
         btnMockGps = findViewById(R.id.btnMockGps)
         btnSniffer = findViewById(R.id.btnSniffer)
         btnA11y = findViewById(R.id.btnA11y)
+        btnToggleSchema = findViewById(R.id.btnToggleSchema)
 
         btnYandex.setOnClickListener { toggleYandex() }
         btnMockGps.setOnClickListener { toggleMockGps() }
         btnSniffer.setOnClickListener { toggleSniffer() }
         btnA11y.setOnClickListener { enableA11y() }
+        btnToggleSchema.setOnClickListener { toggleSchema() }
         findViewById<Button>(R.id.btnNotifAccess).setOnClickListener {
             try {
                 startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
@@ -89,7 +93,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         statusRefreshThread?.interrupt()
-        if (yandexOn) { loop.stop(); bridge.unbind() }
+        if (yandexOn) { loop.stop(); HudForegroundService.stop(this); bridge.unbind() }
         if (mockOn) MockGpsService.stop()
         if (snifferOn) bridge.snifferStop()
         super.onDestroy()
@@ -114,7 +118,8 @@ class MainActivity : AppCompatActivity() {
                 if (rc != 0 && rc != 13) {
                     Logger.e("!YNDX", "startService rc=$rc (0=OK, 13=already running)")
                 }
-                loop.start(200L)
+                loop.useAltSchema = useAltSchema
+                loop.start(1000L)
                 HudForegroundService.start(this)
                 yandexOn = true
                 runOnUiThread { btnYandex.text = "STOP YANDEX" }
@@ -129,6 +134,15 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread { btnYandex.text = "YANDEX NAVI" }
             updateStatusBar()
         }
+    }
+
+    private fun toggleSchema() {
+        useAltSchema = !useAltSchema
+        loop.useAltSchema = useAltSchema
+        val label = if (useAltSchema) "SCHEMA:f5" else "SCHEMA:f28"
+        btnToggleSchema.text = label
+        Logger.i("UI", "schema toggled: maneuver field = ${if (useAltSchema) "5 (alt)" else "28 (v33)"}")
+        toast("Maneuver field: ${if (useAltSchema) "f5 (alt)" else "f28 (v33)"}")
     }
 
     private fun toggleMockGps() {
@@ -174,7 +188,7 @@ class MainActivity : AppCompatActivity() {
             toast("Start YANDEX NAVI first")
             return
         }
-        Logger.i("TEST", "firing test maneuver=$name code=$maneuver")
+        Logger.i("TEST", "firing test maneuver=$name code=$maneuver schema=${if (useAltSchema) "f5" else "f28"}")
         HudState.update {
             it.copy(
                 active = true,
@@ -202,9 +216,10 @@ class MainActivity : AppCompatActivity() {
         val snifferStatus = if (snifferOn) "ON" else "OFF"
         val a11yStatus = if (isA11yEnabled()) "ON" else "OFF"
         val navStatus = if (s.active) "NAV:$maneuverStr ${s.distanceMeters}m" else "no nav"
+        val schemaStr = if (useAltSchema) "f5" else "f28"
 
         runOnUiThread {
-            statusBar.text = "Yandex: $yandexStatus | Loop: $loopStatus | $navStatus | Mock: $mockStatus | Sniff: $snifferStatus | A11y: $a11yStatus"
+            statusBar.text = "Yandex: $yandexStatus | Loop: $loopStatus | $navStatus | Schema: $schemaStr | A11y: $a11yStatus"
         }
     }
 

@@ -6,37 +6,50 @@ class LoopRunner(private val bridge: SomeIpBridge) {
     private val TAG = "LOOP"
     @Volatile private var running = false
     @Volatile private var counter = 0
+    @Volatile var useAltSchema = false
 
-    fun start(periodMs: Long = 200L) {
+    fun start(periodMs: Long = 1000L) {
         if (running) return
         running = true
         counter = 0
         Thread {
-            Logger.i(TAG, "started @ ${periodMs}ms")
+            Logger.i(TAG, "started @ ${periodMs}ms alt=$useAltSchema")
             while (running) {
                 val s = HudState.snapshot()
                 if (s.active) {
                     val cal = java.util.Calendar.getInstance()
-                    val etaH = (cal.get(java.util.Calendar.HOUR_OF_DAY) + 1) % 24
-                    val etaM = cal.get(java.util.Calendar.MINUTE)
+                    val etaTotalMin = s.etaSeconds / 60
+                    val etaH = (cal.get(java.util.Calendar.HOUR_OF_DAY) + etaTotalMin / 60) % 24
+                    val etaM = (cal.get(java.util.Calendar.MINUTE) + etaTotalMin % 60) % 60
                     val etaStr = String.format("%02d:%02d", etaH, etaM)
-                    val payload = ProtobufBuilder.build(
-                        counter = counter++,
-                        maneuver = s.maneuver,
-                        distance = s.distanceMeters,
-                        road = s.road,
-                        lat = s.lat, lon = s.lon,
-                        etaString = etaStr,
-                        etaMinutes = s.etaSeconds / 60
-                    )
-                    val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
-                    if (rc != 0 && counter % 5 == 0) {
-                        Logger.w(TAG, "fireEvent rc=$rc")
-                    } else if (counter % 25 == 0) {
-                        Logger.i(TAG, "tick #$counter rc=$rc m=${s.maneuver} d=${s.distanceMeters}")
+
+                    val payload = if (useAltSchema) {
+                        ProtobufBuilder.buildAlt(
+                            counter = counter++,
+                            maneuver = s.maneuver,
+                            distance = s.distanceMeters,
+                            road = s.road,
+                            lat = s.lat, lon = s.lon,
+                            etaString = etaStr
+                        )
+                    } else {
+                        ProtobufBuilder.build(
+                            counter = counter++,
+                            maneuver = s.maneuver,
+                            distance = s.distanceMeters,
+                            road = s.road,
+                            lat = s.lat, lon = s.lon,
+                            etaString = etaStr
+                        )
                     }
-                } else if (counter % 50 == 0) {
-                    Logger.i(TAG, "tick #$counter (idle — HudState inactive)")
+                    val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
+                    if (rc != 0 && counter % 3 == 0) {
+                        Logger.w(TAG, "fireEvent rc=$rc")
+                    } else if (counter % 10 == 0) {
+                        Logger.i(TAG, "tick #$counter rc=$rc m=${s.maneuver} d=${s.distanceMeters} alt=$useAltSchema")
+                    }
+                } else if (counter % 30 == 0) {
+                    Logger.i(TAG, "tick #$counter (idle)")
                 }
                 try { Thread.sleep(periodMs) } catch (_: InterruptedException) { break }
             }
