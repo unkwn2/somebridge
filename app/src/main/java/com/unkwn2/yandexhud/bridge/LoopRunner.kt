@@ -16,13 +16,18 @@ class LoopRunner(private val bridge: SomeIpBridge) {
             while (running) {
                 val s = HudState.snapshot()
                 if (s.active) {
+                    val cal = java.util.Calendar.getInstance()
+                    val etaH = (cal.get(java.util.Calendar.HOUR_OF_DAY) + 1) % 24
+                    val etaM = cal.get(java.util.Calendar.MINUTE)
+                    val etaStr = String.format("%02d:%02d", etaH, etaM)
                     val payload = ProtobufBuilder.build(
                         counter = counter++,
                         maneuver = s.maneuver,
                         distance = s.distanceMeters,
                         road = s.road,
                         lat = s.lat, lon = s.lon,
-                        eta = s.etaSeconds
+                        etaString = etaStr,
+                        etaMinutes = s.etaSeconds / 60
                     )
                     val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
                     if (rc != 0 && counter % 5 == 0) {

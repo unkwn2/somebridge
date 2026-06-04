@@ -2,4 +2,7 @@
 <resources>
     <string name="app_name">YandexHUD</string>
     <string name="a11y_desc">Reads Yandex Maps/Navigator navigation data to display turn arrows on HUD</string>
+    <string name="hud_fg_notif_title">YandexHUD Active</string>
+    <string name="hud_fg_notif_text">Sending navigation data to HUD</string>
+    <string name="hud_fg_channel">YandexHUD Service</string>
 </resources>

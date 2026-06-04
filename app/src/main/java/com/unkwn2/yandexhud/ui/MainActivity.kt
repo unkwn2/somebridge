@@ -13,6 +13,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationManagerCompat
+import com.unkwn2.yandexhud.bridge.HudForegroundService
 import com.unkwn2.yandexhud.bridge.HudState
 import com.unkwn2.yandexhud.bridge.LoopRunner
 import com.unkwn2.yandexhud.bridge.SomeIpBridge
@@ -114,6 +115,7 @@ class MainActivity : AppCompatActivity() {
                     Logger.e("!YNDX", "startService rc=$rc (0=OK, 13=already running)")
                 }
                 loop.start(200L)
+                HudForegroundService.start(this)
                 yandexOn = true
                 runOnUiThread { btnYandex.text = "STOP YANDEX" }
                 updateStatusBar()
@@ -121,6 +123,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             Logger.i("!YNDX", "=== YANDEX NAVI OFF ===")
             loop.stop()
+            HudForegroundService.stop(this)
             bridge.unbind()
             yandexOn = false
             runOnUiThread { btnYandex.text = "YANDEX NAVI" }

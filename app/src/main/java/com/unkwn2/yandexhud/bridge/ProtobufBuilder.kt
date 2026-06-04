@@ -9,26 +9,51 @@ object ProtobufBuilder {
         distance: Int,
         road: String,
         lat: Double, lon: Double,
-        eta: Int,
-        iconPng: ByteArray = ByteArray(0)
+        etaString: String,
+        etaMinutes: Int = 0
     ): ByteArray {
         val inner = ByteArrayOutputStream()
         writeVarintField(inner, 2, counter.toLong())
-        if (iconPng.isNotEmpty()) writeBytesField(inner, 8, iconPng)
         writeVarintField(inner, 9, distance.toLong())
         writeStringField(inner, 10, road)
         writeVarintField(inner, 16, 2L)
-        writeFixed64Field(inner, 19, java.lang.Double.doubleToLongBits(lon))
-        writeFixed64Field(inner, 20, java.lang.Double.doubleToLongBits(lat))
-        writeVarintField(inner, 26, eta.toLong())
+        writeDoubleField(inner, 19, lon)
+        writeDoubleField(inner, 20, lat)
+        writeStringField(inner, 26, etaString)
         writeVarintField(inner, 28, maneuver.toLong())
-        writeVarintField(inner, 30, 1L)
-        writeVarintField(inner, 31, 0L)
+        writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver))
+        writeStringField(inner, 31, "$lon,$lat,0")
         val innerBytes = inner.toByteArray()
 
         val outer = ByteArrayOutputStream()
-        writeBytesField(outer, 1, innerBytes)
+        outer.write(0x0A)
+        writeVarint(outer, innerBytes.size.toLong())
+        outer.write(innerBytes)
         return outer.toByteArray()
+    }
+
+    private fun buildGuideLine(lat: Double, lon: Double, maneuver: Int): String {
+        val sb = StringBuilder()
+        val k = 3
+        var d = 0.0
+        val step = 0.0005
+        val turn = when (maneuver) {
+            2 -> -0.002
+            3 -> 0.002
+            else -> 0.0
+        }
+        for (i in 0..k) {
+            if (i > 0) sb.append(",")
+            sb.append(String.format("%.6f,%.6f,0", lat + d * step, lon + d * step + turn * d / k))
+            d += 1.0
+        }
+        return sb.toString()
+    }
+
+    private fun writeDoubleField(o: ByteArrayOutputStream, tag: Int, v: Double) {
+        writeVarint(o, ((tag shl 3) or 1).toLong())
+        val bits = java.lang.Double.doubleToLongBits(v)
+        for (k in 0..7) o.write(((bits ushr (k * 8)) and 0xff).toInt())
     }
 
     private fun writeVarintField(o: ByteArrayOutputStream, tag: Int, v: Long) {
