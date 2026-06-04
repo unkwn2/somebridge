@@ -21,6 +21,9 @@ object ManeuverMapper {
     const val M_FERRY = 19
 
     private val RU_PHRASES = linkedMapOf(
+        "развернитесь направо" to M_UTURN_RIGHT,
+        "разворот направо" to M_UTURN_RIGHT,
+        "развернитесь налево" to M_UTURN_LEFT,
         "развернитесь" to M_UTURN_LEFT,
         "разворот" to M_UTURN_LEFT,
         "u-turn" to M_UTURN_LEFT,

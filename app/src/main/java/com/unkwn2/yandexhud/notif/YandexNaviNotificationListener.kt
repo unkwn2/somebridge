@@ -62,16 +62,15 @@ class YandexNaviNotificationListener : NotificationListenerService() {
 
         HudState.update { prev ->
             val a11yHasManeuver = prev.active && prev.maneuver != ManeuverMapper.M_UNKNOWN
-            val mergeManeuver = if (isMaps && a11yHasManeuver && !notifManeuverKnown) {
-                prev.maneuver
-            } else if (notifManeuverKnown) {
-                maneuver
-            } else {
-                prev.maneuver
+            val mergeEta = if (etaSeconds > 0) etaSeconds else prev.etaSeconds
+            val mergeManeuver = when {
+                notifManeuverKnown && !(isMaps && a11yHasManeuver) -> maneuver
+                isMaps && a11yHasManeuver -> prev.maneuver
+                notifManeuverKnown -> maneuver
+                else -> prev.maneuver
             }
             val mergeDist = if (distanceMeters > 0) distanceMeters else prev.distanceMeters
             val mergeRoad = if (road.isNotEmpty() && road != "Навигатор запущен") road else prev.road
-            val mergeEta = if (etaSeconds > 0) etaSeconds else prev.etaSeconds
             prev.copy(
                 active = true,
                 maneuver = mergeManeuver,

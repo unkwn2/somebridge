@@ -12,6 +12,7 @@ class YandexA11yService : AccessibilityService() {
 
     companion object {
         private const val TAG = "YA11Y"
+        private const val DEBOUNCE_MS = 500L
         private val YANDEX_MAPS_PKGS = setOf(
             "ru.yandex.yandexmaps", "ru.yandex.yandexmaps.beta", "ru.yandex.yandexmaps.inhouse", "ru.yandex.yandexmaps.rustore"
         )
@@ -43,6 +44,8 @@ class YandexA11yService : AccessibilityService() {
             "activity_search_map_view", "text_speed_value", "text_speedlimit"
         )
 
+        @Volatile private var lastProcessMs = 0L
+
         private val DIST_KM = Regex("""(\d+(?:[.,]\d+)?)\s*(км|km)\b""", RegexOption.IGNORE_CASE)
         private val DIST_M = Regex("""(\d+)\s*(м|m)\b""", RegexOption.IGNORE_CASE)
         private val ETA_MIN = Regex("""(\d+)\s*мин""", RegexOption.IGNORE_CASE)
@@ -62,6 +65,10 @@ class YandexA11yService : AccessibilityService() {
         if (pkg !in YANDEX_PKGS) return
         val et = event.eventType
         if (et != TYPE_WINDOW_CONTENT_CHANGED && et != TYPE_WINDOW_STATE_CHANGED) return
+
+        val now = System.currentTimeMillis()
+        if (now - lastProcessMs < DEBOUNCE_MS) return
+        lastProcessMs = now
 
         val root = rootInActiveWindow ?: return
         try {
@@ -124,6 +131,8 @@ class YandexA11yService : AccessibilityService() {
                         lastUpdateMs = System.currentTimeMillis()
                     )
                 }
+            } else if (hasManeuverBalloon && maneuver == ManeuverMapper.M_UNKNOWN && distance == 0) {
+                HudState.update { it.copy(active = true, lastUpdateMs = System.currentTimeMillis()) }
             }
         } catch (t: Throwable) {
             Logger.e(TAG, "parse error: ${t.message}")
