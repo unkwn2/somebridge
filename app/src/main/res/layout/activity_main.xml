@@ -13,7 +13,7 @@
         android:textStyle="bold"
         android:padding="6dp"
         android:background="#22000000"
-        android:text="Yandex: OFF | Loop: idle | Mock: OFF | Sniffer: OFF" />
+        android:text="Yandex: OFF | Loop: idle | A11y: OFF" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -51,7 +51,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:textSize="12sp"
-            android:text="NOTIF ACCESS" />
+            android:text="NOTIF" />
 
         <Button
             android:id="@+id/btnA11y"
@@ -59,7 +59,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:textSize="12sp"
-            android:text="A11Y ACCESS" />
+            android:text="A11Y" />
     </LinearLayout>
 
     <LinearLayout
@@ -74,7 +74,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:textSize="11sp"
-            android:text="TEST LEFT" />
+            android:text="LEFT" />
 
         <Button
             android:id="@+id/btnTestRight"
@@ -82,7 +82,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:textSize="11sp"
-            android:text="TEST RIGHT" />
+            android:text="RIGHT" />
 
         <Button
             android:id="@+id/btnTestStraight"
@@ -90,7 +90,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:textSize="11sp"
-            android:text="TEST STRAIGHT" />
+            android:text="STRAIGHT" />
 
         <Button
             android:id="@+id/btnDumpTree"
@@ -98,15 +98,32 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:textSize="11sp"
-            android:text="DUMP TREE" />
+            android:text="DUMP" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="4dp">
 
         <Button
             android:id="@+id/btnToggleSchema"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:textSize="11sp"
-            android:text="SCHEMA:f28" />
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:text="TAG:f28" />
+
+        <Button
+            android:id="@+id/btnToggleEnum"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:text="ENUM:v33" />
     </LinearLayout>
 
     <ScrollView

@@ -4,47 +4,21 @@ import java.io.ByteArrayOutputStream
 
 object ProtobufBuilder {
 
-    private const val MANEUVER_FIELD = 28
+    private val MANEUVER_TAGS = intArrayOf(28, 5, 6)
 
     fun build(
         counter: Int,
         maneuver: Int,
+        maneuverTagIdx: Int,
         distance: Int,
         road: String,
         lat: Double, lon: Double,
         etaString: String
     ): ByteArray {
+        val mTag = MANEUVER_TAGS[maneuverTagIdx]
         val inner = ByteArrayOutputStream()
         writeVarintField(inner, 2, counter.toLong())
-        writeVarintField(inner, 9, distance.toLong())
-        writeStringField(inner, 10, road)
-        writeVarintField(inner, 16, 2L)
-        writeDoubleField(inner, 19, lon)
-        writeDoubleField(inner, 20, lat)
-        writeStringField(inner, 26, etaString)
-        writeVarintField(inner, MANEUVER_FIELD, maneuver.toLong())
-        writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver))
-        writeStringField(inner, 31, "$lon,$lat,0")
-        val innerBytes = inner.toByteArray()
-
-        val outer = ByteArrayOutputStream()
-        outer.write(0x0A)
-        writeVarint(outer, innerBytes.size.toLong())
-        outer.write(innerBytes)
-        return outer.toByteArray()
-    }
-
-    fun buildAlt(
-        counter: Int,
-        maneuver: Int,
-        distance: Int,
-        road: String,
-        lat: Double, lon: Double,
-        etaString: String
-    ): ByteArray {
-        val inner = ByteArrayOutputStream()
-        writeVarintField(inner, 2, counter.toLong())
-        writeVarintField(inner, 5, maneuver.toLong())
+        writeVarintField(inner, mTag, maneuver.toLong())
         writeVarintField(inner, 9, distance.toLong())
         writeStringField(inner, 10, road)
         writeVarintField(inner, 16, 2L)

@@ -15,7 +15,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationManagerCompat
 import com.unkwn2.yandexhud.bridge.HudForegroundService
 import com.unkwn2.yandexhud.bridge.HudState
-import com.unkwn2.yandexhud.bridge.LoopRunner
 import com.unkwn2.yandexhud.bridge.SomeIpBridge
 import com.unkwn2.yandexhud.mock.MockGpsService
 import com.unkwn2.yandexhud.notif.ManeuverMapper
@@ -23,8 +22,6 @@ import com.unkwn2.yandexhud.notif.YandexA11yService
 import com.unkwn2.yandexhud.util.Logger
 
 class MainActivity : AppCompatActivity() {
-    private lateinit var bridge: SomeIpBridge
-    private lateinit var loop: LoopRunner
     private lateinit var statusBar: TextView
     private lateinit var logText: TextView
     private lateinit var logScroll: ScrollView
@@ -33,20 +30,19 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnSniffer: Button
     private lateinit var btnA11y: Button
     private lateinit var btnToggleSchema: Button
+    private lateinit var btnToggleEnum: Button
 
     private var yandexOn = false
     private var mockOn = false
     private var snifferOn = false
-    private var useAltSchema = false
+    private var maneuverTagIdx = 0
+    private var useGaodeEnum = false
     private var statusRefreshThread: Thread? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Logger.init(applicationContext)
         setContentView(R.layout.activity_main)
-
-        bridge = SomeIpBridge(this)
-        loop = LoopRunner(bridge)
 
         statusBar = findViewById(R.id.statusBar)
         logText = findViewById(R.id.logText)
@@ -56,19 +52,19 @@ class MainActivity : AppCompatActivity() {
         btnSniffer = findViewById(R.id.btnSniffer)
         btnA11y = findViewById(R.id.btnA11y)
         btnToggleSchema = findViewById(R.id.btnToggleSchema)
+        btnToggleEnum = findViewById(R.id.btnToggleEnum)
 
         btnYandex.setOnClickListener { toggleYandex() }
         btnMockGps.setOnClickListener { toggleMockGps() }
         btnSniffer.setOnClickListener { toggleSniffer() }
         btnA11y.setOnClickListener { enableA11y() }
         btnToggleSchema.setOnClickListener { toggleSchema() }
+        btnToggleEnum.setOnClickListener { toggleEnum() }
         findViewById<Button>(R.id.btnNotifAccess).setOnClickListener {
             try {
                 startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
             } catch (_: Throwable) {
-                val adbCmd = "adb shell cmd notification allow_listener com.unkwn2.yandexhud/com.unkwn2.yandexhud.notif.YandexNaviNotificationListener"
-                val cb = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                cb.setPrimaryClip(ClipData.newPlainText("adb", adbCmd))
+                copyAdbCmd("adb shell cmd notification allow_listener com.unkwn2.yandexhud/com.unkwn2.yandexhud.notif.YandexNaviNotificationListener")
                 toast("Copied ADB command to clipboard")
             }
         }
@@ -77,7 +73,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnTestStraight).setOnClickListener { testManeuver(ManeuverMapper.M_STRAIGHT, "STRAIGHT") }
         findViewById<Button>(R.id.btnDumpTree).setOnClickListener {
             YandexA11yService.dumpRequested = true
-            toast("Tree dump requested — check logs")
+            toast("Tree dump requested")
         }
 
         Logger.observe { line ->
@@ -86,120 +82,105 @@ class MainActivity : AppCompatActivity() {
                 logScroll.post { logScroll.fullScroll(ScrollView.FOCUS_DOWN) }
             }
         }
-
         HudState.observe { updateStatusBar() }
         startStatusRefresh()
     }
 
     override fun onDestroy() {
         statusRefreshThread?.interrupt()
-        if (yandexOn) { loop.stop(); HudForegroundService.stop(this); bridge.unbind() }
         if (mockOn) MockGpsService.stop()
-        if (snifferOn) bridge.snifferStop()
+        if (snifferOn) HudForegroundService.bridge?.snifferStop()
         super.onDestroy()
     }
 
     private fun toggleYandex() {
         if (!yandexOn) {
             if (!isNotifAccessGranted()) {
-                val adbCmd = "adb shell cmd notification allow_listener com.unkwn2.yandexhud/com.unkwn2.yandexhud.notif.YandexNaviNotificationListener"
+                copyAdbCmd("adb shell cmd notification allow_listener com.unkwn2.yandexhud/com.unkwn2.yandexhud.notif.YandexNaviNotificationListener")
                 toast("Need notification access! ADB cmd copied")
-                val cb = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                cb.setPrimaryClip(ClipData.newPlainText("adb", adbCmd))
-                try {
-                    startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                } catch (_: Throwable) {}
+                try { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) } catch (_: Throwable) {}
                 return
             }
             Logger.i("!YNDX", "=== YANDEX NAVI ON ===")
-            bridge.bind { ready ->
-                if (!ready) { Logger.e("!YNDX", "bind failed"); return@bind }
-                val rc = bridge.startService(SomeIpBridge.SERVICE_ID_NAVI)
-                if (rc != 0 && rc != 13) {
-                    Logger.e("!YNDX", "startService rc=$rc (0=OK, 13=already running)")
-                }
-                loop.useAltSchema = useAltSchema
-                loop.start(1000L)
-                HudForegroundService.start(this)
-                yandexOn = true
-                runOnUiThread { btnYandex.text = "STOP YANDEX" }
+            HudForegroundService.start(this)
+            yandexOn = true
+            runOnUiThread {
+                btnYandex.text = "STOP YANDEX"
                 updateStatusBar()
             }
         } else {
             Logger.i("!YNDX", "=== YANDEX NAVI OFF ===")
-            loop.stop()
             HudForegroundService.stop(this)
-            bridge.unbind()
             yandexOn = false
-            runOnUiThread { btnYandex.text = "YANDEX NAVI" }
-            updateStatusBar()
+            runOnUiThread {
+                btnYandex.text = "YANDEX NAVI"
+                updateStatusBar()
+            }
         }
     }
 
     private fun toggleSchema() {
-        useAltSchema = !useAltSchema
-        loop.useAltSchema = useAltSchema
-        val label = if (useAltSchema) "SCHEMA:f5" else "SCHEMA:f28"
-        btnToggleSchema.text = label
-        Logger.i("UI", "schema toggled: maneuver field = ${if (useAltSchema) "5 (alt)" else "28 (v33)"}")
-        toast("Maneuver field: ${if (useAltSchema) "f5 (alt)" else "f28 (v33)"}")
+        maneuverTagIdx = (maneuverTagIdx + 1) % 3
+        HudForegroundService.loopRunner?.maneuverTagIdx = maneuverTagIdx
+        val labels = arrayOf("f28", "f5", "f6")
+        btnToggleSchema.text = "TAG:${labels[maneuverTagIdx]}"
+        Logger.i("UI", "maneuver tag = ${labels[maneuverTagIdx]}")
+        toast("Maneuver field: ${labels[maneuverTagIdx]}")
+    }
+
+    private fun toggleEnum() {
+        useGaodeEnum = !useGaodeEnum
+        HudForegroundService.loopRunner?.useGaodeEnum = useGaodeEnum
+        val label = if (useGaodeEnum) "GAODE" else "v33"
+        btnToggleEnum.text = "ENUM:$label"
+        Logger.i("UI", "enum mode = $label")
+        toast("Enum: $label")
     }
 
     private fun toggleMockGps() {
         if (!mockOn) {
             MockGpsService.start(this, 55.7558, 37.6173)
             mockOn = true
-            runOnUiThread { btnMockGps.text = "STOP MOCK" }
+            btnMockGps.text = "STOP MOCK"
         } else {
             MockGpsService.stop()
             mockOn = false
-            runOnUiThread { btnMockGps.text = "MOCK GPS" }
+            btnMockGps.text = "MOCK GPS"
         }
-        updateStatusBar()
     }
 
     private fun toggleSniffer() {
+        val b = HudForegroundService.bridge
         if (!snifferOn) {
-            bridge.snifferStart()
+            b?.snifferStart()
             snifferOn = true
-            runOnUiThread { btnSniffer.text = "STOP SNIFF" }
+            btnSniffer.text = "STOP SNIFF"
         } else {
-            bridge.snifferStop()
+            b?.snifferStop()
             snifferOn = false
-            runOnUiThread { btnSniffer.text = "SNIFFER" }
+            btnSniffer.text = "SNIFFER"
         }
-        updateStatusBar()
     }
 
     private fun enableA11y() {
-        val a11yCmd = "adb shell settings put secure enabled_accessibility_services com.unkwn2.yandexhud/com.unkwn2.yandexhud.notif.YandexA11yService"
-        val cb = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        cb.setPrimaryClip(ClipData.newPlainText("adb", a11yCmd))
+        copyAdbCmd("adb shell settings put secure enabled_accessibility_services com.unkwn2.yandexhud/com.unkwn2.yandexhud.notif.YandexA11yService")
         try {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
             toast("Enable YandexHUD in Accessibility. ADB cmd copied")
         } catch (_: Throwable) {
-            toast("ADB command copied to clipboard")
+            toast("ADB command copied")
         }
     }
 
     private fun testManeuver(maneuver: Int, name: String) {
-        if (!yandexOn) {
-            toast("Start YANDEX NAVI first")
-            return
-        }
-        Logger.i("TEST", "firing test maneuver=$name code=$maneuver schema=${if (useAltSchema) "f5" else "f28"}")
+        if (!yandexOn) { toast("Start YANDEX NAVI first"); return }
+        val tagLabels = arrayOf("f28", "f5", "f6")
+        val enumLabel = if (useGaodeEnum) "GAODE" else "v33"
+        Logger.i("TEST", "maneuver=$name code=$maneuver tag=${tagLabels[maneuverTagIdx]} enum=$enumLabel")
         HudState.update {
-            it.copy(
-                active = true,
-                maneuver = maneuver,
-                distanceMeters = 500,
-                road = "Test Road",
-                etaSeconds = 300,
-                lastUpdateMs = System.currentTimeMillis()
-            )
+            it.copy(active = true, maneuver = maneuver, distanceMeters = 500,
+                road = "Test Road", etaSeconds = 300, lastUpdateMs = System.currentTimeMillis())
         }
-        updateStatusBar()
     }
 
     private fun updateStatusBar() {
@@ -210,16 +191,15 @@ class MainActivity : AppCompatActivity() {
             10 -> "UTURN_L"; 11 -> "UTURN_R"; 12 -> "ARRIVE"
             else -> "${s.maneuver}"
         }
-        val yandexStatus = if (yandexOn) "ON" else "OFF"
-        val loopStatus = if (loop.isRunning) "${if (s.active) s.distanceMeters else "idle"}" else "idle"
-        val mockStatus = if (mockOn) "ON" else "OFF"
-        val snifferStatus = if (snifferOn) "ON" else "OFF"
+        val tagLabels = arrayOf("f28", "f5", "f6")
+        val enumLabel = if (useGaodeEnum) "GAODE" else "v33"
+        val yStatus = if (yandexOn) "ON" else "OFF"
+        val fgsReady = HudForegroundService.isReady
+        val navStatus = if (s.active) "$maneuverStr ${s.distanceMeters}m" else "idle"
         val a11yStatus = if (isA11yEnabled()) "ON" else "OFF"
-        val navStatus = if (s.active) "NAV:$maneuverStr ${s.distanceMeters}m" else "no nav"
-        val schemaStr = if (useAltSchema) "f5" else "f28"
 
         runOnUiThread {
-            statusBar.text = "Yandex: $yandexStatus | Loop: $loopStatus | $navStatus | Schema: $schemaStr | A11y: $a11yStatus"
+            statusBar.text = "Yandex:$yStatus FGS:$fgsReady | $navStatus | TAG:${tagLabels[maneuverTagIdx]} ENUM:$enumLabel | A11y:$a11yStatus"
         }
     }
 
@@ -231,8 +211,12 @@ class MainActivity : AppCompatActivity() {
         return enabled.contains("com.unkwn2.yandexhud/com.unkwn2.yandexhud.notif.YandexA11yService")
     }
 
-    private fun toast(msg: String) =
-        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+    private fun copyAdbCmd(cmd: String) {
+        (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+            .setPrimaryClip(ClipData.newPlainText("adb", cmd))
+    }
+
+    private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
 
     private fun startStatusRefresh() {
         val t = Thread {
@@ -241,8 +225,6 @@ class MainActivity : AppCompatActivity() {
                 try { Thread.sleep(1000) } catch (_: InterruptedException) { break }
             }
         }
-        t.isDaemon = true
-        t.start()
-        statusRefreshThread = t
+        t.isDaemon = true; t.start(); statusRefreshThread = t
     }
 }
