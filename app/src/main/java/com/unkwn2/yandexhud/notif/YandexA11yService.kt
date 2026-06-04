@@ -117,19 +117,23 @@ class YandexA11yService : AccessibilityService() {
 
             if (hasManeuverBalloon || (maneuver != ManeuverMapper.M_UNKNOWN && distance > 0)) {
                 Logger.i(TAG, "pkg=$pkg m=${ManeuverMapper.maneuverName(maneuver)} d=${distance}m road='$road' eta=${eta}s balloon=$hasManeuverBalloon")
-                HudState.update { prev ->
-                    val mergeManeuver = if (maneuver != ManeuverMapper.M_UNKNOWN) maneuver else prev.maneuver
-                    val mergeDist = if (distance > 0) distance else prev.distanceMeters
-                    val mergeRoad = if (road.isNotEmpty()) road else prev.road
-                    val mergeEta = if (eta > 0) eta else prev.etaSeconds
-                    prev.copy(
-                        active = true,
-                        maneuver = mergeManeuver,
-                        distanceMeters = mergeDist,
-                        road = mergeRoad,
-                        etaSeconds = mergeEta,
-                        lastUpdateMs = System.currentTimeMillis()
-                    )
+                if (HudState.isTestLatched()) {
+                    HudState.update { it.copy(active = true, lastUpdateMs = System.currentTimeMillis()) }
+                } else {
+                    HudState.update { prev ->
+                        val mergeManeuver = if (maneuver != ManeuverMapper.M_UNKNOWN) maneuver else prev.maneuver
+                        val mergeDist = if (distance > 0) distance else prev.distanceMeters
+                        val mergeRoad = if (road.isNotEmpty()) road else prev.road
+                        val mergeEta = if (eta > 0) eta else prev.etaSeconds
+                        prev.copy(
+                            active = true,
+                            maneuver = mergeManeuver,
+                            distanceMeters = mergeDist,
+                            road = mergeRoad,
+                            etaSeconds = mergeEta,
+                            lastUpdateMs = System.currentTimeMillis()
+                        )
+                    }
                 }
             } else if (hasManeuverBalloon && maneuver == ManeuverMapper.M_UNKNOWN && distance == 0) {
                 HudState.update { it.copy(active = true, lastUpdateMs = System.currentTimeMillis()) }

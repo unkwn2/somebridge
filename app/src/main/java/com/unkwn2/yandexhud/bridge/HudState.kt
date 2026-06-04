@@ -12,7 +12,8 @@ object HudState {
         val etaSeconds: Int = 0,
         val lat: Double = 0.0,
         val lon: Double = 0.0,
-        val lastUpdateMs: Long = 0L
+        val lastUpdateMs: Long = 0L,
+        val testLatchUntilMs: Long = 0L
     )
 
     @Volatile private var current = Snapshot()
@@ -32,4 +33,10 @@ object HudState {
     }
 
     fun observe(cb: (Snapshot) -> Unit) { listeners += cb; cb(current) }
+
+    fun isTestLatched(): Boolean = System.currentTimeMillis() < current.testLatchUntilMs
+
+    fun setTestLatch(durationMs: Long = 5000L) {
+        update { it.copy(testLatchUntilMs = System.currentTimeMillis() + durationMs) }
+    }
 }

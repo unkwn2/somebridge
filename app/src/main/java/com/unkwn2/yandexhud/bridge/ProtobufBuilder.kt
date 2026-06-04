@@ -37,20 +37,21 @@ object ProtobufBuilder {
     }
 
     private fun buildGuideLine(lat: Double, lon: Double, maneuver: Int): String {
-        val sb = StringBuilder()
-        val k = 3
-        var d = 0.0
-        val step = 0.0005
-        val turn = when (maneuver) {
-            2 -> -0.002
-            3 -> 0.002
-            else -> 0.0
-        }
-        for (i in 0..k) {
+        val sb = StringBuilder("[")
+        val step = 0.0002
+        val turnStart = 5
+        for (i in 0..9) {
+            val iLat = lat + i * step
+            val turn = if (i > turnStart) (i - turnStart) * step else 0.0
+            val iLon = when (maneuver) {
+                2 -> lon - turn
+                3 -> lon + turn
+                else -> lon
+            }
             if (i > 0) sb.append(",")
-            sb.append(String.format("%.6f,%.6f,0", lat + d * step, lon + d * step + turn * d / k))
-            d += 1.0
+            sb.append(String.format("[%.6f,%.6f,0]", iLon, iLat))
         }
+        sb.append("]")
         return sb.toString()
     }
 

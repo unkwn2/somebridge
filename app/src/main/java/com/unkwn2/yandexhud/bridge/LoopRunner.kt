@@ -7,8 +7,8 @@ class LoopRunner(private val bridge: SomeIpBridge) {
     private val TAG = "LOOP"
     @Volatile private var running = false
     @Volatile private var counter = 0
-    @Volatile var maneuverTagIdx: Int = 1
-    @Volatile var useGaodeEnum: Boolean = true
+    @Volatile var maneuverTagIdx: Int = 0
+    @Volatile var useGaodeEnum: Boolean = false
 
     fun start(periodMs: Long = 1000L) {
         if (running) return

@@ -35,8 +35,8 @@ class MainActivity : AppCompatActivity() {
     private var yandexOn = false
     private var mockOn = false
     private var snifferOn = false
-    private var maneuverTagIdx = 1
-    private var useGaodeEnum = true
+    private var maneuverTagIdx = 0
+    private var useGaodeEnum = false
     private var statusRefreshThread: Thread? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -181,6 +181,7 @@ class MainActivity : AppCompatActivity() {
             it.copy(active = true, maneuver = maneuver, distanceMeters = 500,
                 road = "Test Road", etaSeconds = 300, lastUpdateMs = System.currentTimeMillis())
         }
+        HudState.setTestLatch(5000L)
     }
 
     private fun updateStatusBar() {
