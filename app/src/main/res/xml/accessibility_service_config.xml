@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewTextChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagDefault|flagReportViewIds|flagIncludeNotImportantViews"
+    android:canRetrieveWindowContent="true"
+    android:notificationTimeout="100"
+    android:packageNames="ru.yandex.yandexmaps,ru.yandex.yandexmaps.beta,ru.yandex.yandexmaps.inhouse,ru.yandex.yandexmaps.rustore,ru.yandex.yandexnavi,ru.yandex.yandexnavi.inhouse,ru.yandex.yandexnavi.rustore"
+    android:description="@string/a11y_desc"
+    android:settingsActivity="com.unkwn2.yandexhud.ui.MainActivity" />

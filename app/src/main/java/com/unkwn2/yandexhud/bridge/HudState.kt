@@ -1,0 +1,35 @@
+package com.unkwn2.yandexhud.bridge
+
+import com.unkwn2.yandexhud.notif.ManeuverMapper
+import java.util.concurrent.CopyOnWriteArrayList
+
+object HudState {
+    data class Snapshot(
+        val active: Boolean = false,
+        val maneuver: Int = ManeuverMapper.M_STRAIGHT,
+        val distanceMeters: Int = 0,
+        val road: String = "",
+        val etaSeconds: Int = 0,
+        val lat: Double = 0.0,
+        val lon: Double = 0.0,
+        val lastUpdateMs: Long = 0L
+    )
+
+    @Volatile private var current = Snapshot()
+    private val listeners = CopyOnWriteArrayList<(Snapshot) -> Unit>()
+
+    fun snapshot(): Snapshot {
+        val s = current
+        return if (s.active && System.currentTimeMillis() - s.lastUpdateMs > 30_000) {
+            s.copy(active = false).also { current = it }
+        } else s
+    }
+
+    @Synchronized
+    fun update(transform: (Snapshot) -> Snapshot) {
+        current = transform(current)
+        listeners.forEach { it(current) }
+    }
+
+    fun observe(cb: (Snapshot) -> Unit) { listeners += cb; cb(current) }
+}
