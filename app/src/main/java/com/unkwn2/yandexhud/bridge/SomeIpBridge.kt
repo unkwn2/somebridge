@@ -234,17 +234,7 @@ class SomeIpBridge(private val ctx: Context) {
             } catch (t: Throwable) { Logger.e(TAG, "sniffer regCb: ${t.message}") }
 
             Thread.sleep(300)
-            try {
-                val d = Parcel.obtain(); val r = Parcel.obtain()
-                d.writeInterfaceToken(CLIENT_DESC)
-                cb.transact(6, d, r, 0)
-                r.readException()
-                Logger.i(TAG, "sniffer: startClients rc=${r.readInt()}")
-                r.recycle(); d.recycle()
-            } catch (t: Throwable) { Logger.e(TAG, "sniffer startClients: ${t.message}") }
-
-            Thread.sleep(300)
-            for (t in listOf(0x4010a00018001L, 0x4010a00018002L, 0x4010a00018003L)) {
+            for (t in listOf(0x4010a00018001L)) {
                 try {
                     val d = Parcel.obtain(); val r = Parcel.obtain()
                     d.writeInterfaceToken(CLIENT_DESC)
