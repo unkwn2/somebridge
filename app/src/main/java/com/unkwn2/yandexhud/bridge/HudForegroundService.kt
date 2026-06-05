@@ -16,6 +16,9 @@ class HudForegroundService : Service() {
         private const val TAG = "FGS"
         private const val CH_ID = "yandexhud_fg"
         private const val NOTIF_ID = 1
+        private const val PREFS = "yandexhud_prefs"
+        private const val KEY_TAG_IDX = "maneuverTagIdx"
+        private const val KEY_GAODE = "useGaodeEnum"
 
         @Volatile var instance: HudForegroundService? = null
         val bridge: SomeIpBridge? get() = instance?._bridge
@@ -28,6 +31,19 @@ class HudForegroundService : Service() {
         fun stop(ctx: Context) {
             ctx.stopService(Intent(ctx, HudForegroundService::class.java))
         }
+
+        fun saveSettings(ctx: Context, tagIdx: Int, gaode: Boolean) {
+            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putInt(KEY_TAG_IDX, tagIdx)
+                .putBoolean(KEY_GAODE, gaode)
+                .apply()
+        }
+
+        fun loadTagIdx(ctx: Context): Int =
+            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_TAG_IDX, 0)
+
+        fun loadGaode(ctx: Context): Boolean =
+            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_GAODE, true)
     }
 
     private var _bridge: SomeIpBridge? = null
@@ -55,6 +71,8 @@ class HudForegroundService : Service() {
                 val rc = _bridge?.startService(SomeIpBridge.SERVICE_ID_NAVI) ?: -1
                 Logger.i(TAG, "startService rc=$rc")
                 _loopRunner = LoopRunner(_bridge!!)
+                _loopRunner?.maneuverTagIdx = loadTagIdx(this)
+                _loopRunner?.useGaodeEnum = loadGaode(this)
                 _loopRunner?.start()
             } else {
                 Logger.e(TAG, "bind failed")

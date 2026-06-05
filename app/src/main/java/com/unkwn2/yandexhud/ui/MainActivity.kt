@@ -42,6 +42,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Logger.init(applicationContext)
+        maneuverTagIdx = HudForegroundService.loadTagIdx(this)
+        useGaodeEnum = HudForegroundService.loadGaode(this)
         setContentView(R.layout.activity_main)
 
         statusBar = findViewById(R.id.statusBar)
@@ -122,6 +124,7 @@ class MainActivity : AppCompatActivity() {
     private fun toggleSchema() {
         maneuverTagIdx = (maneuverTagIdx + 1) % 3
         HudForegroundService.loopRunner?.maneuverTagIdx = maneuverTagIdx
+        HudForegroundService.saveSettings(this, maneuverTagIdx, useGaodeEnum)
         val labels = arrayOf("f28", "f5", "f6")
         btnToggleSchema.text = "TAG:${labels[maneuverTagIdx]}"
         Logger.i("UI", "maneuver tag = ${labels[maneuverTagIdx]}")
@@ -131,6 +134,7 @@ class MainActivity : AppCompatActivity() {
     private fun toggleEnum() {
         useGaodeEnum = !useGaodeEnum
         HudForegroundService.loopRunner?.useGaodeEnum = useGaodeEnum
+        HudForegroundService.saveSettings(this, maneuverTagIdx, useGaodeEnum)
         val label = if (useGaodeEnum) "GAODE" else "v33"
         btnToggleEnum.text = "ENUM:$label"
         Logger.i("UI", "enum mode = $label")
@@ -188,15 +192,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun toGaodeDisplay(m: Int): Int = when (m) {
         ManeuverMapper.M_LEFT -> 1; ManeuverMapper.M_RIGHT -> 2
-        ManeuverMapper.M_HARD_LEFT -> 3; ManeuverMapper.M_HARD_RIGHT -> 4
-        ManeuverMapper.M_SLIGHT_LEFT -> 5; ManeuverMapper.M_SLIGHT_RIGHT -> 6
+        ManeuverMapper.M_SLIGHT_LEFT -> 3; ManeuverMapper.M_SLIGHT_RIGHT -> 4
+        ManeuverMapper.M_FORK_LEFT -> 3; ManeuverMapper.M_FORK_RIGHT -> 4
+        ManeuverMapper.M_HARD_LEFT -> 7; ManeuverMapper.M_HARD_RIGHT -> 8
+        ManeuverMapper.M_EXIT_LEFT -> 7; ManeuverMapper.M_EXIT_RIGHT -> 8
         ManeuverMapper.M_UTURN_LEFT -> 9; ManeuverMapper.M_UTURN_RIGHT -> 10
         ManeuverMapper.M_STRAIGHT -> 11; ManeuverMapper.M_ARRIVE -> 48
-        ManeuverMapper.M_FORK_LEFT -> 5; ManeuverMapper.M_FORK_RIGHT -> 6
-        ManeuverMapper.M_EXIT_LEFT -> 7; ManeuverMapper.M_EXIT_RIGHT -> 8
         ManeuverMapper.M_ROUNDABOUT_ENTER -> 13; ManeuverMapper.M_ROUNDABOUT_EXIT -> 24
         ManeuverMapper.M_FERRY -> 46; ManeuverMapper.M_TUNNEL -> 49; ManeuverMapper.M_TOLL -> 47
-        else -> m
+        else -> 0
     }
 
     private fun updateStatusBar() {
