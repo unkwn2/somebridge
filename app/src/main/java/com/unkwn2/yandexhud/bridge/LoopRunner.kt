@@ -41,13 +41,14 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         totalTimeSeconds = s.totalTimeSeconds,
                         speedLimit = s.speedLimit,
                         arriveText = arriveText,
-                        testLanes = s.testLanes
+                        testLanes = s.testLanes,
+                        nextNextManeuver = s.nextNextManeuver
                     )
                     val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
-                    if (s.testLanes && counter % 5 == 0) {
-                        val navmap = ProtobufBuilder.buildNavMap(intArrayOf(maneuverVal, 11))
+                    if (s.nextNextManeuver > 0 && counter % 5 == 0) {
+                        val navmap = ProtobufBuilder.buildNavMap(intArrayOf(maneuverVal, s.nextNextManeuver))
                         val rc2 = bridge.fireEvent(SomeIpBridge.TOPIC_NAVMAP, navmap)
-                        Logger.i(TAG, "navmap fire rc=$rc2 m=$maneuverVal,next=11")
+                        Logger.i(TAG, "navmap fire rc=$rc2 m=$maneuverVal,next=${s.nextNextManeuver}")
                     }
                     if (rc != 0 && counter % 3 == 0) {
                         Logger.w(TAG, "fireEvent rc=$rc")

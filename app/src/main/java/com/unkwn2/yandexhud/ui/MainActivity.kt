@@ -33,6 +33,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnToggleEnum: Button
     private lateinit var btnTestLanes: Button
     private lateinit var btnTestNavMap: Button
+    private lateinit var btnTestNextNext: Button
 
     private var yandexOn = false
     private var mockOn = false
@@ -59,6 +60,7 @@ class MainActivity : AppCompatActivity() {
         btnToggleEnum = findViewById(R.id.btnToggleEnum)
         btnTestLanes = findViewById(R.id.btnTestLanes)
         btnTestNavMap = findViewById(R.id.btnTestNavMap)
+        btnTestNextNext = findViewById(R.id.btnTestNextNext)
 
         btnYandex.setOnClickListener { toggleYandex() }
         btnMockGps.setOnClickListener { toggleMockGps() }
@@ -68,6 +70,7 @@ class MainActivity : AppCompatActivity() {
         btnToggleEnum.setOnClickListener { toggleEnum() }
         btnTestLanes.setOnClickListener { testLanes() }
         btnTestNavMap.setOnClickListener { testNavMap() }
+        btnTestNextNext.setOnClickListener { testNextNext() }
         findViewById<Button>(R.id.btnNotifAccess).setOnClickListener {
             try {
                 startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
@@ -195,10 +198,22 @@ class MainActivity : AppCompatActivity() {
         if (!yandexOn) { toast("Start YANDEX NAVI first"); return }
         val s = HudState.snapshot()
         val maneuverVal = if (useGaodeEnum) toGaodeDisplay(s.maneuver) else s.maneuver
-        val navmap = com.unkwn2.yandexhud.bridge.ProtobufBuilder.buildNavMap(intArrayOf(maneuverVal, 11))
+        val nextVal = if (maneuverVal == 2) 1 else 2
+        val navmap = com.unkwn2.yandexhud.bridge.ProtobufBuilder.buildNavMap(intArrayOf(maneuverVal, nextVal))
         val rc = HudForegroundService.bridge?.fireEvent(SomeIpBridge.TOPIC_NAVMAP, navmap) ?: -1
-        Logger.i("TEST", "navmap fire rc=$rc maneuvers=[$maneuverVal, 11(straight)]")
+        Logger.i("TEST", "navmap fire rc=$rc maneuvers=[$maneuverVal, $nextVal]")
         toast("NAVMAP sent rc=$rc")
+    }
+
+    private fun testNextNext() {
+        if (!yandexOn) { toast("Start YANDEX NAVI first"); return }
+        val s = HudState.snapshot()
+        val currentNextNext = s.nextNextManeuver
+        val newNextNext = if (currentNextNext > 0) 0 else if (useGaodeEnum) toGaodeDisplay(s.maneuver).let { if (it == 2) 1 else 2 } else 0
+        HudState.update { it.copy(nextNextManeuver = newNextNext) }
+        btnTestNextNext.text = if (newNextNext > 0) "NEXT:$newNextNext" else "NEXT+NEXT"
+        toast("Next-next: ${if (newNextNext > 0) "GAODE $newNextNext" else "OFF"}")
+        Logger.i("TEST", "nextNextManeuver=$newNextNext")
     }
 
     private fun testManeuver(maneuver: Int, name: String) {

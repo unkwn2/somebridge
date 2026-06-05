@@ -18,7 +18,8 @@ object ProtobufBuilder {
         totalTimeSeconds: Int = 0,
         speedLimit: Int = 0,
         arriveText: String = "",
-        testLanes: Boolean = false
+        testLanes: Boolean = false,
+        nextNextManeuver: Int = 0
     ): ByteArray {
         val mTag = MANEUVER_TAGS[maneuverTagIdx]
         val inner = ByteArrayOutputStream()
@@ -26,9 +27,12 @@ object ProtobufBuilder {
         writeVarintField(inner, 3, totalDistMeters.toLong())
         writeVarintField(inner, 4, totalTimeSeconds.toLong())
         if (testLanes) {
-            writeRepeatedVarintField(inner, 7, intArrayOf(0, 1, 1, 0))
-            writeRepeatedVarintField(inner, 8, intArrayOf(0, 0, 1, 0))
+            writePackedVarint(inner, 7, intArrayOf(1, 2, 2, 1))
+            writePackedVarint(inner, 8, intArrayOf(0, 0, 1, 0))
             writeVarintField(inner, 5, 4L)
+        }
+        if (nextNextManeuver > 0) {
+            writePackedVarint(inner, 8, intArrayOf(maneuver, nextNextManeuver))
         }
         writeVarintField(inner, mTag, maneuver.toLong())
         writeVarintField(inner, 9, distance.toLong())
@@ -52,10 +56,10 @@ object ProtobufBuilder {
     }
 
     fun buildNavMap(maneuvers: IntArray): ByteArray {
+        val packed = ByteArrayOutputStream()
+        for (m in maneuvers) writeVarint(packed, m.toLong())
         val inner = ByteArrayOutputStream()
-        for (m in maneuvers) {
-            writeVarintField(inner, 1, m.toLong())
-        }
+        writeBytesField(inner, 1, packed.toByteArray())
         val innerBytes = inner.toByteArray()
 
         val outer = ByteArrayOutputStream()
@@ -101,6 +105,12 @@ object ProtobufBuilder {
 
     private fun writeRepeatedVarintField(o: ByteArrayOutputStream, tag: Int, values: IntArray) {
         for (v in values) writeVarintField(o, tag, v.toLong())
+    }
+
+    private fun writePackedVarint(o: ByteArrayOutputStream, tag: Int, values: IntArray) {
+        val packed = ByteArrayOutputStream()
+        for (v in values) writeVarint(packed, v.toLong())
+        writeBytesField(o, tag, packed.toByteArray())
     }
 
     private fun writeBytesField(o: ByteArrayOutputStream, tag: Int, b: ByteArray) {

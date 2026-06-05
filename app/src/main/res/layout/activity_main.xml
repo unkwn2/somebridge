@@ -132,6 +132,13 @@
             android:layout_weight="1"
             android:textSize="11sp"
             android:text="LANES" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="4dp">
 
         <Button
             android:id="@+id/btnTestNavMap"
@@ -140,6 +147,14 @@
             android:layout_weight="1"
             android:textSize="11sp"
             android:text="NAVMAP" />
+
+        <Button
+            android:id="@+id/btnTestNextNext"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textSize="11sp"
+            android:text="NEXT+NEXT" />
     </LinearLayout>
 
     <ScrollView
