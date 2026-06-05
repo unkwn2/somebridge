@@ -76,12 +76,14 @@ class YandexNaviNotificationListener : NotificationListenerService() {
             }
             val mergeDist = if (distanceMeters > 0) distanceMeters else prev.distanceMeters
             val mergeRoad = if (road.isNotEmpty() && road != "Навигатор запущен") road else prev.road
+            val mergeTotalTime = if (etaSeconds > 0) etaSeconds else prev.totalTimeSeconds
             prev.copy(
                 active = true,
                 maneuver = mergeManeuver,
                 distanceMeters = mergeDist,
                 road = mergeRoad,
                 etaSeconds = mergeEta,
+                totalTimeSeconds = mergeTotalTime,
                 lastUpdateMs = System.currentTimeMillis()
             )
         }

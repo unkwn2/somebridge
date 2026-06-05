@@ -27,6 +27,7 @@ class YandexA11yService : AccessibilityService() {
         private val VID_NEXTSTREET = "text_nextstreet"
         private val VID_ETA_DIST = "textview_eta_distance"
         private val VID_ETA_TIME = "textview_eta_time"
+        private val VID_SPEEDLIMIT = "text_speedlimit"
 
         private val IGNORE_VID = setOf(
             "control_ruler_text", "control_weather_text", "control_traffic",
@@ -114,6 +115,8 @@ class YandexA11yService : AccessibilityService() {
             val distance = resolveDistance(byVid)
             val road = resolveRoad(byVid)
             val eta = resolveEta(byVid)
+            val totalDist = resolveTotalDist(byVid)
+            val speedLimit = resolveSpeedLimit(byVid)
 
             if (hasManeuverBalloon || (maneuver != ManeuverMapper.M_UNKNOWN && distance > 0)) {
                 Logger.i(TAG, "pkg=$pkg m=${ManeuverMapper.maneuverName(maneuver)} d=${distance}m road='$road' eta=${eta}s balloon=$hasManeuverBalloon")
@@ -125,12 +128,18 @@ class YandexA11yService : AccessibilityService() {
                         val mergeDist = if (distance > 0) distance else prev.distanceMeters
                         val mergeRoad = if (road.isNotEmpty()) road else prev.road
                         val mergeEta = if (eta > 0) eta else prev.etaSeconds
+                        val mergeTotalDist = if (totalDist > 0) totalDist else prev.totalDistMeters
+                        val mergeTotalTime = if (eta > 0) eta else prev.totalTimeSeconds
+                        val mergeSpeedLimit = if (speedLimit > 0) speedLimit else prev.speedLimit
                         prev.copy(
                             active = true,
                             maneuver = mergeManeuver,
                             distanceMeters = mergeDist,
                             road = mergeRoad,
                             etaSeconds = mergeEta,
+                            totalDistMeters = mergeTotalDist,
+                            totalTimeSeconds = mergeTotalTime,
+                            speedLimit = mergeSpeedLimit,
                             lastUpdateMs = System.currentTimeMillis()
                         )
                     }
@@ -247,6 +256,29 @@ class YandexA11yService : AccessibilityService() {
             }
             val mn = ETA_MIN.find(s)
             if (mn != null) return (mn.groupValues[1].toIntOrNull() ?: 0) * 60
+        }
+        return 0
+    }
+
+    private fun resolveTotalDist(byVid: Map<String, NodeData>): Int {
+        val etaDistNode = byVid[VID_ETA_DIST]
+        if (etaDistNode != null) {
+            val s = etaDistNode.text
+            val km = DIST_KM.find(s)
+            if (km != null) {
+                val v = km.groupValues[1].replace(',', '.').toDoubleOrNull() ?: return 0
+                return (v * 1000).toInt()
+            }
+            val m = DIST_M.find(s)
+            if (m != null) return m.groupValues[1].toIntOrNull() ?: 0
+        }
+        return 0
+    }
+
+    private fun resolveSpeedLimit(byVid: Map<String, NodeData>): Int {
+        val slNode = byVid[VID_SPEEDLIMIT]
+        if (slNode != null) {
+            return slNode.text.trim().toIntOrNull() ?: 0
         }
         return 0
     }

@@ -13,7 +13,11 @@ object HudState {
         val lat: Double = 0.0,
         val lon: Double = 0.0,
         val lastUpdateMs: Long = 0L,
-        val testLatchUntilMs: Long = 0L
+        val testLatchUntilMs: Long = 0L,
+        val totalDistMeters: Int = 0,
+        val totalTimeSeconds: Int = 0,
+        val speedLimit: Int = 0,
+        val arriveText: String = ""
     )
 
     @Volatile private var current = Snapshot()

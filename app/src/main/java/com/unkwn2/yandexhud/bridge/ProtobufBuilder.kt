@@ -13,18 +13,27 @@ object ProtobufBuilder {
         distance: Int,
         road: String,
         lat: Double, lon: Double,
-        etaString: String
+        etaString: String,
+        totalDistMeters: Int = 0,
+        totalTimeSeconds: Int = 0,
+        speedLimit: Int = 0,
+        arriveText: String = ""
     ): ByteArray {
         val mTag = MANEUVER_TAGS[maneuverTagIdx]
         val inner = ByteArrayOutputStream()
         writeVarintField(inner, 2, counter.toLong())
+        writeVarintField(inner, 3, totalDistMeters.toLong())
+        writeVarintField(inner, 4, totalTimeSeconds.toLong())
         writeVarintField(inner, mTag, maneuver.toLong())
         writeVarintField(inner, 9, distance.toLong())
         writeStringField(inner, 10, road)
+        if (speedLimit > 0) writeVarintField(inner, 11, speedLimit.toLong())
         writeVarintField(inner, 16, 2L)
         writeDoubleField(inner, 19, lon)
         writeDoubleField(inner, 20, lat)
+        if (arriveText.isNotEmpty()) writeStringField(inner, 25, arriveText)
         writeStringField(inner, 26, etaString)
+        writeStringField(inner, 27, "${totalTimeSeconds / 60} мин")
         writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver))
         writeStringField(inner, 31, "$lon,$lat,0")
         val innerBytes = inner.toByteArray()
@@ -44,8 +53,13 @@ object ProtobufBuilder {
             val iLat = lat + i * step
             val turn = if (i > turnStart) (i - turnStart) * step else 0.0
             val iLon = when (maneuver) {
-                2 -> lon - turn
-                3 -> lon + turn
+                1 -> lon - turn
+                2 -> lon + turn
+                7 -> lon - turn * 1.5
+                8 -> lon + turn * 1.5
+                9 -> lon - turn * 2
+                10 -> lon + turn * 2
+                13 -> lon + turn * 0.5
                 else -> lon
             }
             if (i > 0) sb.append(",")
