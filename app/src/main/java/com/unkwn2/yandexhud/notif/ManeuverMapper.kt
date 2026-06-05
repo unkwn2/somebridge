@@ -19,6 +19,8 @@ object ManeuverMapper {
     const val M_ROUNDABOUT_ENTER = 17
     const val M_ROUNDABOUT_EXIT = 18
     const val M_FERRY = 19
+    const val M_TUNNEL = 20
+    const val M_TOLL = 21
 
     private val RU_PHRASES = linkedMapOf(
         "развернитесь направо" to M_UTURN_RIGHT,
@@ -54,6 +56,10 @@ object ManeuverMapper {
         "съезд" to M_EXIT_RIGHT,
         "въезд на паром" to M_FERRY,
         "паром" to M_FERRY,
+        "тоннель" to M_TUNNEL,
+        "туннель" to M_TUNNEL,
+        "платный" to M_TOLL,
+        "пошлина" to M_TOLL,
         "вы прибыли" to M_ARRIVE,
         "маршрут завершён" to M_ARRIVE,
         "конечная" to M_ARRIVE,
@@ -171,6 +177,8 @@ object ManeuverMapper {
         M_ROUNDABOUT_ENTER -> "ROUNDABOUT_IN"
         M_ROUNDABOUT_EXIT -> "ROUNDABOUT_OUT"
         M_FERRY -> "FERRY"
+        M_TUNNEL -> "TUNNEL"
+        M_TOLL -> "TOLL"
         else -> "UNKNOWN($code)"
     }
 }

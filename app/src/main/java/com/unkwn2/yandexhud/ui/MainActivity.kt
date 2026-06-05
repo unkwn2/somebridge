@@ -36,7 +36,7 @@ class MainActivity : AppCompatActivity() {
     private var mockOn = false
     private var snifferOn = false
     private var maneuverTagIdx = 0
-    private var useGaodeEnum = false
+    private var useGaodeEnum = true
     private var statusRefreshThread: Thread? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -176,12 +176,27 @@ class MainActivity : AppCompatActivity() {
         if (!yandexOn) { toast("Start YANDEX NAVI first"); return }
         val tagLabels = arrayOf("f28", "f5", "f6")
         val enumLabel = if (useGaodeEnum) "GAODE" else "v33"
-        Logger.i("TEST", "maneuver=$name code=$maneuver tag=${tagLabels[maneuverTagIdx]} enum=$enumLabel")
+        val gaodeVal = if (useGaodeEnum) toGaodeDisplay(maneuver) else maneuver
+        Logger.i("TEST", "maneuver=$name code=$maneuver gaode=$gaodeVal tag=${tagLabels[maneuverTagIdx]} enum=$enumLabel")
         HudState.update {
             it.copy(active = true, maneuver = maneuver, distanceMeters = 500,
-                road = "Test Road", etaSeconds = 300, lastUpdateMs = System.currentTimeMillis())
+                road = "Test $name", etaSeconds = 300, lastUpdateMs = System.currentTimeMillis())
         }
-        HudState.setTestLatch(5000L)
+        HudState.setTestLatch(10000L)
+        toast("TEST $name → HUD $gaodeVal (latch 10s)")
+    }
+
+    private fun toGaodeDisplay(m: Int): Int = when (m) {
+        ManeuverMapper.M_LEFT -> 1; ManeuverMapper.M_RIGHT -> 2
+        ManeuverMapper.M_HARD_LEFT -> 3; ManeuverMapper.M_HARD_RIGHT -> 4
+        ManeuverMapper.M_SLIGHT_LEFT -> 5; ManeuverMapper.M_SLIGHT_RIGHT -> 6
+        ManeuverMapper.M_UTURN_LEFT -> 9; ManeuverMapper.M_UTURN_RIGHT -> 10
+        ManeuverMapper.M_STRAIGHT -> 11; ManeuverMapper.M_ARRIVE -> 48
+        ManeuverMapper.M_FORK_LEFT -> 5; ManeuverMapper.M_FORK_RIGHT -> 6
+        ManeuverMapper.M_EXIT_LEFT -> 7; ManeuverMapper.M_EXIT_RIGHT -> 8
+        ManeuverMapper.M_ROUNDABOUT_ENTER -> 13; ManeuverMapper.M_ROUNDABOUT_EXIT -> 24
+        ManeuverMapper.M_FERRY -> 46; ManeuverMapper.M_TUNNEL -> 49; ManeuverMapper.M_TOLL -> 47
+        else -> m
     }
 
     private fun updateStatusBar() {

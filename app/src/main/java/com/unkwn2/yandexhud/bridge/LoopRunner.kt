@@ -8,7 +8,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
     @Volatile private var running = false
     @Volatile private var counter = 0
     @Volatile var maneuverTagIdx: Int = 0
-    @Volatile var useGaodeEnum: Boolean = false
+    @Volatile var useGaodeEnum: Boolean = true
 
     fun start(periodMs: Long = 1000L) {
         if (running) return
@@ -67,7 +67,16 @@ class LoopRunner(private val bridge: SomeIpBridge) {
         ManeuverMapper.M_UTURN_LEFT -> 9
         ManeuverMapper.M_UTURN_RIGHT -> 10
         ManeuverMapper.M_STRAIGHT -> 11
-        ManeuverMapper.M_ARRIVE -> 45
+        ManeuverMapper.M_ARRIVE -> 48
+        ManeuverMapper.M_FORK_LEFT -> 5
+        ManeuverMapper.M_FORK_RIGHT -> 6
+        ManeuverMapper.M_EXIT_LEFT -> 7
+        ManeuverMapper.M_EXIT_RIGHT -> 8
+        ManeuverMapper.M_ROUNDABOUT_ENTER -> 13
+        ManeuverMapper.M_ROUNDABOUT_EXIT -> 24
+        ManeuverMapper.M_FERRY -> 46
+        ManeuverMapper.M_TUNNEL -> 49
+        ManeuverMapper.M_TOLL -> 47
         else -> m
     }
 }
