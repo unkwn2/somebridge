@@ -17,13 +17,19 @@ object ProtobufBuilder {
         totalDistMeters: Int = 0,
         totalTimeSeconds: Int = 0,
         speedLimit: Int = 0,
-        arriveText: String = ""
+        arriveText: String = "",
+        testLanes: Boolean = false
     ): ByteArray {
         val mTag = MANEUVER_TAGS[maneuverTagIdx]
         val inner = ByteArrayOutputStream()
         writeVarintField(inner, 2, counter.toLong())
         writeVarintField(inner, 3, totalDistMeters.toLong())
         writeVarintField(inner, 4, totalTimeSeconds.toLong())
+        if (testLanes) {
+            writeRepeatedVarintField(inner, 7, intArrayOf(0, 1, 1, 0))
+            writeRepeatedVarintField(inner, 8, intArrayOf(0, 0, 1, 0))
+            writeVarintField(inner, 5, 4L)
+        }
         writeVarintField(inner, mTag, maneuver.toLong())
         writeVarintField(inner, 9, distance.toLong())
         writeStringField(inner, 10, road)
@@ -36,6 +42,20 @@ object ProtobufBuilder {
         writeStringField(inner, 27, "${totalTimeSeconds / 60} мин")
         writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver))
         writeStringField(inner, 31, "$lon,$lat,0")
+        val innerBytes = inner.toByteArray()
+
+        val outer = ByteArrayOutputStream()
+        outer.write(0x0A)
+        writeVarint(outer, innerBytes.size.toLong())
+        outer.write(innerBytes)
+        return outer.toByteArray()
+    }
+
+    fun buildNavMap(maneuvers: IntArray): ByteArray {
+        val inner = ByteArrayOutputStream()
+        for (m in maneuvers) {
+            writeVarintField(inner, 1, m.toLong())
+        }
         val innerBytes = inner.toByteArray()
 
         val outer = ByteArrayOutputStream()
@@ -77,6 +97,10 @@ object ProtobufBuilder {
 
     private fun writeVarintField(o: ByteArrayOutputStream, tag: Int, v: Long) {
         writeVarint(o, (tag shl 3).toLong()); writeVarint(o, v)
+    }
+
+    private fun writeRepeatedVarintField(o: ByteArrayOutputStream, tag: Int, values: IntArray) {
+        for (v in values) writeVarintField(o, tag, v.toLong())
     }
 
     private fun writeBytesField(o: ByteArrayOutputStream, tag: Int, b: ByteArray) {

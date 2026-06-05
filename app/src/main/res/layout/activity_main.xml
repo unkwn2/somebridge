@@ -114,7 +114,7 @@
             android:layout_weight="1"
             android:textSize="12sp"
             android:textStyle="bold"
-            android:text="TAG:f5" />
+            android:text="TAG:f28" />
 
         <Button
             android:id="@+id/btnToggleEnum"
@@ -124,6 +124,22 @@
             android:textSize="12sp"
             android:textStyle="bold"
             android:text="ENUM:GAODE" />
+
+        <Button
+            android:id="@+id/btnTestLanes"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textSize="11sp"
+            android:text="LANES" />
+
+        <Button
+            android:id="@+id/btnTestNavMap"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textSize="11sp"
+            android:text="NAVMAP" />
     </LinearLayout>
 
     <ScrollView

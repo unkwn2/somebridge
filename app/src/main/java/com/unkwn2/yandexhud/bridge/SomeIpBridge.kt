@@ -29,6 +29,7 @@ class SomeIpBridge(private val ctx: Context) {
         private const val TX_FIRE_EVENT = IBinder.FIRST_CALL_TRANSACTION + 5
 
         const val TOPIC_NAVI = 0x4010a00018001L
+        const val TOPIC_NAVMAP = 0x4010a00018002L
         const val SERVICE_ID_NAVI = 0xB010A00010000L
     }
 
