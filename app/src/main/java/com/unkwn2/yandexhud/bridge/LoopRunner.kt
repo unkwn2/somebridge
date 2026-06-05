@@ -42,20 +42,17 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         speedLimit = s.speedLimit,
                         arriveText = arriveText,
                         testLanes = s.testLanes,
-                        nextNextManeuver = s.nextNextManeuver
+                        nextNextManeuver = s.nextNextManeuver,
+                        usePacked = s.usePacked
                     )
                     val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
-                    if (s.nextNextManeuver > 0 && counter % 5 == 0) {
-                        val navmap = ProtobufBuilder.buildNavMap(intArrayOf(maneuverVal, s.nextNextManeuver))
-                        val rc2 = bridge.fireEvent(SomeIpBridge.TOPIC_NAVMAP, navmap)
-                        Logger.i(TAG, "navmap fire rc=$rc2 m=$maneuverVal,next=${s.nextNextManeuver}")
-                    }
                     if (rc != 0 && counter % 3 == 0) {
                         Logger.w(TAG, "fireEvent rc=$rc")
                     } else if (counter % 10 == 0) {
                         val tagLabel = arrayOf("f28", "f5", "f6")[maneuverTagIdx]
                         val enumLabel = if (useGaodeEnum) "GAODE" else "v33"
-                        Logger.i(TAG, "tick #$counter rc=$rc m=$maneuverVal(${enumLabel}) tag=$tagLabel d=${s.distanceMeters}")
+                        val packLabel = if (s.usePacked) "pk" else "np"
+                        Logger.i(TAG, "tick #$counter rc=$rc m=$maneuverVal($enumLabel) tag=$tagLabel $packLabel d=${s.distanceMeters}")
                     }
                 } else if (counter % 30 == 0) {
                     Logger.i(TAG, "tick #$counter (idle)")

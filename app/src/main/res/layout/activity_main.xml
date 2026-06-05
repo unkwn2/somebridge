@@ -155,6 +155,15 @@
             android:layout_weight="1"
             android:textSize="11sp"
             android:text="NEXT+NEXT" />
+
+        <Button
+            android:id="@+id/btnTogglePacked"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:text="PACKED" />
     </LinearLayout>
 
     <ScrollView

@@ -19,7 +19,8 @@ object HudState {
         val speedLimit: Int = 0,
         val arriveText: String = "",
         val testLanes: Boolean = false,
-        val nextNextManeuver: Int = 0
+        val nextNextManeuver: Int = 0,
+        val usePacked: Boolean = true
     )
 
     @Volatile private var current = Snapshot()
