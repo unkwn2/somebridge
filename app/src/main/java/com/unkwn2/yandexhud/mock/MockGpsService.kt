@@ -9,20 +9,39 @@ import com.unkwn2.yandexhud.util.Logger
 
 object MockGpsService {
     private const val TAG = "MOCKGPS"
+
+    val CITIES = linkedMapOf(
+        "Moscow" to Pair(55.7558, 37.6173),
+        "Shenzhen" to Pair(22.5431, 114.0579),
+        "Guangzhou" to Pair(23.1291, 113.2644),
+        "Shanghai" to Pair(31.2304, 121.4737)
+    )
+
     @Volatile private var running = false
     @Volatile private var thread: Thread? = null
+    @Volatile var currentCity: String = ""
+
+    fun start(ctx: Context, city: String) {
+        val coords = CITIES[city] ?: return
+        stop()
+        currentCity = city
+        startInternal(ctx, coords.first, coords.second)
+    }
 
     fun start(ctx: Context, lat: Double, lon: Double) {
+        stop()
+        currentCity = "${lat},${lon}"
+        startInternal(ctx, lat, lon)
+    }
+
+    private fun startInternal(ctx: Context, lat: Double, lon: Double) {
         if (running) return
         running = true
         val t = Thread {
-            Logger.i(TAG, "started lat=$lat lon=$lon")
+            Logger.i(TAG, "started city=$currentCity lat=$lat lon=$lon")
             val lm = ctx.getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
-            try {
-                lm.removeTestProvider(LocationManager.GPS_PROVIDER)
-                Logger.i(TAG, "removed existing test provider")
-            } catch (_: Throwable) {}
+            try { lm.removeTestProvider(LocationManager.GPS_PROVIDER) } catch (_: Throwable) {}
 
             try {
                 lm.addTestProvider(
@@ -42,8 +61,8 @@ object MockGpsService {
             var counter = 0
             while (running) {
                 val loc = Location(LocationManager.GPS_PROVIDER).apply {
-                    this.latitude = lat + counter * 0.000001
-                    this.longitude = lon + counter * 0.000001
+                    latitude = lat + counter * 0.000001
+                    longitude = lon + counter * 0.000001
                     accuracy = 5f
                     bearing = 45f
                     speed = 10f
@@ -63,6 +82,7 @@ object MockGpsService {
 
             try { lm.removeTestProvider(LocationManager.GPS_PROVIDER) } catch (_: Throwable) {}
             running = false
+            currentCity = ""
             Logger.i(TAG, "stopped")
         }
         t.isDaemon = true
@@ -74,7 +94,6 @@ object MockGpsService {
         running = false
         thread?.interrupt()
         thread = null
-        Logger.i(TAG, "stop requested")
     }
 
     val isRunning: Boolean get() = running

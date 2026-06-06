@@ -181,4 +181,17 @@ object ManeuverMapper {
         M_TOLL -> "TOLL"
         else -> "UNKNOWN($code)"
     }
+
+    fun toGaode(m: Int): Int = when (m) {
+        M_LEFT -> 1; M_RIGHT -> 2
+        M_SLIGHT_LEFT -> 3; M_SLIGHT_RIGHT -> 4
+        M_FORK_LEFT -> 3; M_FORK_RIGHT -> 4
+        M_HARD_LEFT -> 7; M_HARD_RIGHT -> 8
+        M_EXIT_LEFT -> 7; M_EXIT_RIGHT -> 8
+        M_UTURN_LEFT -> 9; M_UTURN_RIGHT -> 10
+        M_STRAIGHT -> 11; M_ARRIVE -> 48
+        M_ROUNDABOUT_ENTER -> 13; M_ROUNDABOUT_EXIT -> 24
+        M_FERRY -> 46; M_TUNNEL -> 49; M_TOLL -> 47
+        else -> 0
+    }
 }

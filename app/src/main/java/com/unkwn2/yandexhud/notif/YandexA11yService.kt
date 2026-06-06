@@ -28,6 +28,10 @@ class YandexA11yService : AccessibilityService() {
         private val VID_ETA_DIST = "textview_eta_distance"
         private val VID_ETA_TIME = "textview_eta_time"
         private val VID_SPEEDLIMIT = "text_speedlimit"
+        private val VID_EXIT_NUM = "exit_number_text"
+        private val VID_THEN_ICON = "image_maneuverballoon_maneuver_second"
+        private val VID_THEN_DIST = "text_maneuverballoon_distance_second"
+        private val VID_THEN_ROAD = "text_nextstreet_second"
 
         private val IGNORE_VID = setOf(
             "control_ruler_text", "control_weather_text", "control_traffic",
@@ -87,15 +91,14 @@ class YandexA11yService : AccessibilityService() {
             }
 
             val now = System.currentTimeMillis()
-            if (now - lastDumpMs > 5000) {
+            if (now - lastDumpMs > 15000) {
                 lastDumpMs = now
-                if (collected.size <= 20) {
-                    for (n in collected) {
-                        Logger.i(TAG, "node d=${n.depth} vid=${n.vid} cls=${n.cls} t='${n.text}' desc='${n.desc}'")
-                    }
-                } else {
-                    Logger.i(TAG, "nodes=${collected.size} first 10:")
-                    for (n in collected.take(10)) {
+                val relevant = collected.filter {
+                    val short = it.vid.substringAfter('/', "")
+                    short.isNotEmpty() && short !in IGNORE_VID
+                }
+                if (relevant.isNotEmpty()) {
+                    for (n in relevant.take(15)) {
                         Logger.i(TAG, "node d=${n.depth} vid=${n.vid} cls=${n.cls} t='${n.text}' desc='${n.desc}'")
                     }
                 }
@@ -117,9 +120,12 @@ class YandexA11yService : AccessibilityService() {
             val eta = resolveEta(byVid)
             val totalDist = resolveTotalDist(byVid)
             val speedLimit = resolveSpeedLimit(byVid)
+            val nextNextManeuver = resolveNextNextManeuver(byVid)
 
             if (hasManeuverBalloon || (maneuver != ManeuverMapper.M_UNKNOWN && distance > 0)) {
-                Logger.i(TAG, "pkg=$pkg m=${ManeuverMapper.maneuverName(maneuver)} d=${distance}m road='$road' eta=${eta}s balloon=$hasManeuverBalloon")
+                val mStr = ManeuverMapper.maneuverName(maneuver)
+                val nnStr = if (nextNextManeuver > 0) ManeuverMapper.maneuverName(nextNextManeuver) else ""
+                Logger.i(TAG, "pkg=$pkg m=$mStr d=${distance}m road='$road' eta=${eta}s balloon=$hasManeuverBalloon nextNext=$nnStr")
                 if (HudState.isTestLatched()) {
                     HudState.update { it.copy(active = true, lastUpdateMs = System.currentTimeMillis()) }
                 } else {
@@ -131,6 +137,7 @@ class YandexA11yService : AccessibilityService() {
                         val mergeTotalDist = if (totalDist > 0) totalDist else prev.totalDistMeters
                         val mergeTotalTime = if (eta > 0) eta else prev.totalTimeSeconds
                         val mergeSpeedLimit = if (speedLimit > 0) speedLimit else prev.speedLimit
+                        val mergeNextNext = if (nextNextManeuver > 0) nextNextManeuver else prev.nextNextManeuver
                         prev.copy(
                             active = true,
                             maneuver = mergeManeuver,
@@ -140,6 +147,7 @@ class YandexA11yService : AccessibilityService() {
                             totalDistMeters = mergeTotalDist,
                             totalTimeSeconds = mergeTotalTime,
                             speedLimit = mergeSpeedLimit,
+                            nextNextManeuver = mergeNextNext,
                             lastUpdateMs = System.currentTimeMillis()
                         )
                     }
@@ -279,6 +287,33 @@ class YandexA11yService : AccessibilityService() {
         val slNode = byVid[VID_SPEEDLIMIT]
         if (slNode != null) {
             return slNode.text.trim().toIntOrNull() ?: 0
+        }
+        return 0
+    }
+
+    private fun resolveNextNextManeuver(byVid: Map<String, NodeData>): Int {
+        val thenIcon = byVid[VID_THEN_ICON]
+        if (thenIcon != null && thenIcon.desc.isNotEmpty()) {
+            val m = ManeuverMapper.fromRussianText(thenIcon.desc)
+            if (m != ManeuverMapper.M_UNKNOWN) return m
+        }
+        for ((vid, n) in byVid) {
+            if (vid.contains("second") || vid.contains("_then") || vid.contains("_next_maneuver")) {
+                if (n.desc.isNotEmpty()) {
+                    val m = ManeuverMapper.fromRussianText(n.desc)
+                    if (m != ManeuverMapper.M_UNKNOWN) return m
+                }
+                if (n.text.isNotEmpty()) {
+                    val m = ManeuverMapper.fromRussianText(n.text)
+                    if (m != ManeuverMapper.M_UNKNOWN) return m
+                }
+            }
+        }
+        val exitNode = byVid[VID_EXIT_NUM]
+        if (exitNode != null && exitNode.text.isNotEmpty()) {
+            val exitNum = exitNode.text.trim()
+            val n = Regex("""(\d+)""").find(exitNum)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            if (n > 0 && n <= 8) return ManeuverMapper.M_ROUNDABOUT_ENTER
         }
         return 0
     }

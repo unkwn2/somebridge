@@ -235,17 +235,27 @@ class SomeIpBridge(private val ctx: Context) {
             } catch (t: Throwable) { Logger.e(TAG, "sniffer regCb: ${t.message}") }
 
             Thread.sleep(300)
-            for (t in listOf(0x4010a00018001L)) {
-                try {
-                    val d = Parcel.obtain(); val r = Parcel.obtain()
-                    d.writeInterfaceToken(CLIENT_DESC)
-                    d.writeLong(t)
-                    cb.transact(8, d, r, 0)
-                    r.readException()
-                    Logger.i(TAG, "sniffer subscribe(0x${t.toString(16)}) rc=${r.readInt()}")
-                    r.recycle(); d.recycle()
-                } catch (_: Throwable) {}
-                Thread.sleep(150)
+
+            val topics = listOf(0x4010a00018001L, 0x4010a00018002L, 0x4010a00018003L)
+            for (txCode in listOf(2, 3, 4, 5, 6, 7, 8)) {
+                for (topic in topics) {
+                    try {
+                        val d = Parcel.obtain(); val r = Parcel.obtain()
+                        d.writeInterfaceToken(CLIENT_DESC)
+                        d.writeLong(topic)
+                        cb.transact(txCode, d, r, 0)
+                        r.readException()
+                        val subRc = r.readInt()
+                        Logger.i(TAG, "sniffer tx=$txCode sub(0x${topic.toString(16)}) rc=$subRc")
+                        r.recycle(); d.recycle()
+                        if (subRc == 0) {
+                            Logger.i(TAG, "sniffer SUBSCRIBE OK tx=$txCode topic=0x${topic.toString(16)}")
+                        }
+                    } catch (t: Throwable) {
+                        Logger.i(TAG, "sniffer tx=$txCode sub(0x${topic.toString(16)}) err: ${t.message}")
+                    }
+                    Thread.sleep(50)
+                }
             }
             Logger.i(TAG, "sniffer active — waiting for events")
         }.start()

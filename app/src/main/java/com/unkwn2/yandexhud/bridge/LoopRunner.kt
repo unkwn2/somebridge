@@ -66,26 +66,5 @@ class LoopRunner(private val bridge: SomeIpBridge) {
     fun stop() { running = false }
     val isRunning: Boolean get() = running
 
-    private fun toGaodeEnum(m: Int): Int = when (m) {
-        ManeuverMapper.M_LEFT -> 1
-        ManeuverMapper.M_RIGHT -> 2
-        ManeuverMapper.M_SLIGHT_LEFT -> 3
-        ManeuverMapper.M_SLIGHT_RIGHT -> 4
-        ManeuverMapper.M_FORK_LEFT -> 3
-        ManeuverMapper.M_FORK_RIGHT -> 4
-        ManeuverMapper.M_HARD_LEFT -> 7
-        ManeuverMapper.M_HARD_RIGHT -> 8
-        ManeuverMapper.M_EXIT_LEFT -> 7
-        ManeuverMapper.M_EXIT_RIGHT -> 8
-        ManeuverMapper.M_UTURN_LEFT -> 9
-        ManeuverMapper.M_UTURN_RIGHT -> 10
-        ManeuverMapper.M_STRAIGHT -> 11
-        ManeuverMapper.M_ROUNDABOUT_ENTER -> 13
-        ManeuverMapper.M_ROUNDABOUT_EXIT -> 24
-        ManeuverMapper.M_ARRIVE -> 48
-        ManeuverMapper.M_FERRY -> 46
-        ManeuverMapper.M_TUNNEL -> 49
-        ManeuverMapper.M_TOLL -> 47
-        else -> 0
-    }
+    private fun toGaodeEnum(m: Int): Int = ManeuverMapper.toGaode(m)
 }

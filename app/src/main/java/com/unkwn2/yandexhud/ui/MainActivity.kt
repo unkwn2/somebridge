@@ -16,6 +16,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.unkwn2.yandexhud.bridge.HudForegroundService
 import com.unkwn2.yandexhud.bridge.HudState
 import com.unkwn2.yandexhud.bridge.SomeIpBridge
+import com.unkwn2.yandexhud.bridge.ProtobufBuilder
 import com.unkwn2.yandexhud.mock.MockGpsService
 import com.unkwn2.yandexhud.notif.ManeuverMapper
 import com.unkwn2.yandexhud.notif.YandexA11yService
@@ -30,11 +31,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnSniffer: Button
     private lateinit var btnA11y: Button
     private lateinit var btnToggleSchema: Button
-    private lateinit var btnToggleEnum: Button
     private lateinit var btnTestLanes: Button
     private lateinit var btnTestNavMap: Button
     private lateinit var btnTestNextNext: Button
     private lateinit var btnTogglePacked: Button
+    private lateinit var btnHudMode: Button
+    private lateinit var btnMockShenzhen: Button
+    private lateinit var btnMockGuangzhou: Button
 
     private var yandexOn = false
     private var mockOn = false
@@ -58,22 +61,26 @@ class MainActivity : AppCompatActivity() {
         btnSniffer = findViewById(R.id.btnSniffer)
         btnA11y = findViewById(R.id.btnA11y)
         btnToggleSchema = findViewById(R.id.btnToggleSchema)
-        btnToggleEnum = findViewById(R.id.btnToggleEnum)
         btnTestLanes = findViewById(R.id.btnTestLanes)
         btnTestNavMap = findViewById(R.id.btnTestNavMap)
         btnTestNextNext = findViewById(R.id.btnTestNextNext)
         btnTogglePacked = findViewById(R.id.btnTogglePacked)
+        btnHudMode = findViewById(R.id.btnHudMode)
+        btnMockShenzhen = findViewById(R.id.btnMockShenzhen)
+        btnMockGuangzhou = findViewById(R.id.btnMockGuangzhou)
 
         btnYandex.setOnClickListener { toggleYandex() }
         btnMockGps.setOnClickListener { toggleMockGps() }
         btnSniffer.setOnClickListener { toggleSniffer() }
         btnA11y.setOnClickListener { enableA11y() }
         btnToggleSchema.setOnClickListener { toggleSchema() }
-        btnToggleEnum.setOnClickListener { toggleEnum() }
         btnTestLanes.setOnClickListener { testLanes() }
         btnTestNavMap.setOnClickListener { testNavMap() }
         btnTestNextNext.setOnClickListener { testNextNext() }
         btnTogglePacked.setOnClickListener { togglePacked() }
+        btnHudMode.setOnClickListener { tryHudMode() }
+        btnMockShenzhen.setOnClickListener { startMockCity("Shenzhen") }
+        btnMockGuangzhou.setOnClickListener { startMockCity("Guangzhou") }
         findViewById<Button>(R.id.btnNotifAccess).setOnClickListener {
             try {
                 startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
@@ -143,25 +150,25 @@ class MainActivity : AppCompatActivity() {
         toast("Maneuver field: ${labels[maneuverTagIdx]}")
     }
 
-    private fun toggleEnum() {
-        useGaodeEnum = !useGaodeEnum
-        HudForegroundService.loopRunner?.useGaodeEnum = useGaodeEnum
-        HudForegroundService.saveSettings(this, maneuverTagIdx, useGaodeEnum)
-        val label = if (useGaodeEnum) "GAODE" else "v33"
-        btnToggleEnum.text = "ENUM:$label"
-        Logger.i("UI", "enum mode = $label")
-        toast("Enum: $label")
+    private fun startMockCity(city: String) {
+        MockGpsService.start(this, city)
+        mockOn = true
+        btnMockGps.text = "STOP"
+        btnMockShenzhen.text = if (city == "Shenzhen") "SZ*" else "SZ"
+        btnMockGuangzhou.text = if (city == "Guangzhou") "GZ*" else "GZ"
+        toast("Mock GPS: $city")
+        Logger.i("UI", "mock gps city=$city")
     }
 
     private fun toggleMockGps() {
-        if (!mockOn) {
-            MockGpsService.start(this, 55.7558, 37.6173)
-            mockOn = true
-            btnMockGps.text = "STOP MOCK"
-        } else {
+        if (mockOn) {
             MockGpsService.stop()
             mockOn = false
-            btnMockGps.text = "MOCK GPS"
+            btnMockGps.text = "MOCK"
+            btnMockShenzhen.text = "SZ"
+            btnMockGuangzhou.text = "GZ"
+        } else {
+            startMockCity("Shenzhen")
         }
     }
 
@@ -188,22 +195,34 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun forceActiveForTest(maneuver: Int = ManeuverMapper.M_RIGHT) {
+        HudState.update {
+            it.copy(active = true, maneuver = maneuver, distanceMeters = 500,
+                road = "Test", etaSeconds = 300, lastUpdateMs = System.currentTimeMillis())
+        }
+        HudState.setTestLatch(30000L)
+    }
+
     private fun testLanes() {
         if (!yandexOn) { toast("Start YANDEX NAVI first"); return }
         val current = HudState.snapshot().testLanes
-        HudState.update { it.copy(testLanes = !current) }
-        btnTestLanes.text = if (!current) "LANES ON" else "LANES"
-        toast("Test lanes: ${if (!current) "ON" else "OFF"}")
-        Logger.i("TEST", "testLanes=${!current}")
+        val newVal = !current
+        HudState.update { it.copy(testLanes = newVal) }
+        if (!HudState.snapshot().active) forceActiveForTest()
+        btnTestLanes.text = if (newVal) "LANES ON" else "LANES"
+        toast("Test lanes: ${if (newVal) "ON" else "OFF"}")
+        Logger.i("TEST", "testLanes=$newVal")
     }
 
     private fun testNavMap() {
         if (!yandexOn) { toast("Start YANDEX NAVI first"); return }
         val s = HudState.snapshot()
-        val maneuverVal = if (useGaodeEnum) toGaodeDisplay(s.maneuver) else s.maneuver
+        if (!s.active) forceActiveForTest()
+        val fresh = HudState.snapshot()
+        val maneuverVal = if (useGaodeEnum) toGaodeDisplay(fresh.maneuver) else fresh.maneuver
         val nextVal = if (maneuverVal == 2) 1 else 2
-        val packed = s.usePacked
-        val navmap = com.unkwn2.yandexhud.bridge.ProtobufBuilder.buildNavMap(intArrayOf(maneuverVal, nextVal), packed)
+        val packed = fresh.usePacked
+        val navmap = ProtobufBuilder.buildNavMap(intArrayOf(maneuverVal, nextVal), packed)
         val rc = HudForegroundService.bridge?.fireEvent(SomeIpBridge.TOPIC_NAVMAP, navmap) ?: -1
         Logger.i("TEST", "navmap(0x8002) fire rc=$rc maneuvers=[$maneuverVal, $nextVal] packed=$packed")
         toast("NAVMAP 0x8002 rc=$rc [$maneuverVal,$nextVal]")
@@ -212,9 +231,11 @@ class MainActivity : AppCompatActivity() {
     private fun testNextNext() {
         if (!yandexOn) { toast("Start YANDEX NAVI first"); return }
         val s = HudState.snapshot()
-        val currentNextNext = s.nextNextManeuver
+        if (!s.active) forceActiveForTest()
+        val fresh = HudState.snapshot()
+        val currentNextNext = fresh.nextNextManeuver
         val newNextNext = if (currentNextNext > 0) 0 else {
-            val cur = if (useGaodeEnum) toGaodeDisplay(s.maneuver) else s.maneuver
+            val cur = if (useGaodeEnum) toGaodeDisplay(fresh.maneuver) else fresh.maneuver
             if (cur == 2) 1 else 2
         }
         HudState.update { it.copy(nextNextManeuver = newNextNext) }
@@ -231,6 +252,41 @@ class MainActivity : AppCompatActivity() {
         Logger.i("UI", "usePacked=${!current}")
     }
 
+    private fun tryHudMode() {
+        var tried = 0
+        var succeeded = 0
+        val keys = listOf(
+            "navi_screen_status", "byd_navi_screen_status",
+            "hud_navi_status", "byd_hud_navi_mode"
+        )
+        for (key in keys) {
+            try {
+                Settings.System.putInt(contentResolver, key, 3)
+                succeeded++
+                Logger.i("HUD", "Settings.System.putInt($key, 3) OK")
+            } catch (t: Throwable) {
+                Logger.i("HUD", "Settings.System.putInt($key, 3) FAIL: ${t.message}")
+            }
+            try {
+                Settings.Global.putInt(contentResolver, key, 3)
+                succeeded++
+                Logger.i("HUD", "Settings.Global.putInt($key, 3) OK")
+            } catch (t: Throwable) {
+                Logger.i("HUD", "Settings.Global.putInt($key, 3) FAIL: ${t.message}")
+            }
+            tried += 2
+        }
+        val adbCmds = listOf(
+            "adb shell settings put system navi_screen_status 3",
+            "adb shell settings put global navi_screen_status 3",
+            "adb shell settings put system byd_navi_screen_status 3",
+            "adb shell am broadcast -a com.byd.amapservice.ACTION_START_NAVI"
+        )
+        copyAdbCmd(adbCmds.joinToString("\n"))
+        toast("HUD mode: $succeeded/$tried OK. ADB cmds copied")
+        Logger.i("HUD", "tried=$tried succeeded=$succeeded — ADB cmds copied")
+    }
+
     private fun testManeuver(maneuver: Int, name: String) {
         if (!yandexOn) { toast("Start YANDEX NAVI first"); return }
         val tagLabels = arrayOf("f28", "f5", "f6")
@@ -245,18 +301,7 @@ class MainActivity : AppCompatActivity() {
         toast("TEST $name → HUD $gaodeVal (latch 10s)")
     }
 
-    private fun toGaodeDisplay(m: Int): Int = when (m) {
-        ManeuverMapper.M_LEFT -> 1; ManeuverMapper.M_RIGHT -> 2
-        ManeuverMapper.M_SLIGHT_LEFT -> 3; ManeuverMapper.M_SLIGHT_RIGHT -> 4
-        ManeuverMapper.M_FORK_LEFT -> 3; ManeuverMapper.M_FORK_RIGHT -> 4
-        ManeuverMapper.M_HARD_LEFT -> 7; ManeuverMapper.M_HARD_RIGHT -> 8
-        ManeuverMapper.M_EXIT_LEFT -> 7; ManeuverMapper.M_EXIT_RIGHT -> 8
-        ManeuverMapper.M_UTURN_LEFT -> 9; ManeuverMapper.M_UTURN_RIGHT -> 10
-        ManeuverMapper.M_STRAIGHT -> 11; ManeuverMapper.M_ARRIVE -> 48
-        ManeuverMapper.M_ROUNDABOUT_ENTER -> 13; ManeuverMapper.M_ROUNDABOUT_EXIT -> 24
-        ManeuverMapper.M_FERRY -> 46; ManeuverMapper.M_TUNNEL -> 49; ManeuverMapper.M_TOLL -> 47
-        else -> 0
-    }
+    private fun toGaodeDisplay(m: Int): Int = ManeuverMapper.toGaode(m)
 
     private fun updateStatusBar() {
         val s = HudState.snapshot()
@@ -267,14 +312,16 @@ class MainActivity : AppCompatActivity() {
             else -> "${s.maneuver}"
         }
         val tagLabels = arrayOf("f28", "f5", "f6")
-        val enumLabel = if (useGaodeEnum) "GAODE" else "v33"
         val yStatus = if (yandexOn) "ON" else "OFF"
         val fgsReady = HudForegroundService.isReady
         val navStatus = if (s.active) "$maneuverStr ${s.distanceMeters}m" else "idle"
         val a11yStatus = if (isA11yEnabled()) "ON" else "OFF"
+        val packLabel = if (s.usePacked) "pk" else "np"
+        val lanesLabel = if (s.testLanes) "L" else ""
+        val nnLabel = if (s.nextNextManeuver > 0) "N${s.nextNextManeuver}" else ""
 
         runOnUiThread {
-            statusBar.text = "Yandex:$yStatus FGS:$fgsReady | $navStatus | TAG:${tagLabels[maneuverTagIdx]} ENUM:$enumLabel | A11y:$a11yStatus"
+            statusBar.text = "Y:$yStatus FGS:$fgsReady | $navStatus | TAG:${tagLabels[maneuverTagIdx]} $packLabel${lanesLabel}${nnLabel} | A11y:$a11yStatus"
         }
     }
 
