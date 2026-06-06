@@ -10,35 +10,17 @@ import com.unkwn2.yandexhud.util.Logger
 object MockGpsService {
     private const val TAG = "MOCKGPS"
 
-    val CITIES = linkedMapOf(
-        "Moscow" to Pair(55.7558, 37.6173),
-        "Shenzhen" to Pair(22.5431, 114.0579),
-        "Guangzhou" to Pair(23.1291, 113.2644),
-        "Shanghai" to Pair(31.2304, 121.4737)
-    )
+    private const val DEFAULT_LAT = 22.5431
+    private const val DEFAULT_LON = 114.0579
 
     @Volatile private var running = false
     @Volatile private var thread: Thread? = null
-    @Volatile var currentCity: String = ""
 
-    fun start(ctx: Context, city: String) {
-        val coords = CITIES[city] ?: return
-        stop()
-        currentCity = city
-        startInternal(ctx, coords.first, coords.second)
-    }
-
-    fun start(ctx: Context, lat: Double, lon: Double) {
-        stop()
-        currentCity = "${lat},${lon}"
-        startInternal(ctx, lat, lon)
-    }
-
-    private fun startInternal(ctx: Context, lat: Double, lon: Double) {
+    fun start(ctx: Context, lat: Double = DEFAULT_LAT, lon: Double = DEFAULT_LON) {
         if (running) return
         running = true
         val t = Thread {
-            Logger.i(TAG, "started city=$currentCity lat=$lat lon=$lon")
+            Logger.i(TAG, "started lat=$lat lon=$lon")
             val lm = ctx.getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
             try { lm.removeTestProvider(LocationManager.GPS_PROVIDER) } catch (_: Throwable) {}
@@ -82,7 +64,6 @@ object MockGpsService {
 
             try { lm.removeTestProvider(LocationManager.GPS_PROVIDER) } catch (_: Throwable) {}
             running = false
-            currentCity = ""
             Logger.i(TAG, "stopped")
         }
         t.isDaemon = true

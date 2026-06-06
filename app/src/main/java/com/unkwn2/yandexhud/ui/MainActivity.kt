@@ -36,8 +36,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnTestNextNext: Button
     private lateinit var btnTogglePacked: Button
     private lateinit var btnHudMode: Button
-    private lateinit var btnMockShenzhen: Button
-    private lateinit var btnMockGuangzhou: Button
 
     private var yandexOn = false
     private var mockOn = false
@@ -66,8 +64,6 @@ class MainActivity : AppCompatActivity() {
         btnTestNextNext = findViewById(R.id.btnTestNextNext)
         btnTogglePacked = findViewById(R.id.btnTogglePacked)
         btnHudMode = findViewById(R.id.btnHudMode)
-        btnMockShenzhen = findViewById(R.id.btnMockShenzhen)
-        btnMockGuangzhou = findViewById(R.id.btnMockGuangzhou)
 
         btnYandex.setOnClickListener { toggleYandex() }
         btnMockGps.setOnClickListener { toggleMockGps() }
@@ -79,8 +75,6 @@ class MainActivity : AppCompatActivity() {
         btnTestNextNext.setOnClickListener { testNextNext() }
         btnTogglePacked.setOnClickListener { togglePacked() }
         btnHudMode.setOnClickListener { tryHudMode() }
-        btnMockShenzhen.setOnClickListener { startMockCity("Shenzhen") }
-        btnMockGuangzhou.setOnClickListener { startMockCity("Guangzhou") }
         findViewById<Button>(R.id.btnNotifAccess).setOnClickListener {
             try {
                 startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
@@ -150,25 +144,15 @@ class MainActivity : AppCompatActivity() {
         toast("Maneuver field: ${labels[maneuverTagIdx]}")
     }
 
-    private fun startMockCity(city: String) {
-        MockGpsService.start(this, city)
-        mockOn = true
-        btnMockGps.text = "STOP"
-        btnMockShenzhen.text = if (city == "Shenzhen") "SZ*" else "SZ"
-        btnMockGuangzhou.text = if (city == "Guangzhou") "GZ*" else "GZ"
-        toast("Mock GPS: $city")
-        Logger.i("UI", "mock gps city=$city")
-    }
-
     private fun toggleMockGps() {
-        if (mockOn) {
+        if (!mockOn) {
+            MockGpsService.start(this)
+            mockOn = true
+            btnMockGps.text = "STOP"
+        } else {
             MockGpsService.stop()
             mockOn = false
             btnMockGps.text = "MOCK"
-            btnMockShenzhen.text = "SZ"
-            btnMockGuangzhou.text = "GZ"
-        } else {
-            startMockCity("Shenzhen")
         }
     }
 

@@ -164,24 +164,6 @@
             android:textSize="11sp"
             android:textStyle="bold"
             android:text="HUD MODE" />
-
-        <Button
-            android:id="@+id/btnMockShenzhen"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:textSize="11sp"
-            android:textStyle="bold"
-            android:text="SZ" />
-
-        <Button
-            android:id="@+id/btnMockGuangzhou"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:textSize="11sp"
-            android:textStyle="bold"
-            android:text="GZ" />
     </LinearLayout>
 
     <ScrollView
