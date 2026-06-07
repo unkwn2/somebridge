@@ -146,6 +146,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun toggleMockGps() {
         if (!mockOn) {
+            toast("Mock GPS: Shenzhen 22.54, 114.06")
+            copyAdbCmd("adb shell appops set com.unkwn2.yandexhud android:mock_location allow")
             MockGpsService.start(this)
             mockOn = true
             btnMockGps.text = "STOP"

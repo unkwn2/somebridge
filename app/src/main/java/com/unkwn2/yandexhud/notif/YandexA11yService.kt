@@ -46,7 +46,7 @@ class YandexA11yService : AccessibilityService() {
             "text_waitcursor_message", "button_waitcursor_cancel",
             "button_message_cancel", "button_message_confirm",
             "text_message", "overviewicon", "resetroutebutton2",
-            "activity_search_map_view", "text_speed_value", "text_speedlimit"
+            "activity_search_map_view", "text_speed_value"
         )
 
         @Volatile private var lastProcessMs = 0L

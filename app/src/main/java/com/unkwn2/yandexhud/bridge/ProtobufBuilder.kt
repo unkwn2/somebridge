@@ -27,7 +27,7 @@ object ProtobufBuilder {
         writeVarintField(inner, 2, counter.toLong())
         writeVarintField(inner, 3, totalDistMeters.toLong())
         writeVarintField(inner, 4, totalTimeSeconds.toLong())
-        if (testLanes) {
+        if (testLanes && nextNextManeuver <= 0) {
             writeRepeated(inner, 7, intArrayOf(1, 2, 2, 1), usePacked)
             writeRepeated(inner, 8, intArrayOf(0, 0, 1, 0), usePacked)
             writeVarintField(inner, 5, 4L)

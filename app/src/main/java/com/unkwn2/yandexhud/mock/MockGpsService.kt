@@ -37,6 +37,7 @@ object MockGpsService {
                 Logger.i(TAG, "addTestProvider OK")
             } catch (t: Throwable) {
                 Logger.e(TAG, "addTestProvider failed: ${t.message}")
+                Logger.e(TAG, "Run: adb shell appops set com.unkwn2.yandexhud android:mock_location allow")
                 running = false; return@Thread
             }
 

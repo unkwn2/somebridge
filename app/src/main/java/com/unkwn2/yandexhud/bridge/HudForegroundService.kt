@@ -72,7 +72,8 @@ class HudForegroundService : Service() {
                 Logger.i(TAG, "startService rc=$rc")
                 _loopRunner = LoopRunner(_bridge!!)
                 _loopRunner?.maneuverTagIdx = loadTagIdx(this)
-                _loopRunner?.useGaodeEnum = loadGaode(this)
+                _loopRunner?.useGaodeEnum = true
+                saveSettings(this, loadTagIdx(this), true)
                 _loopRunner?.start()
             } else {
                 Logger.e(TAG, "bind failed")
