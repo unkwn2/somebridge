@@ -61,5 +61,15 @@
             android:foregroundServiceType="connectedDevice"
             android:exported="false"/>
 
+        <receiver
+            android:name=".amap.AmapNaviReceiver"
+            android:exported="true">
+            <intent-filter android:priority="999">
+                <action android:name="AUTONAVI_STANDARD_BROADCAST_SEND"/>
+                <action android:name="com.byd.amapservice.ACTION_START_NAVI"/>
+                <action android:name="com.byd.amapservice.ACTION_STOP_NAVI"/>
+            </intent-filter>
+        </receiver>
+
     </application>
 </manifest>

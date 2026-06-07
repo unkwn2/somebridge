@@ -161,13 +161,19 @@ class MainActivity : AppCompatActivity() {
     private fun toggleSniffer() {
         val b = HudForegroundService.bridge
         if (!snifferOn) {
+            HudForegroundService.loopRunner?.stop()
             b?.snifferStart()
             snifferOn = true
             btnSniffer.text = "STOP SNIFF"
+            toast("Sniffer ON — LOOP stopped, listening for native Amap frames")
+            Logger.i("UI", "sniffer on, loop stopped")
         } else {
             b?.snifferStop()
+            HudForegroundService.loopRunner?.start()
             snifferOn = false
             btnSniffer.text = "SNIFFER"
+            toast("Sniffer OFF — LOOP resumed")
+            Logger.i("UI", "sniffer off, loop resumed")
         }
     }
 
