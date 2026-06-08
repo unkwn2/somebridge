@@ -184,8 +184,8 @@ object ManeuverMapper {
 
     fun toGaode(m: Int): Int = when (m) {
         M_LEFT -> 1; M_RIGHT -> 2
-        M_SLIGHT_LEFT -> 5; M_SLIGHT_RIGHT -> 3
-        M_FORK_LEFT -> 5; M_FORK_RIGHT -> 3
+        M_SLIGHT_LEFT -> 3; M_SLIGHT_RIGHT -> 4
+        M_FORK_LEFT -> 3; M_FORK_RIGHT -> 4
         M_HARD_LEFT -> 7; M_HARD_RIGHT -> 8
         M_EXIT_LEFT -> 7; M_EXIT_RIGHT -> 8
         M_UTURN_LEFT -> 9; M_UTURN_RIGHT -> 10
