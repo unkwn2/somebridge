@@ -33,9 +33,11 @@ object ProtobufBuilder {
             writeVarintField(inner, 5, 4L)
         }
         if (nextNextManeuver > 0) {
-            writeRepeated(inner, 8, intArrayOf(maneuver, nextNextManeuver), usePacked)
+            writeVarintField(inner, 8, nextNextManeuver.toLong())
         }
         writeVarintField(inner, mTag, maneuver.toLong())
+        // f6 = navigating_status → компактный значок (ICON_SIMPLE_NAVI)
+        if (mTag != 6) writeVarintField(inner, 6, maneuver.toLong())
         writeVarintField(inner, 9, distance.toLong())
         writeStringField(inner, 10, road)
         if (speedLimit > 0) writeVarintField(inner, 11, speedLimit.toLong())
