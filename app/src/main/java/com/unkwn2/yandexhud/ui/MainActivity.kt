@@ -230,15 +230,13 @@ class MainActivity : AppCompatActivity() {
         val s = HudState.snapshot()
         if (!s.active) forceActiveForTest()
         val fresh = HudState.snapshot()
-        val currentNextNext = fresh.nextNextManeuver
-        val newNextNext = if (currentNextNext > 0) 0 else {
-            val cur = if (useGaodeEnum) toGaodeDisplay(fresh.maneuver) else fresh.maneuver
-            if (cur == 2) 1 else 2
-        }
-        HudState.update { it.copy(nextNextManeuver = newNextNext) }
-        btnTestNextNext.text = if (newNextNext > 0) "NEXT:$newNextNext" else "NEXT+NEXT"
-        toast("Next-next f8: ${if (newNextNext > 0) "GAODE $newNextNext" else "OFF"}")
-        Logger.i("TEST", "nextNextManeuver=$newNextNext (exp.A: f8 inside 0x8001)")
+        val cur = fresh.nextNextManeuver
+        val rev = if (fresh.maneuver == ManeuverMapper.M_LEFT) ManeuverMapper.M_RIGHT else ManeuverMapper.M_LEFT
+        val newVal = if (cur > 0) 0 else rev
+        HudState.update { it.copy(nextNextManeuver = newVal) }
+        btnTestNextNext.text = if (newVal > 0) "NXT:${ManeuverMapper.maneuverName(newVal)}" else "NEXT+NEXT"
+        toast("Next-next: ${if (newVal > 0) ManeuverMapper.maneuverName(newVal) else "OFF"}")
+        Logger.i("TEST", "nextNextManeuver=$newVal (M_${ManeuverMapper.maneuverName(newVal)})")
     }
 
     private fun togglePacked() {

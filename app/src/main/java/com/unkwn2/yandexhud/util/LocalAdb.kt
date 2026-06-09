@@ -26,7 +26,7 @@ object LocalAdb {
     private const val TAG = "LADB"
     private const val ADB_HOST = "127.0.0.1"
     private const val ADB_PORT = 5555
-    private const val CONNECT_TIMEOUT = 5000L
+    private const val CONNECT_TIMEOUT = 5000
 
     private const val A_CNXN = 0x4e584e43
     private const val A_AUTH = 0x54585541
@@ -49,11 +49,10 @@ object LocalAdb {
 
     fun init(ctx: android.content.Context): Boolean {
         try {
-            val keyDir = File(ctx.filesDir, "adb_keys2")
+            val keyDir = File(ctx.filesDir, "adb_keys4")
             keyDir.mkdirs()
             val privFile = File(keyDir, "private.key")
             val certFile = File(keyDir, "cert.pem")
-            val pubFile = File(keyDir, "public.key")
 
             if (privFile.exists() && certFile.exists()) {
                 val kf = java.security.KeyFactory.getInstance("RSA")
@@ -74,7 +73,6 @@ object LocalAdb {
                 val cf = CertificateFactory.getInstance("X.509")
                 certificate = cf.generateCertificate(holder.encoded.inputStream()) as X509Certificate
                 privFile.writeBytes(kp.private.encoded)
-                pubFile.writeBytes(kp.public.encoded)
                 certFile.outputStream().use { it.write(certificate!!.encoded) }
             }
 
@@ -85,7 +83,7 @@ object LocalAdb {
                 SecureRandom()
             )
             socket = ctx_.socketFactory.createSocket(ADB_HOST, ADB_PORT) as SSLSocket
-            socket!!.soTimeout = CONNECT_TIMEOUT.toInt()
+            socket!!.soTimeout = CONNECT_TIMEOUT
             socket!!.startHandshake()
             input = DataInputStream(socket!!.getInputStream())
             output = DataOutputStream(socket!!.getOutputStream())
@@ -101,24 +99,26 @@ object LocalAdb {
     }
 
     private fun doAuth(): Boolean {
+        var tokenCount = 0
         while (true) {
             val msg = read() ?: return false
             when (msg.command) {
                 A_CNXN -> return true
                 A_AUTH -> when (msg.arg0) {
                     ADB_AUTH_TOKEN -> {
-                        val sig = Signature.getInstance("SHA1withRSA")
-                        sig.initSign(privateKey)
-                        sig.update(msg.data)
-                        send(A_AUTH, ADB_AUTH_SIGNATURE, 0, sig.sign())
-                    }
-                    ADB_AUTH_RSAPUBLICKEY -> {
-                        val pubEnc = Base64.encodeToString(certificate!!.publicKey.encoded, Base64.NO_WRAP)
-                        val keyStr = "$pubEnc unkwn2@yandexhud"
-                        send(A_AUTH, ADB_AUTH_RSAPUBLICKEY, 0, keyStr.toByteArray() + byteArrayOf(0))
+                        tokenCount++
+                        if (tokenCount == 1) {
+                            val sig = Signature.getInstance("SHA1withRSA")
+                            sig.initSign(privateKey)
+                            sig.update(msg.data)
+                            send(A_AUTH, ADB_AUTH_SIGNATURE, 0, sig.sign())
+                        } else {
+                            val pubEnc = Base64.encodeToString(certificate!!.publicKey.encoded, Base64.NO_WRAP)
+                            val keyStr = "$pubEnc unkwn2@yandexhud"
+                            send(A_AUTH, ADB_AUTH_RSAPUBLICKEY, 0, keyStr.toByteArray() + byteArrayOf(0))
+                        }
                     }
                 }
-                else -> return false
             }
         }
     }
@@ -132,15 +132,14 @@ object LocalAdb {
             if (ok.command != A_OKAY) return Result(false, error = "expected OKAY got 0x${ok.command.toString(16)}")
 
             val baos = ByteArrayOutputStream()
-            var closed = false
-            while (!closed) {
+            while (true) {
                 val msg = read() ?: break
                 when (msg.command) {
                     A_WRTE -> {
                         baos.write(msg.data)
                         send(A_OKAY, msg.arg1, msg.arg0, ByteArray(0))
                     }
-                    A_CLSE -> closed = true
+                    A_CLSE -> break
                 }
             }
             return Result(true, output = baos.toString(Charsets.UTF_8.name()).trim())
@@ -150,10 +149,27 @@ object LocalAdb {
         }
     }
 
-    fun grantNotificationAccess(): Result = exec("cmd notification allow_listener com.unkwn2.yandexhud/com.unkwn2.yandexhud.notif.YandexNaviNotificationListener")
-    fun grantAccessibility(): Result = exec("settings put secure enabled_accessibility_services com.unkwn2.yandexhud/com.unkwn2.yandexhud.notif.YandexA11yService")
-    fun grantMockLocation(): Result = exec("appops set com.unkwn2.yandexhud android:mock_location allow")
-    fun grantAll(): List<Result> = listOf(grantNotificationAccess(), grantAccessibility(), grantMockLocation())
+    fun grantNotificationAccess(): Result =
+        exec("cmd notification allow_listener com.unkwn2.yandexhud/com.unkwn2.yandexhud.notif.YandexNaviNotificationListener")
+
+    fun grantAccessibility(): Result {
+        val existing = exec("settings get secure enabled_accessibility_services").output.trim()
+        val svc = "com.unkwn2.yandexhud/com.unkwn2.yandexhud.notif.YandexA11yService"
+        val merged = if (existing.contains(svc)) existing
+            else if (existing.isNotEmpty()) "$existing:$svc" else svc
+        val r1 = exec("settings put secure enabled_accessibility_services \"$merged\"")
+        if (!r1.success) return r1
+        return exec("settings put secure accessibility_enabled 1")
+    }
+
+    fun grantMockLocation(): Result =
+        exec("appops set com.unkwn2.yandexhud android:mock_location allow")
+
+    fun grantAll(): List<Result> = listOf(
+        grantNotificationAccess(),
+        grantAccessibility(),
+        grantMockLocation()
+    )
 
     fun disconnect() {
         try { socket?.close() } catch (_: Exception) {}
