@@ -16,31 +16,26 @@ object ProtobufBuilder {
         etaString: String,
         totalDistMeters: Int = 0,
         totalTimeSeconds: Int = 0,
+        statusIcon: Int = 0,
         speedLimit: Int = 0,
         arriveText: String = "",
         testLanes: Boolean = false,
-        nextNextManeuver: Int = 0,
         usePacked: Boolean = true
     ): ByteArray {
         val mTag = MANEUVER_TAGS[maneuverTagIdx]
         val inner = ByteArrayOutputStream()
         writeVarintField(inner, 2, counter.toLong())
         writeVarintField(inner, 3, totalDistMeters.toLong())
-        writeVarintField(inner, 4, totalTimeSeconds.toLong())
-        if (testLanes && nextNextManeuver <= 0) {
+        writeVarintField(inner, 4, distance.toLong())       // ID_DISTANCE
+        writeStringField(inner, 5, road)                     // ID_ROAD
+        if (testLanes) {
             writeRepeated(inner, 7, intArrayOf(1, 2, 2, 1), usePacked)
             writeRepeated(inner, 8, intArrayOf(0, 0, 1, 0), usePacked)
-            writeVarintField(inner, 5, 4L)
-        }
-        if (nextNextManeuver > 0) {
-            writeVarintField(inner, 8, nextNextManeuver.toLong())
         }
         writeVarintField(inner, mTag, maneuver.toLong())
-        // f6 = navigating_status → компактный значок (ICON_SIMPLE_NAVI)
-        if (mTag != 6) writeVarintField(inner, 6, maneuver.toLong())
-        writeVarintField(inner, 9, distance.toLong())
-        writeStringField(inner, 10, road)
-        if (speedLimit > 0) writeVarintField(inner, 11, speedLimit.toLong())
+        writeVarintField(inner, 9, distance.toLong())       // backup
+        if (speedLimit > 0) writeVarintField(inner, 10, speedLimit.toLong())
+        if (statusIcon > 0) writeVarintField(inner, 11, statusIcon.toLong())
         writeVarintField(inner, 16, 2L)
         writeDoubleField(inner, 19, lon)
         writeDoubleField(inner, 20, lat)
