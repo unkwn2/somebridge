@@ -20,9 +20,11 @@ import com.unkwn2.yandexhud.bridge.ProtobufBuilder
 import com.unkwn2.yandexhud.mock.MockGpsService
 import com.unkwn2.yandexhud.notif.ManeuverMapper
 import com.unkwn2.yandexhud.notif.YandexA11yService
+import com.unkwn2.yandexhud.util.LocalAdb
 import com.unkwn2.yandexhud.util.Logger
 
 class MainActivity : AppCompatActivity() {
+    companion object { private const val TAG = "UI" }
     private lateinit var statusBar: TextView
     private lateinit var logText: TextView
     private lateinit var logScroll: ScrollView
@@ -36,6 +38,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnTestNextNext: Button
     private lateinit var btnTogglePacked: Button
     private lateinit var btnHudMode: Button
+    private lateinit var btnGrant: Button
 
     private var yandexOn = false
     private var mockOn = false
@@ -64,6 +67,7 @@ class MainActivity : AppCompatActivity() {
         btnTestNextNext = findViewById(R.id.btnTestNextNext)
         btnTogglePacked = findViewById(R.id.btnTogglePacked)
         btnHudMode = findViewById(R.id.btnHudMode)
+        btnGrant = findViewById(R.id.btnGrant)
 
         btnYandex.setOnClickListener { toggleYandex() }
         btnMockGps.setOnClickListener { toggleMockGps() }
@@ -75,6 +79,7 @@ class MainActivity : AppCompatActivity() {
         btnTestNextNext.setOnClickListener { testNextNext() }
         btnTogglePacked.setOnClickListener { togglePacked() }
         btnHudMode.setOnClickListener { tryHudMode() }
+        btnGrant.setOnClickListener { grantPermissions() }
         findViewById<Button>(R.id.btnNotifAccess).setOnClickListener {
             try {
                 startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
@@ -294,6 +299,32 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun toGaodeDisplay(m: Int): Int = ManeuverMapper.toGaode(m)
+
+    private fun grantPermissions() {
+        Thread {
+            Logger.i(TAG, "=== GRANT: connecting to local ADB ===")
+            runOnUiThread { toast("Connecting ADB...") }
+            val initOk = LocalAdb.init(applicationContext)
+            if (!initOk) {
+                Logger.e(TAG, "GRANT: ADB init failed")
+                runOnUiThread { toast("ADB init failed") }
+                return@Thread
+            }
+            Logger.i(TAG, "GRANT: ADB connected, granting permissions...")
+            runOnUiThread { toast("ADB OK, granting...") }
+            val results = LocalAdb.grantAll()
+            val sb = StringBuilder()
+            for ((i, r) in results.withIndex()) {
+                val label = arrayOf("NOTIF", "A11Y", "MOCK")[i]
+                Logger.i(TAG, "GRANT $label: success=${r.success} out='${r.output.take(80)}' err='${r.error}'")
+                sb.append("$label:${if (r.success) "OK" else "FAIL"} ")
+            }
+            LocalAdb.disconnect()
+            val msg = sb.toString().trim()
+            runOnUiThread { toast(msg) }
+            Logger.i(TAG, "=== GRANT done: $msg ===")
+        }.apply { isDaemon = true }.start()
+    }
 
     private fun updateStatusBar() {
         val s = HudState.snapshot()

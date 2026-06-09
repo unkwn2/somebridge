@@ -15,80 +15,69 @@ class AmapNaviReceiver : BroadcastReceiver() {
         const val ACTION_START_NAVI = "com.byd.amapservice.ACTION_START_NAVI"
         const val ACTION_STOP_NAVI = "com.byd.amapservice.ACTION_STOP_NAVI"
 
+        private const val KEY_TYPE = "KEY_TYPE"
         private const val KEY_TURN_ICON = "nextTurnIcon"
-        private const val KEY_NEXT_TURN_ICON = "nextNextTurnIcon"
-        private const val KEY_MANEUVER_ID = "maneuverID"
-        private const val KEY_SEG_REMAIN_DIST = "segRemainDis"
-        private const val KEY_ROUTE_REMAIN_DIST = "routeRemainDisAuto"
-        private const val KEY_ROUTE_REMAIN_TIME = "routeRemainTimeAuto"
-        private const val KEY_NEXT_ROAD_NAME = "nextRoadName"
-        private const val KEY_ETA_TEXT = "etaText"
-        private const val KEY_NAVI_STATUS = "naviStatus"
-
-        @Volatile var lastNextNextGaode: Int = 0
-        @Volatile var lastManeuverGaode: Int = 0
-        @Volatile var lastSegDist: Int = 0
-        @Volatile var lastLaneBack: IntArray = IntArray(0)
-        @Volatile var lastLaneFront: IntArray = IntArray(0)
-        @Volatile var lastRecommendLane: IntArray = IntArray(0)
-        @Volatile var lastLaneDist: Int = -1
+        private const val KEY_NEXT_TURN = "nextNextTurnIcon"
+        private const val KEY_NEXT_ROAD = "nextRouteName"
+        private const val KEY_ROUTE_DIST = "routeRemainDist"
+        private const val KEY_ROUTE_TIME = "routeRemainTime"
+        private const val KEY_SEG_DIST = "curToSegmentDist"
     }
 
     override fun onReceive(ctx: Context, intent: Intent) {
         val action = intent.action ?: return
         if (action != ACTION_NAVI && action != ACTION_START_NAVI && action != ACTION_STOP_NAVI) return
 
-        Logger.i(TAG, "onReceive action=$action extras=${dumpExtras(intent)}")
+        val keyType = intent.getIntExtra(KEY_TYPE, 0)
+        Logger.i(TAG, "onReceive action=$action keyType=$keyType extras=${dumpExtras(intent)}")
 
-        if (action == ACTION_STOP_NAVI) {
-            lastNextNextGaode = 0
-            lastManeuverGaode = 0
-            return
-        }
+        if (action == ACTION_STOP_NAVI) return
+
+        if (keyType != 10001 && keyType != 0) return
 
         val turnIcon = intent.getIntExtra(KEY_TURN_ICON, -1)
-        val nextTurnIcon = intent.getIntExtra(KEY_NEXT_TURN_ICON, -1)
-        val maneuverId = intent.getIntExtra(KEY_MANEUVER_ID, -1)
-        val segDist = intent.getIntExtra(KEY_SEG_REMAIN_DIST, 0)
-        val routeRemainDist = intent.getIntExtra(KEY_ROUTE_REMAIN_DIST, 0)
-        val routeRemainTime = intent.getIntExtra(KEY_ROUTE_REMAIN_TIME, 0)
-        val nextRoad = intent.getStringExtra(KEY_NEXT_ROAD_NAME) ?: ""
+        val nextTurnIcon = intent.getIntExtra(KEY_NEXT_TURN, -1)
+        val segDist = intent.getIntExtra(KEY_SEG_DIST, 0)
+        val routeDist = intent.getIntExtra(KEY_ROUTE_DIST, 0)
+        val routeTime = intent.getIntExtra(KEY_ROUTE_TIME, 0)
+        val nextRoad = intent.getStringExtra(KEY_NEXT_ROAD) ?: ""
 
-        if (turnIcon >= 0) lastManeuverGaode = turnIcon
-        if (nextTurnIcon >= 0) lastNextNextGaode = nextTurnIcon
-        if (segDist > 0) lastSegDist = segDist
+        Logger.i(TAG, "turnIcon=$turnIcon nextNext=$nextTurnIcon segDist=$segDist routeDist=$routeDist routeTime=$routeTime road='$nextRoad'")
 
-        Logger.i(TAG, "turnIcon=$turnIcon nextNext=$nextTurnIcon manId=$maneuverId segDist=$segDist routeDist=$routeRemainDist routeTime=$routeRemainTime road='$nextRoad'")
+        if (turnIcon < 0) return
+        if (HudState.isTestLatched()) return
 
-        if (turnIcon >= 0 && !HudState.isTestLatched()) {
-            HudState.update { prev ->
-                val mergeNextNext = if (nextTurnIcon > 0) nextTurnIcon else prev.nextNextManeuver
-                prev.copy(
-                    active = true,
-                    maneuver = gaodeToInternal(turnIcon),
-                    distanceMeters = if (segDist > 0) segDist else prev.distanceMeters,
-                    road = if (nextRoad.isNotEmpty() && nextRoad != "???") nextRoad else prev.road,
-                    totalDistMeters = if (routeRemainDist > 0) routeRemainDist else prev.totalDistMeters,
-                    totalTimeSeconds = if (routeRemainTime > 0) routeRemainTime * 60 else prev.totalTimeSeconds,
-                    nextNextManeuver = mergeNextNext,
-                    lastUpdateMs = System.currentTimeMillis()
-                )
-            }
+        val internal = autoNaviToInternal(turnIcon)
+        val nextInternal = if (nextTurnIcon > 0) autoNaviToInternal(nextTurnIcon) else 0
+
+        HudState.update { prev ->
+            prev.copy(
+                active = true,
+                maneuver = if (internal != ManeuverMapper.M_UNKNOWN) internal else prev.maneuver,
+                distanceMeters = if (segDist > 0) segDist else prev.distanceMeters,
+                road = if (nextRoad.isNotEmpty() && nextRoad != "???") nextRoad else prev.road,
+                totalDistMeters = if (routeDist > 0) routeDist else prev.totalDistMeters,
+                totalTimeSeconds = if (routeTime > 0) routeTime else prev.totalTimeSeconds,
+                nextNextManeuver = if (nextInternal > 0) nextInternal else prev.nextNextManeuver,
+                lastUpdateMs = System.currentTimeMillis()
+            )
         }
     }
 
-    private fun gaodeToInternal(gaode: Int): Int = when (gaode) {
-        1 -> ManeuverMapper.M_LEFT
-        2 -> ManeuverMapper.M_RIGHT
-        3 -> ManeuverMapper.M_SLIGHT_LEFT
-        4 -> ManeuverMapper.M_SLIGHT_RIGHT
-        7 -> ManeuverMapper.M_HARD_LEFT
-        8 -> ManeuverMapper.M_HARD_RIGHT
-        9 -> ManeuverMapper.M_UTURN_LEFT
-        10 -> ManeuverMapper.M_UTURN_RIGHT
-        11 -> ManeuverMapper.M_STRAIGHT
-        13 -> ManeuverMapper.M_ROUNDABOUT_ENTER
-        48 -> ManeuverMapper.M_ARRIVE
+    private fun autoNaviToInternal(icon: Int): Int = when (icon) {
+        0, 1 -> ManeuverMapper.M_STRAIGHT
+        2 -> ManeuverMapper.M_LEFT
+        3 -> ManeuverMapper.M_RIGHT
+        4 -> ManeuverMapper.M_SLIGHT_LEFT
+        5 -> ManeuverMapper.M_SLIGHT_RIGHT
+        6 -> ManeuverMapper.M_HARD_LEFT
+        7 -> ManeuverMapper.M_HARD_RIGHT
+        8 -> ManeuverMapper.M_UTURN_LEFT
+        9 -> ManeuverMapper.M_UTURN_RIGHT
+        10, 12 -> ManeuverMapper.M_FORK_LEFT
+        11, 13 -> ManeuverMapper.M_FORK_RIGHT
+        14 -> ManeuverMapper.M_ROUNDABOUT_ENTER
+        15 -> ManeuverMapper.M_ARRIVE
         else -> ManeuverMapper.M_UNKNOWN
     }
 

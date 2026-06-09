@@ -28,6 +28,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                     val etaStr = String.format("%02d:%02d", etaH, etaM)
 
                     val maneuverVal = if (useGaodeEnum) toGaodeEnum(s.maneuver) else s.maneuver
+                    val nextNextVal = if (useGaodeEnum && s.nextNextManeuver > 0) toGaodeEnum(s.nextNextManeuver) else s.nextNextManeuver
                     val arriveText = if (maneuverVal == 48) s.arriveText.ifEmpty { "Прибытие" } else ""
                     val payload = ProtobufBuilder.build(
                         counter = counter++,
@@ -42,7 +43,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         speedLimit = s.speedLimit,
                         arriveText = arriveText,
                         testLanes = s.testLanes,
-                        nextNextManeuver = s.nextNextManeuver,
+                        nextNextManeuver = nextNextVal,
                         usePacked = s.usePacked
                     )
                     val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
