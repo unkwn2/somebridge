@@ -302,31 +302,9 @@ class MainActivity : AppCompatActivity() {
     private fun toGaodeDisplay(m: Int): Int = ManeuverMapper.toGaode(m)
 
     private fun stopAmap() {
-        Thread {
-            Logger.i(TAG, "=== STOP AMAP ===")
-            runOnUiThread { toast("Stopping Amap service...") }
-            val initOk = LocalAdb.init(applicationContext)
-            if (!initOk) {
-                Logger.e(TAG, "STOP AMAP: ADB init failed")
-                runOnUiThread {
-                    toast("ADB fail — trying Runtime.exec")
-                    try {
-                        val proc = Runtime.getRuntime().exec(arrayOf("sh", "-c", "am force-stop com.byd.amapservice"))
-                        val rc = proc.waitFor()
-                        toast("Runtime.exec rc=$rc")
-                    } catch (t: Throwable) {
-                        toast("Runtime.exec: ${t.message}")
-                        copyAdbCmd("adb shell am force-stop com.byd.amapservice")
-                    }
-                }
-                return@Thread
-            }
-            Logger.i(TAG, "STOP AMAP: ADB OK, force-stopping...")
-            val r = LocalAdb.exec("am force-stop com.byd.amapservice")
-            Logger.i(TAG, "STOP AMAP: result success=${r.success} out='${r.output.take(80)}' err='${r.error}'")
-            LocalAdb.disconnect()
-            runOnUiThread { toast("Amap: ${if (r.success) "STOPPED" else "FAIL: ${r.error}"}") }
-        }.apply { isDaemon = true }.start()
+        Logger.i(TAG, "=== STOP AMAP (broadcast) ===")
+        sendBroadcast(Intent("com.byd.amapservice.ACTION_STOP_NAVI"))
+        toast("Sent STOP_NAVI broadcast")
     }
 
     private fun grantPermissions() {

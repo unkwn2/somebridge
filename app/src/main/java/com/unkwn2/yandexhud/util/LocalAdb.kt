@@ -12,6 +12,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
+import java.security.Signature
 import java.security.interfaces.RSAPublicKey
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
@@ -37,12 +38,6 @@ object LocalAdb {
 
     private const val VERSION = 0x01000000
     private const val MAXDATA = 256 * 1024
-
-    // ASN.1 DigestInfo prefix for SHA-1 (PKCS#1 v1.5)
-    private val SHA1_PREFIX = byteArrayOf(
-        0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e,
-        0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14
-    )
 
     private var privateKey: java.security.PrivateKey? = null
     private var publicKey: RSAPublicKey? = null
@@ -99,9 +94,18 @@ object LocalAdb {
                 A_CNXN -> return true
                 A_AUTH -> {
                     if (!signatureSent) {
-                        val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
-                        cipher.init(Cipher.ENCRYPT_MODE, privateKey)
-                        val sig = cipher.doFinal(SHA1_PREFIX + msg.data)
+                        val sig = try {
+                            val s = Signature.getInstance("SHA256withRSA")
+                            s.initSign(privateKey)
+                            s.update(msg.data)
+                            s.sign()
+                        } catch (_: Exception) {
+                            // fallback SHA-1 for older adbd
+                            val s = Signature.getInstance("SHA1withRSA")
+                            s.initSign(privateKey)
+                            s.update(msg.data)
+                            s.sign()
+                        }
                         send(A_AUTH, ADB_AUTH_SIGNATURE, 0, sig)
                         signatureSent = true
                     } else {
