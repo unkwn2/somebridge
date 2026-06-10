@@ -55,67 +55,44 @@ object BinarySerializer {
         os.write(0)
         // field at offset 0x23: u8 Current_road_level at obj+0x31 → 0
         os.write(0)
-        // field at offset 0x24: be_i32 blob_len at obj+0x38 → 0 (no blob)
+        // field at offset 0x24: be_i32 blob1_len at obj+0x38 → 0 (no blob1)
+        writeBe32(os, 0)
+        // field at offset 0x28: be_i32 blob2_len at obj+0x48 → 0 (no blob2)
         writeBe32(os, 0)
 
-        // field at current: be_i32 distances_2_intersection at obj+0x58
+        // field at offset 0x2c: be_i32 distances_2_intersection at obj+0x58
         writeBe32(os, distanceMeters)
 
-        // field at current: string next_road_name at obj+0x60
+        // field at offset 0x30: string next_road_name at obj+0x60
         writeBeString(os, road)
 
-        // Fixed 0x1e (30) byte block starting after road name
-        // offset 0x00: u8 current_max_speed_limit at obj+0x80 → 0
-        os.write(0)
-        // offset 0x01: u8 current_speed at obj+0x81 → 0
-        os.write(0)
-        // offset 0x02: be_u16 Distance_2_speed_limit_zone at obj+0x82 → 0
-        writeBe16(os, 0)
-        // offset 0x04: be_u16 length_of_speed_limit at obj+0x84 → 0
-        writeBe16(os, 0)
-        // offset 0x06: u8 speed_limit at obj+0x86 → 0
-        os.write(0)
-        // offset 0x07: u8 navigating_status at obj+0x87 → statusIcon
-        os.write(statusIcon.coerceIn(0, 255))
-        // offset 0x08: u8 camera_ahead_status at obj+0x88 → 0
-        os.write(0)
-        // offset 0x09: be_u16 the_distance_2_camera at obj+0x8a → 0
-        writeBe16(os, 0)
-        // offset 0x0b: be_f64 vehicle_coordinates_longitude at obj+0x90
-        writeBeDouble(os, lon)
-        // offset 0x13: be_f64 vehicle_coordinates_latitude at obj+0x98
-        writeBeDouble(os, lat)
-        // offset 0x1b: u8 vehicle_speed at obj+0xa0 → 0
-        os.write(0)
-        // offset 0x1c: be_u16 vehicle_altitude at obj+0xa2 → 0
-        writeBe16(os, 0)
-        // offset 0x1e: u8 Danger_signs at obj+0xa4 → 0
-        os.write(0)
+        // Fixed 31-byte (0x1f) block starting after road name
+        os.write(0)                            // +0x00 u8 current_max_speed_limit → obj+0x80
+        os.write(0)                            // +0x01 u8 current_speed → obj+0x81
+        writeBe16(os, 0)                       // +0x02 be_u16 dist_to_speed_zone → obj+0x82
+        writeBe16(os, 0)                       // +0x04 be_u16 length_of_speed_limit → obj+0x84
+        os.write(0)                            // +0x06 u8 speed_limit → obj+0x86
+        os.write(statusIcon.coerceIn(0, 255))  // +0x07 u8 navigating_status → obj+0x87 (ЗНАЧОК)
+        os.write(0)                            // +0x08 u8 camera_ahead_status → obj+0x88
+        writeBe16(os, 0)                       // +0x09 be_u16 dist_to_camera → obj+0x8a
+        writeBeDouble(os, lon)                 // +0x0b be_f64 longitude → obj+0x90
+        writeBeDouble(os, lat)                 // +0x13 be_f64 latitude → obj+0x98
+        os.write(0)                            // +0x1b u8 vehicle_speed → obj+0xa0
+        writeBe16(os, 0)                       // +0x1c be_u16 altitude → obj+0xa2
+        os.write(0)                            // +0x1e u8 danger_signs → obj+0xa4
 
-        // String: POI_information at obj+0xa8 → empty
-        writeBeString(os, "")
-        // String: at obj+0xc8 (parsed sscanf "%lf,%lf" → obj+0xe8, obj+0xf0) → empty
-        writeBeString(os, "")
-        // String: reach_the_destination at obj+0x100 → empty
-        writeBeString(os, "")
-        // String: at obj+0x120 → empty
-        writeBeString(os, "")
-        // be_u16 at obj+0x140 → 0
-        writeBe16(os, 0)
-        // String: at obj+0x148 → empty
-        writeBeString(os, "")
-        // String: at obj+0x168 (AJOTP, sscanf "%lf,%lf,%lf" → obj+0x1c0,0x1c8,0x1d0)
-        // Provide direction vector as "lon,lat,0" to match guideLine format
-        writeBeString(os, "$lon,$lat,0")
-        // String: at obj+0x188 (also sscanf "%lf,%lf,%lf" → duplicates AJOTP)
-        writeBeString(os, "")
+        // tail strings — strict order
+        writeBeString(os, "")  // #1 obj+0xa8  POI_information
+        writeBeString(os, "")  // #2 obj+0xc8  (sscanf "%lf,%lf" → obj+0xe8,0xf0)
+        writeBeString(os, "")  // #3 obj+0x100 reach_the_destination
+        writeBeString(os, "")  // #4 obj+0x120
+        writeBe16(os, 0)       //    obj+0x140
+        writeBeString(os, "")  // #5 obj+0x148
+        writeBeString(os, "")  // #6 obj+0x168 (_M_replace)
+        writeBeString(os, "")  // #7 obj+0x188 (sscanf "%lf,%lf,%lf" → obj+0x1c0,0x1c8,0x1d0)
 
-        // Remaining: if ≥ 16 bytes → read be_f64 at obj+0x1d8 and obj+0x1e0
-        // We already consumed the data, but we can add two final doubles.
-        // Actually these are conditionally read based on remaining bytes.
-        // We'll add them for completeness.
-        writeBeDouble(os, 0.0)
-        writeBeDouble(os, 0.0)
+        // STOP. remaining ≤ 15 → early return 0 at 0x4e2c04.
+        // Do NOT add trailing doubles — that pushes remaining > 15 and takes tail branch.
 
         return os.toByteArray()
     }
