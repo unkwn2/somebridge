@@ -31,7 +31,8 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                     val statusIconVal = ManeuverMapper.toStatusIcon(s.maneuver)
                     val arriveText = if (maneuverVal == 48) s.arriveText.ifEmpty { "Прибытие" } else ""
 
-                    // HudRoadInfoNotifyStruct protobuf: f8 icon, f9 dist, f10 road, f16 status, f28 maneuver
+                    // HudRoadInfoNotifyStruct protobuf — все поля
+                    val laneLayout = if (s.testLanes) "1,2,2,1" else ""
                     val payload = ProtobufBuilder.build(
                         counter = counter++,
                         maneuver = maneuverVal,
@@ -46,14 +47,16 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         speedLimit = s.speedLimit,
                         arriveText = arriveText,
                         testLanes = s.testLanes,
-                        usePacked = s.usePacked
+                        usePacked = s.usePacked,
+                        iconPng = s.iconPng,
+                        laneLayout = laneLayout
                     )
                     val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
 
                     if (counter % 10 == 0) {
                         val enumLabel = if (useGaodeEnum) "GAODE" else "v33"
                         val packLabel = if (s.usePacked) "pk" else "np"
-                        Logger.i(TAG, "tick #$counter rc=$rc m=$maneuverVal($enumLabel) $packLabel d=${s.distanceMeters} road='${s.road}' icon=$statusIconVal iconPng=${if (s.iconPng != null) s.iconPng.size else 0}B")
+                        Logger.i(TAG, "tick #$counter rc=$rc m=$maneuverVal($enumLabel) $packLabel d=${s.distanceMeters} road='${s.road}' iconPng=${if (s.iconPng != null) s.iconPng.size else 0}B lanes=${if (s.testLanes) laneLayout else "-"}")
                     }
                 } else if (counter % 30 == 0) {
                     Logger.i(TAG, "tick #$counter (idle)")

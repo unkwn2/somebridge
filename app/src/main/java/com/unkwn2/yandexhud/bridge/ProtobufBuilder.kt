@@ -18,20 +18,27 @@ object ProtobufBuilder {
         speedLimit: Int = 0,
         arriveText: String = "",
         testLanes: Boolean = false,
-        usePacked: Boolean = true
+        usePacked: Boolean = true,
+        iconPng: ByteArray? = null,
+        laneLayout: String = ""
     ): ByteArray {
         val inner = ByteArrayOutputStream()
 
-        // HudRoadInfoNotifyStruct — чистые поля
+        // HudRoadInfoNotifyStruct — все поля из таблицы
+        if (iconPng != null) writeBytesField(inner, 8, iconPng)  // f8  PNG icon
         writeVarintField(inner, 9, distance.toLong())            // f9  distance2Intersection
         writeStringField(inner, 10, road)                         // f10 nextRoadName
         writeVarintField(inner, 16, 2L)                           // f16 navigatingStatus=2
+        writeStringField(inner, 26, etaString)                    // f26 ETA "HH:MM"
         writeVarintField(inner, 28, maneuver.toLong())            // f28 recommendedDrivingDirectionsId
-        writeDoubleField(inner, 19, lon)                          // f19 longitude
-        writeDoubleField(inner, 20, lat)                          // f20 latitude
-        writeStringField(inner, 26, etaString)                    // f26 ETA
+        if (testLanes && laneLayout.isNotEmpty()) {
+            writeVarintField(inner, 5, laneLayout.split(",").size.toLong())  // f5 lane count
+            writeStringField(inner, 29, laneLayout)               // f29 lane layout "back,front|"
+        }
         writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver)) // f30 guideLine
         writeStringField(inner, 31, "$lon,$lat,0")               // f31 guidePoint
+        writeDoubleField(inner, 19, lon)                          // f19 longitude (вспом.)
+        writeDoubleField(inner, 20, lat)                          // f20 latitude (вспом.)
         val innerBytes = inner.toByteArray()
 
         val outer = ByteArrayOutputStream()
