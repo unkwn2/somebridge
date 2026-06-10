@@ -30,7 +30,19 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                     val maneuverVal = if (useGaodeEnum) toGaodeEnum(s.maneuver) else s.maneuver
                     val statusIconVal = ManeuverMapper.toStatusIcon(s.maneuver)
                     val arriveText = if (maneuverVal == 48) s.arriveText.ifEmpty { "Прибытие" } else ""
-                    val payload = ProtobufBuilder.build(
+
+                    // 1) Binary CSlHudRoadInfo (compact block: icon, street, distance)
+                    val binaryPayload = BinarySerializer.build(
+                        distanceMeters = s.distanceMeters,
+                        road = s.road,
+                        statusIcon = statusIconVal,
+                        maneuver = maneuverVal,
+                        lat = s.lat, lon = s.lon
+                    )
+                    bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, binaryPayload)
+
+                    // 2) Protobuf (big arrow via f28 → CSlHudNavigationMap)
+                    val protobufPayload = ProtobufBuilder.build(
                         counter = counter++,
                         maneuver = maneuverVal,
                         maneuverTagIdx = maneuverTagIdx,
@@ -40,20 +52,19 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         etaString = etaStr,
                         totalDistMeters = s.totalDistMeters,
                         totalTimeSeconds = s.totalTimeSeconds,
-                        statusIcon = statusIconVal,
+                        statusIcon = 0,
                         speedLimit = s.speedLimit,
                         arriveText = arriveText,
                         testLanes = s.testLanes,
                         usePacked = s.usePacked
                     )
-                    val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
-                    if (rc != 0 && counter % 3 == 0) {
-                        Logger.w(TAG, "fireEvent rc=$rc")
-                    } else if (counter % 10 == 0) {
+                    val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, protobufPayload)
+
+                    if (counter % 10 == 0) {
                         val tagLabel = arrayOf("f28", "f5", "f6")[maneuverTagIdx]
                         val enumLabel = if (useGaodeEnum) "GAODE" else "v33"
                         val packLabel = if (s.usePacked) "pk" else "np"
-                        Logger.i(TAG, "tick #$counter rc=$rc m=$maneuverVal($enumLabel) tag=$tagLabel $packLabel d=${s.distanceMeters}")
+                        Logger.i(TAG, "tick #$counter rc=$rc m=$maneuverVal($enumLabel) tag=$tagLabel $packLabel d=${s.distanceMeters} road='${s.road}' icon=$statusIconVal")
                     }
                 } else if (counter % 30 == 0) {
                     Logger.i(TAG, "tick #$counter (idle)")
