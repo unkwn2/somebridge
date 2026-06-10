@@ -26,15 +26,12 @@ object ProtobufBuilder {
         val inner = ByteArrayOutputStream()
         writeVarintField(inner, 2, counter.toLong())
         writeVarintField(inner, 3, totalDistMeters.toLong())
-        writeVarintField(inner, 4, distance.toLong())       // ID_DISTANCE
-        writeStringField(inner, 5, road)                     // ID_ROAD
+        writeVarintField(inner, 4, distance.toLong())       // distances_2_intersection (meters + unlocks icon)
+        writeStringField(inner, 5, road)                     // next_road_name (text under meters)
         if (testLanes) {
             writeRepeated(inner, 7, intArrayOf(1, 2, 2, 1), usePacked)
-            writeRepeated(inner, 8, intArrayOf(0, 0, 1, 0), usePacked)
         }
         writeVarintField(inner, mTag, maneuver.toLong())
-        writeVarintField(inner, 9, distance.toLong())       // backup
-        if (speedLimit > 0) writeVarintField(inner, 10, speedLimit.toLong())
         if (statusIcon > 0) writeVarintField(inner, 11, statusIcon.toLong())
         writeVarintField(inner, 16, 2L)
         writeDoubleField(inner, 19, lon)

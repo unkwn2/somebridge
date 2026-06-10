@@ -39,6 +39,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnTogglePacked: Button
     private lateinit var btnHudMode: Button
     private lateinit var btnGrant: Button
+    private lateinit var btnStopAmap: Button
 
     private var yandexOn = false
     private var mockOn = false
@@ -68,6 +69,7 @@ class MainActivity : AppCompatActivity() {
         btnTogglePacked = findViewById(R.id.btnTogglePacked)
         btnHudMode = findViewById(R.id.btnHudMode)
         btnGrant = findViewById(R.id.btnGrant)
+        btnStopAmap = findViewById(R.id.btnStopAmap)
 
         btnYandex.setOnClickListener { toggleYandex() }
         btnMockGps.setOnClickListener { toggleMockGps() }
@@ -80,6 +82,7 @@ class MainActivity : AppCompatActivity() {
         btnTogglePacked.setOnClickListener { togglePacked() }
         btnHudMode.setOnClickListener { tryHudMode() }
         btnGrant.setOnClickListener { grantPermissions() }
+        btnStopAmap.setOnClickListener { stopAmap() }
         findViewById<Button>(R.id.btnNotifAccess).setOnClickListener {
             try {
                 startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
@@ -297,6 +300,34 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun toGaodeDisplay(m: Int): Int = ManeuverMapper.toGaode(m)
+
+    private fun stopAmap() {
+        Thread {
+            Logger.i(TAG, "=== STOP AMAP ===")
+            runOnUiThread { toast("Stopping Amap service...") }
+            val initOk = LocalAdb.init(applicationContext)
+            if (!initOk) {
+                Logger.e(TAG, "STOP AMAP: ADB init failed")
+                runOnUiThread {
+                    toast("ADB fail — trying Runtime.exec")
+                    try {
+                        val proc = Runtime.getRuntime().exec(arrayOf("sh", "-c", "am force-stop com.byd.amapservice"))
+                        val rc = proc.waitFor()
+                        toast("Runtime.exec rc=$rc")
+                    } catch (t: Throwable) {
+                        toast("Runtime.exec: ${t.message}")
+                        copyAdbCmd("adb shell am force-stop com.byd.amapservice")
+                    }
+                }
+                return@Thread
+            }
+            Logger.i(TAG, "STOP AMAP: ADB OK, force-stopping...")
+            val r = LocalAdb.exec("am force-stop com.byd.amapservice")
+            Logger.i(TAG, "STOP AMAP: result success=${r.success} out='${r.output.take(80)}' err='${r.error}'")
+            LocalAdb.disconnect()
+            runOnUiThread { toast("Amap: ${if (r.success) "STOPPED" else "FAIL: ${r.error}"}") }
+        }.apply { isDaemon = true }.start()
+    }
 
     private fun grantPermissions() {
         Thread {
