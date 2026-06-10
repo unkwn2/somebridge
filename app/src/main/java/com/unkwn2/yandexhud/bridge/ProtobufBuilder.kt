@@ -4,8 +4,6 @@ import java.io.ByteArrayOutputStream
 
 object ProtobufBuilder {
 
-    private val MANEUVER_TAGS = intArrayOf(28, 5, 6)
-
     fun build(
         counter: Int,
         maneuver: Int,
@@ -22,31 +20,18 @@ object ProtobufBuilder {
         testLanes: Boolean = false,
         usePacked: Boolean = true
     ): ByteArray {
-        val mTag = MANEUVER_TAGS[maneuverTagIdx]
         val inner = ByteArrayOutputStream()
 
-        // HudRoadInfoNotifyStruct fields
+        // HudRoadInfoNotifyStruct — чистые поля
         writeVarintField(inner, 9, distance.toLong())            // f9  distance2Intersection
         writeStringField(inner, 10, road)                         // f10 nextRoadName
         writeVarintField(inner, 16, 2L)                           // f16 navigatingStatus=2
-
-        // Legacy fields (backward compat for big arrow)
-        writeVarintField(inner, 2, counter.toLong())
-        writeVarintField(inner, 3, totalDistMeters.toLong())
-        writeVarintField(inner, 4, distance.toLong())
-        writeStringField(inner, 5, road)
-        if (testLanes) {
-            writeRepeated(inner, 7, intArrayOf(1, 2, 2, 1), usePacked)
-        }
-        writeVarintField(inner, mTag, maneuver.toLong())
-        if (statusIcon > 0) writeVarintField(inner, 11, statusIcon.toLong())
-        writeDoubleField(inner, 19, lon)
-        writeDoubleField(inner, 20, lat)
-        if (arriveText.isNotEmpty()) writeStringField(inner, 25, arriveText)
-        writeStringField(inner, 26, etaString)
-        writeStringField(inner, 27, "${totalTimeSeconds / 60} мин")
-        writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver))
-        writeStringField(inner, 31, "$lon,$lat,0")
+        writeVarintField(inner, 28, maneuver.toLong())            // f28 recommendedDrivingDirectionsId
+        writeDoubleField(inner, 19, lon)                          // f19 longitude
+        writeDoubleField(inner, 20, lat)                          // f20 latitude
+        writeStringField(inner, 26, etaString)                    // f26 ETA
+        writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver)) // f30 guideLine
+        writeStringField(inner, 31, "$lon,$lat,0")               // f31 guidePoint
         val innerBytes = inner.toByteArray()
 
         val outer = ByteArrayOutputStream()
