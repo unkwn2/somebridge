@@ -43,6 +43,13 @@ class YandexNaviNotificationListener : NotificationListenerService() {
         val isMaps = sbn.packageName in YANDEX_MAPS_PKGS
 
         val largeIcon = ext.getParcelable<Bitmap>(Notification.EXTRA_LARGE_ICON)
+        val iconPngBytes = if (largeIcon != null) {
+            try {
+                val s = java.io.ByteArrayOutputStream()
+                largeIcon.compress(Bitmap.CompressFormat.PNG, 100, s)
+                s.toByteArray().also { Logger.i(TAG, "icon PNG ${it.size}B") }
+            } catch (_: Throwable) { null }
+        } else null
         val maneuverFromIcon = if (largeIcon != null) detectManeuverFromBitmap(largeIcon) else null
         val smallIconName = resolveIconName(sbn.packageName, n.smallIcon?.resId ?: 0)
         val maneuverFromSmall = ManeuverMapper.fromIconName(smallIconName)
@@ -61,7 +68,7 @@ class YandexNaviNotificationListener : NotificationListenerService() {
         val notifManeuverKnown = maneuver != ManeuverMapper.M_UNKNOWN
 
         if (HudState.isTestLatched()) {
-            HudState.update { it.copy(active = true, lastUpdateMs = System.currentTimeMillis()) }
+            HudState.update { it.copy(active = true, lastUpdateMs = System.currentTimeMillis(), iconPng = iconPngBytes) }
             return
         }
 
@@ -84,7 +91,8 @@ class YandexNaviNotificationListener : NotificationListenerService() {
                 road = mergeRoad,
                 etaSeconds = mergeEta,
                 totalTimeSeconds = mergeTotalTime,
-                lastUpdateMs = System.currentTimeMillis()
+                lastUpdateMs = System.currentTimeMillis(),
+                iconPng = iconPngBytes ?: prev.iconPng
             )
         }
     }

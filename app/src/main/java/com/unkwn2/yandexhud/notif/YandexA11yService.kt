@@ -127,7 +127,7 @@ class YandexA11yService : AccessibilityService() {
                 val nnStr = if (nextNextManeuver > 0) ManeuverMapper.maneuverName(nextNextManeuver) else ""
                 Logger.i(TAG, "pkg=$pkg m=$mStr d=${distance}m road='$road' eta=${eta}s balloon=$hasManeuverBalloon nextNext=$nnStr")
                 if (HudState.isTestLatched()) {
-                    HudState.update { it.copy(active = true, lastUpdateMs = System.currentTimeMillis()) }
+                    HudState.update { it.copy(active = true, lastUpdateMs = System.currentTimeMillis(), iconPng = it.iconPng) }
                 } else {
                     HudState.update { prev ->
                         val mergeManeuver = if (maneuver != ManeuverMapper.M_UNKNOWN) maneuver else prev.maneuver
@@ -148,12 +148,13 @@ class YandexA11yService : AccessibilityService() {
                             totalTimeSeconds = mergeTotalTime,
                             speedLimit = mergeSpeedLimit,
                             nextNextManeuver = mergeNextNext,
-                            lastUpdateMs = System.currentTimeMillis()
+                            lastUpdateMs = System.currentTimeMillis(),
+                            iconPng = prev.iconPng
                         )
                     }
                 }
             } else if (hasManeuverBalloon && maneuver == ManeuverMapper.M_UNKNOWN && distance == 0) {
-                HudState.update { it.copy(active = true, lastUpdateMs = System.currentTimeMillis()) }
+                HudState.update { it.copy(active = true, lastUpdateMs = System.currentTimeMillis(), iconPng = it.iconPng) }
             }
         } catch (t: Throwable) {
             Logger.e(TAG, "parse error: ${t.message}")

@@ -24,16 +24,22 @@ object ProtobufBuilder {
     ): ByteArray {
         val mTag = MANEUVER_TAGS[maneuverTagIdx]
         val inner = ByteArrayOutputStream()
+
+        // HudRoadInfoNotifyStruct fields
+        writeVarintField(inner, 9, distance.toLong())            // f9  distance2Intersection
+        writeStringField(inner, 10, road)                         // f10 nextRoadName
+        writeVarintField(inner, 16, 2L)                           // f16 navigatingStatus=2
+
+        // Legacy fields (backward compat for big arrow)
         writeVarintField(inner, 2, counter.toLong())
         writeVarintField(inner, 3, totalDistMeters.toLong())
-        writeVarintField(inner, 4, distance.toLong())       // distances_2_intersection (meters + unlocks icon)
-        writeStringField(inner, 5, road)                     // next_road_name (text under meters)
+        writeVarintField(inner, 4, distance.toLong())
+        writeStringField(inner, 5, road)
         if (testLanes) {
             writeRepeated(inner, 7, intArrayOf(1, 2, 2, 1), usePacked)
         }
         writeVarintField(inner, mTag, maneuver.toLong())
         if (statusIcon > 0) writeVarintField(inner, 11, statusIcon.toLong())
-        writeVarintField(inner, 16, 2L)
         writeDoubleField(inner, 19, lon)
         writeDoubleField(inner, 20, lat)
         if (arriveText.isNotEmpty()) writeStringField(inner, 25, arriveText)
