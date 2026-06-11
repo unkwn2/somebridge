@@ -24,7 +24,6 @@ object ProtobufBuilder {
         val inner = ByteArrayOutputStream()
 
         // HudRoadInfoNotifyStruct — все поля из таблицы
-        writeBytesField(inner, 8, ByteArray(0))                  // f8  dummy empty (middleware expects field 8 present)
         writeVarintField(inner, 9, distance.toLong())            // f9  distance2Intersection
         writeStringField(inner, 10, road)                         // f10 nextRoadName
         writeVarintField(inner, 16, statusIcon.toLong())           // f16 navigatingStatus: 2=draw, 1=clear
