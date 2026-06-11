@@ -39,6 +39,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnTogglePacked: Button
     private lateinit var btnHudMode: Button
     private lateinit var btnGrant: Button
+    private lateinit var btnIconScan: Button
 
     private var yandexOn = false
     private var mockOn = false
@@ -68,6 +69,7 @@ class MainActivity : AppCompatActivity() {
         btnTogglePacked = findViewById(R.id.btnTogglePacked)
         btnHudMode = findViewById(R.id.btnHudMode)
         btnGrant = findViewById(R.id.btnGrant)
+        btnIconScan = findViewById(R.id.btnIconScan)
 
         btnYandex.setOnClickListener { toggleYandex() }
         btnMockGps.setOnClickListener { toggleMockGps() }
@@ -80,6 +82,7 @@ class MainActivity : AppCompatActivity() {
         btnTogglePacked.setOnClickListener { togglePacked() }
         btnHudMode.setOnClickListener { tryHudMode() }
         btnGrant.setOnClickListener { grantPermissions() }
+        btnIconScan.setOnClickListener { cycleIconField() }
         findViewById<Button>(R.id.btnSaveLog).setOnClickListener { saveLog() }
         findViewById<Button>(R.id.btnNotifAccess).setOnClickListener {
             try {
@@ -296,6 +299,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun toGaodeDisplay(m: Int): Int = ManeuverMapper.toGaode(m)
+
+    private var iconScanIdx = -1  // -1 = OFF
+
+    private fun cycleIconField() {
+        val candidates = HudForegroundService.ICON_CANDIDATES
+        iconScanIdx = (iconScanIdx + 1) % (candidates.size + 1)  // +1 for OFF at position candidates.size
+        val fieldNum = if (iconScanIdx < candidates.size) candidates[iconScanIdx] else 0
+        HudForegroundService.iconFieldNum = fieldNum
+        val label = if (fieldNum > 0) "ICON: f$fieldNum" else "ICON: OFF"
+        runOnUiThread { btnIconScan.text = label }
+        Logger.i("TEST", "iconFieldNum=$fieldNum (${if (fieldNum > 0) "scanning f$fieldNum" else "OFF"})")
+        toast("Small arrow field: ${if (fieldNum > 0) "f$fieldNum" else "OFF"}")
+    }
 
     private fun saveLog() {
         Thread {

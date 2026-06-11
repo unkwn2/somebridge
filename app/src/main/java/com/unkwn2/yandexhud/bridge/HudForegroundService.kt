@@ -27,6 +27,10 @@ class HudForegroundService : Service() {
         val loopRunner: LoopRunner? get() = instance?._loopRunner
         val isReady: Boolean get() = instance?._bridge != null && instance!!._bound
 
+        // Field scanner for small arrow (ICON_SIMPLE_NAVI) — 0 = OFF
+        @Volatile var iconFieldNum: Int = 0
+        val ICON_CANDIDATES = intArrayOf(11, 12, 13, 14, 15, 17, 18, 21, 22, 23, 24, 25, 27)
+
         fun start(ctx: Context) {
             ctx.startForegroundService(Intent(ctx, HudForegroundService::class.java))
         }

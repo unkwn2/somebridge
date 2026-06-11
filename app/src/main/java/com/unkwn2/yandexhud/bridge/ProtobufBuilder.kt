@@ -19,7 +19,9 @@ object ProtobufBuilder {
         arriveText: String = "",
         testLanes: Boolean = false,
         usePacked: Boolean = true,
-        laneLayout: String = ""
+        laneLayout: String = "",
+        iconFieldNum: Int = 0,
+        maneuverIcon: Int = 0
     ): ByteArray {
         val inner = ByteArrayOutputStream()
 
@@ -29,6 +31,9 @@ object ProtobufBuilder {
         writeVarintField(inner, 16, statusIcon.toLong())           // f16 navigatingStatus: 2=draw, 1=clear
         writeStringField(inner, 26, etaString)                    // f26 ETA "HH:MM"
         writeVarintField(inner, 28, maneuver.toLong())            // f28 recommendedDrivingDirectionsId
+        if (iconFieldNum > 0 && maneuverIcon > 0) {
+            writeVarintField(inner, iconFieldNum, maneuverIcon.toLong())
+        }
         if (testLanes && laneLayout.isNotEmpty()) {
             writeVarintField(inner, 5, laneLayout.split(",").size.toLong())  // f5 lane count
             writeStringField(inner, 29, laneLayout)               // f29 lane layout "back,front|"

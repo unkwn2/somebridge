@@ -48,14 +48,17 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         arriveText = arriveText,
                         testLanes = s.testLanes,
                         usePacked = s.usePacked,
-                        laneLayout = laneLayout
+                        laneLayout = laneLayout,
+                        iconFieldNum = HudForegroundService.iconFieldNum,
+                        maneuverIcon = if (HudForegroundService.iconFieldNum > 0) maneuverVal else 0
                     )
                     val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
 
                     if (counter % 10 == 0) {
                         val enumLabel = if (useGaodeEnum) "GAODE" else "v33"
                         val packLabel = if (s.usePacked) "pk" else "np"
-                        Logger.i(TAG, "tick #$counter rc=$rc m=$maneuverVal($enumLabel) $packLabel d=${s.distanceMeters} road='${s.road}' iconIdx=$statusIconVal lanes=${if (s.testLanes) laneLayout else "-"}")
+                        val iconLabel = if (HudForegroundService.iconFieldNum > 0) " ICON=f${HudForegroundService.iconFieldNum}=$maneuverVal" else ""
+                        Logger.i(TAG, "tick #$counter rc=$rc m=$maneuverVal($enumLabel) $packLabel d=${s.distanceMeters} road='${s.road}' iconIdx=$statusIconVal lanes=${if (s.testLanes) laneLayout else "-"}$iconLabel")
                     }
                 } else if (counter % 30 == 0) {
                     Logger.i(TAG, "tick #$counter (idle)")
