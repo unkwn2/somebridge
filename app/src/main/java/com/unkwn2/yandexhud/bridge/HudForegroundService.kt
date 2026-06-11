@@ -6,7 +6,9 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import com.unkwn2.yandexhud.R
 import com.unkwn2.yandexhud.util.Logger
 
@@ -82,7 +84,12 @@ class HudForegroundService : Service() {
         Logger.i(TAG, "created")
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.getBooleanExtra("RESTART", false) == true) {
+            Logger.i(TAG, "restarted after death")
+        }
+        return START_STICKY
+    }
 
     override fun onDestroy() {
         _loopRunner?.stop()
@@ -94,10 +101,16 @@ class HudForegroundService : Service() {
         instance = null
         stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
-        Logger.i(TAG, "destroyed")
+        Logger.i(TAG, "destroyed — scheduling restart in 2s")
+        Handler(Looper.getMainLooper()).postDelayed({
+            try { startService(Intent(this, HudForegroundService::class.java).putExtra("RESTART", true)) }
+            catch (_: Throwable) {}
+        }, 2000)
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
+        Logger.w(TAG, "task removed — restarting")
+        startService(Intent(this, HudForegroundService::class.java).putExtra("RESTART", true))
         super.onTaskRemoved(rootIntent)
     }
 

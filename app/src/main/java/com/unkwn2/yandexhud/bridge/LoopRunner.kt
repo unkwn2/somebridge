@@ -43,7 +43,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         etaString = etaStr,
                         totalDistMeters = s.totalDistMeters,
                         totalTimeSeconds = s.totalTimeSeconds,
-                        statusIcon = 0,
+                        statusIcon = statusIconVal,
                         speedLimit = s.speedLimit,
                         arriveText = arriveText,
                         testLanes = s.testLanes,
@@ -56,7 +56,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                     if (counter % 10 == 0) {
                         val enumLabel = if (useGaodeEnum) "GAODE" else "v33"
                         val packLabel = if (s.usePacked) "pk" else "np"
-                        Logger.i(TAG, "tick #$counter rc=$rc m=$maneuverVal($enumLabel) $packLabel d=${s.distanceMeters} road='${s.road}' iconPng=${if (s.iconPng != null) s.iconPng.size else 0}B lanes=${if (s.testLanes) laneLayout else "-"}")
+                        Logger.i(TAG, "tick #$counter rc=$rc m=$maneuverVal($enumLabel) $packLabel d=${s.distanceMeters} road='${s.road}' iconIdx=$statusIconVal iconPng=${if (s.iconPng != null) s.iconPng.size else 0}B lanes=${if (s.testLanes) laneLayout else "-"}")
                     }
                 } else if (counter % 30 == 0) {
                     Logger.i(TAG, "tick #$counter (idle)")
@@ -64,7 +64,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                 try { Thread.sleep(periodMs) } catch (_: InterruptedException) { break }
             }
             Logger.i(TAG, "stopped")
-        }.apply { isDaemon = true }.start()
+        }.apply { name = "HudLoop"; priority = Thread.MAX_PRIORITY }.start()
     }
 
     fun stop() { running = false }

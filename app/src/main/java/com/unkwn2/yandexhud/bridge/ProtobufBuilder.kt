@@ -28,7 +28,7 @@ object ProtobufBuilder {
         if (iconPng != null) writeBytesField(inner, 8, iconPng)  // f8  PNG icon
         writeVarintField(inner, 9, distance.toLong())            // f9  distance2Intersection
         writeStringField(inner, 10, road)                         // f10 nextRoadName
-        writeVarintField(inner, 16, 2L)                           // f16 navigatingStatus=2
+        writeVarintField(inner, 16, statusIcon.toLong())           // f16 navigatingStatus = ICON_SIMPLE_NAVI index
         writeStringField(inner, 26, etaString)                    // f26 ETA "HH:MM"
         writeVarintField(inner, 28, maneuver.toLong())            // f28 recommendedDrivingDirectionsId
         if (testLanes && laneLayout.isNotEmpty()) {
