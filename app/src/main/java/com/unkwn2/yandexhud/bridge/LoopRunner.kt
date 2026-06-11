@@ -28,7 +28,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                     val etaStr = String.format("%02d:%02d", etaH, etaM)
 
                     val maneuverVal = if (useGaodeEnum) toGaodeEnum(s.maneuver) else s.maneuver
-                    val statusIconVal = ManeuverMapper.toStatusIcon(s.maneuver)
+                    val statusIconVal = maneuverVal
                     val arriveText = if (maneuverVal == 48) s.arriveText.ifEmpty { "Прибытие" } else ""
 
                     // HudRoadInfoNotifyStruct protobuf — все поля
@@ -48,7 +48,6 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         arriveText = arriveText,
                         testLanes = s.testLanes,
                         usePacked = s.usePacked,
-                        iconPng = s.iconPng,
                         laneLayout = laneLayout
                     )
                     val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
@@ -56,7 +55,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                     if (counter % 10 == 0) {
                         val enumLabel = if (useGaodeEnum) "GAODE" else "v33"
                         val packLabel = if (s.usePacked) "pk" else "np"
-                        Logger.i(TAG, "tick #$counter rc=$rc m=$maneuverVal($enumLabel) $packLabel d=${s.distanceMeters} road='${s.road}' iconIdx=$statusIconVal iconPng=${if (s.iconPng != null) s.iconPng.size else 0}B lanes=${if (s.testLanes) laneLayout else "-"}")
+                        Logger.i(TAG, "tick #$counter rc=$rc m=$maneuverVal($enumLabel) $packLabel d=${s.distanceMeters} road='${s.road}' iconIdx=$statusIconVal lanes=${if (s.testLanes) laneLayout else "-"}")
                     }
                 } else if (counter % 30 == 0) {
                     Logger.i(TAG, "tick #$counter (idle)")
@@ -64,7 +63,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                 try { Thread.sleep(periodMs) } catch (_: InterruptedException) { break }
             }
             Logger.i(TAG, "stopped")
-        }.apply { name = "HudLoop"; priority = Thread.MAX_PRIORITY }.start()
+        }.apply { name = "HudLoop"; isDaemon = false; priority = Thread.MAX_PRIORITY }.start()
     }
 
     fun stop() { running = false }

@@ -19,13 +19,11 @@ object ProtobufBuilder {
         arriveText: String = "",
         testLanes: Boolean = false,
         usePacked: Boolean = true,
-        iconPng: ByteArray? = null,
         laneLayout: String = ""
     ): ByteArray {
         val inner = ByteArrayOutputStream()
 
         // HudRoadInfoNotifyStruct — все поля из таблицы
-        if (iconPng != null) writeBytesField(inner, 8, iconPng)  // f8  PNG icon
         writeVarintField(inner, 9, distance.toLong())            // f9  distance2Intersection
         writeStringField(inner, 10, road)                         // f10 nextRoadName
         writeVarintField(inner, 16, statusIcon.toLong())           // f16 navigatingStatus = ICON_SIMPLE_NAVI index

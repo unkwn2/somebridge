@@ -39,7 +39,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnTogglePacked: Button
     private lateinit var btnHudMode: Button
     private lateinit var btnGrant: Button
-    private lateinit var btnStopAmap: Button
 
     private var yandexOn = false
     private var mockOn = false
@@ -69,7 +68,6 @@ class MainActivity : AppCompatActivity() {
         btnTogglePacked = findViewById(R.id.btnTogglePacked)
         btnHudMode = findViewById(R.id.btnHudMode)
         btnGrant = findViewById(R.id.btnGrant)
-        btnStopAmap = findViewById(R.id.btnStopAmap)
 
         btnYandex.setOnClickListener { toggleYandex() }
         btnMockGps.setOnClickListener { toggleMockGps() }
@@ -82,7 +80,6 @@ class MainActivity : AppCompatActivity() {
         btnTogglePacked.setOnClickListener { togglePacked() }
         btnHudMode.setOnClickListener { tryHudMode() }
         btnGrant.setOnClickListener { grantPermissions() }
-        btnStopAmap.setOnClickListener { stopAmap() }
         findViewById<Button>(R.id.btnSaveLog).setOnClickListener { saveLog() }
         findViewById<Button>(R.id.btnNotifAccess).setOnClickListener {
             try {
@@ -93,8 +90,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
         findViewById<Button>(R.id.btnTestLeft).setOnClickListener { testManeuver(ManeuverMapper.M_LEFT, "LEFT") }
-        findViewById<Button>(R.id.btnTestRight).setOnClickListener { testManeuver(ManeuverMapper.M_RIGHT, "RIGHT") }
-        findViewById<Button>(R.id.btnTestStraight).setOnClickListener { testManeuver(ManeuverMapper.M_STRAIGHT, "STRAIGHT") }
         findViewById<Button>(R.id.btnDumpTree).setOnClickListener {
             YandexA11yService.dumpRequested = true
             toast("Tree dump requested")
@@ -301,12 +296,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun toGaodeDisplay(m: Int): Int = ManeuverMapper.toGaode(m)
-
-    private fun stopAmap() {
-        Logger.i(TAG, "=== STOP AMAP (broadcast) ===")
-        sendBroadcast(Intent("com.byd.amapservice.ACTION_STOP_NAVI"))
-        toast("Sent STOP_NAVI broadcast")
-    }
 
     private fun saveLog() {
         Thread {
