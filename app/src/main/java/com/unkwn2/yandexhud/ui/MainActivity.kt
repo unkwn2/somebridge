@@ -309,7 +309,6 @@ class MainActivity : AppCompatActivity() {
             val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
             val name = "/sdcard/hud_$ts.log"
             val r = LocalAdb.exec("logcat -d -s YandexHUD YA11Y YandexNotif LOOP FGS SIPBR REFPLUG !YNDX > $name")
-            LocalAdb.disconnect()
             if (r.success) {
                 Logger.i(TAG, "SAVE LOG: written to $name (${r.output.take(100)})")
                 runOnUiThread { toast("Log saved: $name") }
@@ -340,7 +339,6 @@ class MainActivity : AppCompatActivity() {
                 Logger.i(TAG, "GRANT $label: success=${r.success} out='${r.output.take(80)}' err='${r.error}'")
                 sb.append("$label:${if (r.success) "OK" else "FAIL"} ")
             }
-            LocalAdb.disconnect()
             val msg = sb.toString().trim()
             runOnUiThread { toast(msg) }
             Logger.i(TAG, "=== GRANT done: $msg ===")

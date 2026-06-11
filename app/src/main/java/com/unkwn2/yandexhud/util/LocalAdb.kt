@@ -48,6 +48,10 @@ object LocalAdb {
     data class Result(val success: Boolean, val output: String = "", val error: String = "")
 
     fun init(ctx: android.content.Context): Boolean {
+        if (socket != null && socket?.isConnected == true) {
+            // keep-alive — already connected
+            return true
+        }
         try {
             loadOrCreateKeys(ctx)
             val s = Socket()
