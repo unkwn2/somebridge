@@ -4,7 +4,6 @@ import android.util.Base64
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
-import java.io.File
 import java.math.BigInteger
 import java.net.InetSocketAddress
 import java.net.Socket
@@ -12,11 +11,10 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
+import java.security.MessageDigest
+import java.security.SecureRandom
 import java.security.Signature
 import java.security.interfaces.RSAPublicKey
-import java.security.spec.PKCS8EncodedKeySpec
-import java.security.spec.X509EncodedKeySpec
-import javax.crypto.Cipher
 
 object LocalAdb {
     private const val TAG = "LADB"
@@ -72,21 +70,35 @@ object LocalAdb {
     }
 
     private fun loadOrCreateKeys(ctx: android.content.Context) {
-        val dir = File(ctx.filesDir, "adb_keys4").apply { mkdirs() }
-        val privFile = File(dir, "private.key")
-        val pubFile = File(dir, "public.key")
-        val kf = KeyFactory.getInstance("RSA")
-        if (privFile.exists() && pubFile.exists()) {
-            privateKey = kf.generatePrivate(PKCS8EncodedKeySpec(privFile.readBytes()))
-            publicKey = kf.generatePublic(X509EncodedKeySpec(pubFile.readBytes())) as RSAPublicKey
-        } else {
-            val kpg = KeyPairGenerator.getInstance("RSA")
+        try {
+            // Derive deterministic key from APK signing certificate — survives reinstall
+            val certBytes = try {
+                @Suppress("DEPRECATION")
+                val info = ctx.packageManager.getPackageInfo(ctx.packageName, android.content.pm.PackageManager.GET_SIGNATURES)
+                info.signatures?.firstOrNull()?.toByteArray() ?: throw Exception("no sig")
+            } catch (_: Throwable) {
+                ByteArray(0)
+            }
+            val seed = if (certBytes.isNotEmpty()) {
+                java.security.MessageDigest.getInstance("SHA-256").digest(certBytes)
+            } else {
+                // fallback — use a constant so all installs share the same key
+                "YandexHUD_fallback_seed_2024".toByteArray()
+            }
+            val rand = java.security.SecureRandom(seed)
+            val kpg = java.security.KeyPairGenerator.getInstance("RSA")
+            kpg.initialize(2048, rand)
+            val kp = kpg.generateKeyPair()
+            privateKey = kp.private
+            publicKey = kp.public as RSAPublicKey
+        } catch (e: Exception) {
+            Logger.e(TAG, "keygen: ${e.message}")
+            // ultimate fallback
+            val kpg = java.security.KeyPairGenerator.getInstance("RSA")
             kpg.initialize(2048)
             val kp = kpg.generateKeyPair()
             privateKey = kp.private
             publicKey = kp.public as RSAPublicKey
-            privFile.writeBytes(kp.private.encoded)
-            pubFile.writeBytes(kp.public.encoded)
         }
     }
 
