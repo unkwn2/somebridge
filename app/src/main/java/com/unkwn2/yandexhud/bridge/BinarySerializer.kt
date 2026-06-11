@@ -72,7 +72,7 @@ object BinarySerializer {
         writeBe16(os, 0)                       // +0x02 be_u16 dist_to_speed_zone → obj+0x82
         writeBe16(os, 0)                       // +0x04 be_u16 length_of_speed_limit → obj+0x84
         os.write(0)                            // +0x06 u8 speed_limit → obj+0x86
-        os.write(statusIcon.coerceIn(0, 255))  // +0x07 u8 navigating_status → obj+0x87 (ЗНАЧОК)
+        os.write(statusIcon.coerceIn(0, 255))  // +0x07 u8 navigating_status → obj+0x87 (2=draw, 1=clear)
         os.write(0)                            // +0x08 u8 camera_ahead_status → obj+0x88
         writeBe16(os, 0)                       // +0x09 be_u16 dist_to_camera → obj+0x8a
         writeBeDouble(os, lon)                 // +0x0b be_f64 longitude → obj+0x90

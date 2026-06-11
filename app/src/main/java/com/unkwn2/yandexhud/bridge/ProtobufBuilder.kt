@@ -27,7 +27,7 @@ object ProtobufBuilder {
         writeBytesField(inner, 8, ByteArray(0))                  // f8  dummy empty (middleware expects field 8 present)
         writeVarintField(inner, 9, distance.toLong())            // f9  distance2Intersection
         writeStringField(inner, 10, road)                         // f10 nextRoadName
-        writeVarintField(inner, 16, statusIcon.toLong())           // f16 navigatingStatus = ICON_SIMPLE_NAVI index
+        writeVarintField(inner, 16, statusIcon.toLong())           // f16 navigatingStatus: 2=draw, 1=clear
         writeStringField(inner, 26, etaString)                    // f26 ETA "HH:MM"
         writeVarintField(inner, 28, maneuver.toLong())            // f28 recommendedDrivingDirectionsId
         if (testLanes && laneLayout.isNotEmpty()) {
