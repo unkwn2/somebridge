@@ -83,6 +83,7 @@ class MainActivity : AppCompatActivity() {
         btnHudMode.setOnClickListener { tryHudMode() }
         btnGrant.setOnClickListener { grantPermissions() }
         btnStopAmap.setOnClickListener { stopAmap() }
+        findViewById<Button>(R.id.btnSaveLog).setOnClickListener { saveLog() }
         findViewById<Button>(R.id.btnNotifAccess).setOnClickListener {
             try {
                 startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
@@ -307,6 +308,29 @@ class MainActivity : AppCompatActivity() {
         toast("Sent STOP_NAVI broadcast")
     }
 
+    private fun saveLog() {
+        Thread {
+            Logger.i(TAG, "=== SAVE LOG: connecting ADB ===")
+            runOnUiThread { toast("Saving logs via ADB...") }
+            val ok = LocalAdb.init(applicationContext)
+            if (!ok) {
+                runOnUiThread { toast("ADB init failed") }
+                return@Thread
+            }
+            val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
+            val name = "/sdcard/hud_$ts.log"
+            val r = LocalAdb.exec("logcat -d -s \"YandexHUD\" \"YA11Y\" \"YandexNotif\" \"LOOP\" \"FGS\" \"SIPBR\" \"someip::refer-plugin\" \"!YNDX\" > $name")
+            LocalAdb.disconnect()
+            if (r.success) {
+                Logger.i(TAG, "SAVE LOG: written to $name (${r.output.take(100)})")
+                runOnUiThread { toast("Log saved: $name") }
+            } else {
+                Logger.e(TAG, "SAVE LOG failed: ${r.error}")
+                runOnUiThread { toast("Log failed: ${r.error}") }
+            }
+        }.apply { isDaemon = true }.start()
+    }
+
     private fun grantPermissions() {
         Thread {
             Logger.i(TAG, "=== GRANT: connecting to local ADB ===")
@@ -320,9 +344,10 @@ class MainActivity : AppCompatActivity() {
             Logger.i(TAG, "GRANT: ADB connected, granting permissions...")
             runOnUiThread { toast("ADB OK, granting...") }
             val results = LocalAdb.grantAll()
+            val labels = arrayOf("NOTIF", "A11Y", "MOCK", "NAVI_SET", "BG_RUN", "BATTRY")
             val sb = StringBuilder()
             for ((i, r) in results.withIndex()) {
-                val label = arrayOf("NOTIF", "A11Y", "MOCK")[i]
+                val label = labels.getOrElse(i) { "CMD#$i" }
                 Logger.i(TAG, "GRANT $label: success=${r.success} out='${r.output.take(80)}' err='${r.error}'")
                 sb.append("$label:${if (r.success) "OK" else "FAIL"} ")
             }

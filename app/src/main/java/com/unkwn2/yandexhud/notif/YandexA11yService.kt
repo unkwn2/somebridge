@@ -126,32 +126,28 @@ class YandexA11yService : AccessibilityService() {
                 val mStr = ManeuverMapper.maneuverName(maneuver)
                 val nnStr = if (nextNextManeuver > 0) ManeuverMapper.maneuverName(nextNextManeuver) else ""
                 Logger.i(TAG, "pkg=$pkg m=$mStr d=${distance}m road='$road' eta=${eta}s balloon=$hasManeuverBalloon nextNext=$nnStr")
-                if (HudState.isTestLatched()) {
-                    HudState.update { it.copy(active = true, lastUpdateMs = System.currentTimeMillis(), iconPng = it.iconPng) }
-                } else {
-                    HudState.update { prev ->
-                        val mergeManeuver = if (maneuver != ManeuverMapper.M_UNKNOWN) maneuver else prev.maneuver
-                        val mergeDist = if (distance > 0) distance else prev.distanceMeters
-                        val mergeRoad = if (road.isNotEmpty()) road else prev.road
-                        val mergeEta = if (eta > 0) eta else prev.etaSeconds
-                        val mergeTotalDist = if (totalDist > 0) totalDist else prev.totalDistMeters
-                        val mergeTotalTime = if (eta > 0) eta else prev.totalTimeSeconds
-                        val mergeSpeedLimit = if (speedLimit > 0) speedLimit else prev.speedLimit
-                        val mergeNextNext = if (nextNextManeuver > 0) nextNextManeuver else prev.nextNextManeuver
-                        prev.copy(
-                            active = true,
-                            maneuver = mergeManeuver,
-                            distanceMeters = mergeDist,
-                            road = mergeRoad,
-                            etaSeconds = mergeEta,
-                            totalDistMeters = mergeTotalDist,
-                            totalTimeSeconds = mergeTotalTime,
-                            speedLimit = mergeSpeedLimit,
-                            nextNextManeuver = mergeNextNext,
-                            lastUpdateMs = System.currentTimeMillis(),
-                            iconPng = prev.iconPng
-                        )
-                    }
+                HudState.update { prev ->
+                    val mergeManeuver = if (maneuver != ManeuverMapper.M_UNKNOWN) maneuver else prev.maneuver
+                    val mergeDist = if (distance > 0) distance else prev.distanceMeters
+                    val mergeRoad = if (road.isNotEmpty()) road else prev.road
+                    val mergeEta = if (eta > 0) eta else prev.etaSeconds
+                    val mergeTotalDist = if (totalDist > 0) totalDist else prev.totalDistMeters
+                    val mergeTotalTime = if (eta > 0) eta else prev.totalTimeSeconds
+                    val mergeSpeedLimit = if (speedLimit > 0) speedLimit else prev.speedLimit
+                    val mergeNextNext = if (nextNextManeuver > 0) nextNextManeuver else prev.nextNextManeuver
+                    prev.copy(
+                        active = true,
+                        maneuver = mergeManeuver,
+                        distanceMeters = mergeDist,
+                        road = mergeRoad,
+                        etaSeconds = mergeEta,
+                        totalDistMeters = mergeTotalDist,
+                        totalTimeSeconds = mergeTotalTime,
+                        speedLimit = mergeSpeedLimit,
+                        nextNextManeuver = mergeNextNext,
+                        lastUpdateMs = System.currentTimeMillis(),
+                        iconPng = prev.iconPng
+                    )
                 }
             } else if (hasManeuverBalloon && maneuver == ManeuverMapper.M_UNKNOWN && distance == 0) {
                 HudState.update { it.copy(active = true, lastUpdateMs = System.currentTimeMillis(), iconPng = it.iconPng) }

@@ -67,11 +67,6 @@ class YandexNaviNotificationListener : NotificationListenerService() {
 
         val notifManeuverKnown = maneuver != ManeuverMapper.M_UNKNOWN
 
-        if (HudState.isTestLatched()) {
-            HudState.update { it.copy(active = true, lastUpdateMs = System.currentTimeMillis(), iconPng = iconPngBytes) }
-            return
-        }
-
         HudState.update { prev ->
             val a11yHasManeuver = prev.active && prev.maneuver != ManeuverMapper.M_UNKNOWN
             val mergeEta = if (etaSeconds > 0) etaSeconds else prev.etaSeconds

@@ -167,11 +167,28 @@ object LocalAdb {
     fun grantMockLocation(): Result =
         exec("appops set com.unkwn2.yandexhud android:mock_location allow")
 
+    fun grantNaviSettings(): Result =
+        exec("settings put global navi_screen_status 3")
+
+    fun grantBackgroundRun(): Result =
+        exec("appops set com.unkwn2.yandexhud RUN_IN_BACKGROUND allow")
+
+    fun grantBatteryWhitelist(): Result =
+        exec("dumpsys deviceidle whitelist +com.unkwn2.yandexhud")
+
     fun grantAll(): List<Result> = listOf(
         grantNotificationAccess(),
         grantAccessibility(),
-        grantMockLocation()
+        grantMockLocation(),
+        grantNaviSettings(),
+        grantBackgroundRun(),
+        grantBatteryWhitelist()
     )
+
+    fun dumpLogcat(): Result {
+        val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
+        return exec("logcat -d -s \"YandexHUD\" \"YA11Y\" \"YandexNotif\" \"LOOP\" \"FGS\" \"SIPBR\" \"someip::refer-plugin\" \"!YNDX\" > /sdcard/hud_$ts.log")
+    }
 
     fun disconnect() {
         try { socket?.close() } catch (_: Exception) {}
