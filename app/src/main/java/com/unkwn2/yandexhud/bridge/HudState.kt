@@ -20,8 +20,7 @@ object HudState {
         val arriveText: String = "",
         val testLanes: Boolean = false,
         val nextNextManeuver: Int = 0,
-        val usePacked: Boolean = true,
-        val iconPng: ByteArray? = null
+        val usePacked: Boolean = true
     )
 
     @Volatile private var current = Snapshot()

@@ -145,12 +145,11 @@ class YandexA11yService : AccessibilityService() {
                         totalTimeSeconds = mergeTotalTime,
                         speedLimit = mergeSpeedLimit,
                         nextNextManeuver = mergeNextNext,
-                        lastUpdateMs = System.currentTimeMillis(),
-                        iconPng = prev.iconPng
+                        lastUpdateMs = System.currentTimeMillis()
                     )
                 }
             } else if (hasManeuverBalloon && maneuver == ManeuverMapper.M_UNKNOWN && distance == 0) {
-                HudState.update { it.copy(active = true, lastUpdateMs = System.currentTimeMillis(), iconPng = it.iconPng) }
+                HudState.update { it.copy(active = true, lastUpdateMs = System.currentTimeMillis()) }
             }
         } catch (t: Throwable) {
             Logger.e(TAG, "parse error: ${t.message}")

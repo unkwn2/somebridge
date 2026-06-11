@@ -194,18 +194,4 @@ object ManeuverMapper {
         M_FERRY -> 46; M_TUNNEL -> 49; M_TOLL -> 47
         else -> 0
     }
-
-    /** f11 navigating_status = Amap icon index (0x‑prefixed PNG index in ICON_SIMPLE_NAVI) */
-    fun toStatusIcon(m: Int): Int = when (m) {
-        M_LEFT -> 1; M_RIGHT -> 2
-        M_SLIGHT_LEFT, M_FORK_LEFT -> 3
-        M_SLIGHT_RIGHT, M_FORK_RIGHT -> 4
-        M_HARD_LEFT, M_EXIT_LEFT -> 5
-        M_HARD_RIGHT, M_EXIT_RIGHT -> 6
-        M_UTURN_LEFT -> 7; M_UTURN_RIGHT -> 8
-        M_STRAIGHT -> 9
-        M_ROUNDABOUT_ENTER -> 11; M_ROUNDABOUT_EXIT -> 13
-        M_ARRIVE -> 46; M_TUNNEL -> 47; M_TOLL -> 45
-        else -> 0
-    }
 }

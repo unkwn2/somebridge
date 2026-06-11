@@ -28,7 +28,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                     val etaStr = String.format("%02d:%02d", etaH, etaM)
 
                     val maneuverVal = if (useGaodeEnum) toGaodeEnum(s.maneuver) else s.maneuver
-                    val statusIconVal = maneuverVal
+                    val statusIconVal = toGaodeEnum(s.maneuver)
                     val arriveText = if (maneuverVal == 48) s.arriveText.ifEmpty { "Прибытие" } else ""
 
                     // HudRoadInfoNotifyStruct protobuf — все поля

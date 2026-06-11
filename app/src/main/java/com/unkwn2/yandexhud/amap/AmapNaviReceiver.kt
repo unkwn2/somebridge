@@ -59,8 +59,7 @@ class AmapNaviReceiver : BroadcastReceiver() {
                 totalDistMeters = if (routeDist > 0) routeDist else prev.totalDistMeters,
                 totalTimeSeconds = if (routeTime > 0) routeTime else prev.totalTimeSeconds,
                 nextNextManeuver = if (nextInternal > 0) nextInternal else prev.nextNextManeuver,
-                lastUpdateMs = System.currentTimeMillis(),
-                iconPng = prev.iconPng
+                lastUpdateMs = System.currentTimeMillis()
             )
         }
     }
