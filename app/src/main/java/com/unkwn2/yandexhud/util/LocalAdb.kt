@@ -187,7 +187,7 @@ object LocalAdb {
 
     fun dumpLogcat(): Result {
         val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
-        return exec("logcat -d -s \"YandexHUD\" \"YA11Y\" \"YandexNotif\" \"LOOP\" \"FGS\" \"SIPBR\" \"someip::refer-plugin\" \"!YNDX\" > /sdcard/hud_$ts.log")
+        return exec("logcat -d -s YandexHUD YA11Y YandexNotif LOOP FGS SIPBR REFPLUG !YNDX > /sdcard/hud_$ts.log")
     }
 
     fun disconnect() {
