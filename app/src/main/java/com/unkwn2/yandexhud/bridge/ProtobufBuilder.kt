@@ -21,12 +21,14 @@ object ProtobufBuilder {
         usePacked: Boolean = true,
         laneLayout: String = "",
         iconFieldNum: Int = 0,
-        maneuverIcon: Int = 0
+        maneuverIcon: Int = 0,
+        iconPng: ByteArray? = null          // f8 PNG иконки манёвра (экспериментально)
     ): ByteArray {
         val inner = ByteArrayOutputStream()
 
         // HudRoadInfoNotifyStruct — все поля из таблицы
         writeVarintField(inner, 2, counter.toLong())              // f2  counter (живость кадра)
+        if (iconPng != null) writeBytesField(inner, 8, iconPng)  // f8  PNG иконки (если есть)
         writeVarintField(inner, 9, distance.toLong())            // f9  distance2Intersection
         writeStringField(inner, 10, road)                         // f10 nextRoadName
         writeVarintField(inner, 16, statusIcon.toLong())           // f16 navigatingStatus: 2=draw, 1=clear

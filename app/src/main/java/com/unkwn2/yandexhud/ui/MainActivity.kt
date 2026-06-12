@@ -40,6 +40,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnHudMode: Button
     private lateinit var btnGrant: Button
     private lateinit var btnIconScan: Button
+    private lateinit var btnPngIcon: Button
 
     private var yandexOn = false
     private var mockOn = false
@@ -70,6 +71,7 @@ class MainActivity : AppCompatActivity() {
         btnHudMode = findViewById(R.id.btnHudMode)
         btnGrant = findViewById(R.id.btnGrant)
         btnIconScan = findViewById(R.id.btnIconScan)
+        btnPngIcon = findViewById(R.id.btnPngIcon)
 
         btnYandex.setOnClickListener { toggleYandex() }
         btnMockGps.setOnClickListener { toggleMockGps() }
@@ -83,6 +85,7 @@ class MainActivity : AppCompatActivity() {
         btnHudMode.setOnClickListener { tryHudMode() }
         btnGrant.setOnClickListener { grantPermissions() }
         btnIconScan.setOnClickListener { cycleIconField() }
+        btnPngIcon.setOnClickListener { cyclePngIcon() }
         findViewById<Button>(R.id.btnSaveLog).setOnClickListener { saveLog() }
         findViewById<Button>(R.id.btnNotifAccess).setOnClickListener {
             try {
@@ -304,13 +307,21 @@ class MainActivity : AppCompatActivity() {
 
     private fun cycleIconField() {
         val candidates = HudForegroundService.ICON_CANDIDATES
-        iconScanIdx = (iconScanIdx + 1) % (candidates.size + 1)  // +1 for OFF at position candidates.size
+        iconScanIdx = (iconScanIdx + 1) % (candidates.size + 1)
         val fieldNum = if (iconScanIdx < candidates.size) candidates[iconScanIdx] else 0
         HudForegroundService.iconFieldNum = fieldNum
         val label = if (fieldNum > 0) "ICON: f$fieldNum" else "ICON: OFF"
         runOnUiThread { btnIconScan.text = label }
         Logger.i("TEST", "iconFieldNum=$fieldNum (${if (fieldNum > 0) "scanning f$fieldNum" else "OFF"})")
         toast("Small arrow field: ${if (fieldNum > 0) "f$fieldNum" else "OFF"}")
+    }
+
+    private fun cyclePngIcon() {
+        HudForegroundService.sendPngIcon = !HudForegroundService.sendPngIcon
+        val label = if (HudForegroundService.sendPngIcon) "PNG: ON" else "PNG: OFF"
+        runOnUiThread { btnPngIcon.text = label }
+        Logger.i("TEST", "sendPngIcon=${HudForegroundService.sendPngIcon}")
+        toast("f8 PNG: ${if (HudForegroundService.sendPngIcon) "ON" else "OFF"}")
     }
 
     private fun saveLog() {

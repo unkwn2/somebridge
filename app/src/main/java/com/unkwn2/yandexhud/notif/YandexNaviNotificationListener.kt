@@ -11,6 +11,9 @@ class YandexNaviNotificationListener : NotificationListenerService() {
     companion object {
         private const val TAG = "YandexNotif"
         private const val REMOVE_DEBOUNCE_MS = 3000L
+
+        // RemoteViews probe: true = дамп полей в лог (выключить после первой поездки)
+        private const val PROBE_RV = true
         val YANDEX_PKGS = setOf(
             "ru.yandex.yandexnavi", "ru.yandex.yandexnavi.inhouse", "ru.yandex.yandexnavi.rustore",
             "ru.yandex.yandexmaps", "ru.yandex.yandexmaps.beta", "ru.yandex.yandexmaps.inhouse", "ru.yandex.yandexmaps.rustore"
@@ -37,6 +40,37 @@ class YandexNaviNotificationListener : NotificationListenerService() {
         val n = sbn.notification
         val ext = n.extras ?: return
 
+        // RemoteViews — приоритетный источник (структурированные данные)
+        val rv = try {
+            RemoteViewsParser.parse(applicationContext, n, PROBE_RV)
+        } catch (t: Throwable) {
+            Logger.w(TAG, "rv parse error: ${t.message}")
+            null
+        }
+
+        if (rv != null) {
+            val maneuver = ManeuverMapper.fromRussianText(rv.instruction)
+            val etaSeconds = if (rv.remainingTimeSec > 0) rv.remainingTimeSec
+                else parseEtaSeconds(ext.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: "")
+            Logger.i(TAG, "posted rv m=$maneuver(${ManeuverMapper.maneuverName(maneuver)}) d=${rv.distToManeuverM}m road='${rv.road}' eta=${etaSeconds}s png=${if (rv.maneuverPng != null) "${rv.maneuverPng.size}B" else "none"}")
+            removePostedMs = 0L
+            HudState.update { prev ->
+                prev.copy(
+                    active = true,
+                    maneuver = if (maneuver != ManeuverMapper.M_UNKNOWN) maneuver else prev.maneuver,
+                    distanceMeters = if (rv.distToManeuverM > 0) rv.distToManeuverM else prev.distanceMeters,
+                    road = if (rv.road.isNotEmpty()) rv.road else prev.road,
+                    etaSeconds = if (etaSeconds > 0) etaSeconds else prev.etaSeconds,
+                    totalDistMeters = if (rv.totalDistM > 0) rv.totalDistM else prev.totalDistMeters,
+                    totalTimeSeconds = if (etaSeconds > 0) etaSeconds else prev.totalTimeSeconds,
+                    iconPng = rv.maneuverPng,
+                    lastUpdateMs = System.currentTimeMillis()
+                )
+            }
+            return
+        }
+
+        // Fallback: старые эвристики (extras)
         val title = ext.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
         val text = ext.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
         val subText = ext.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: ""
@@ -54,7 +88,7 @@ class YandexNaviNotificationListener : NotificationListenerService() {
         val road = extractRoad(title, text)
         val etaSeconds = parseEtaSeconds(subText)
 
-        Logger.i(TAG, "posted icon=$smallIconName m=$maneuver(${ManeuverMapper.maneuverName(maneuver)}) d=${distanceMeters}m road='$road' eta=${etaSeconds}s maps=$isMaps")
+        Logger.i(TAG, "posted fallback icon=$smallIconName m=$maneuver(${ManeuverMapper.maneuverName(maneuver)}) d=${distanceMeters}m road='$road' eta=${etaSeconds}s maps=$isMaps")
 
         removePostedMs = 0L
 

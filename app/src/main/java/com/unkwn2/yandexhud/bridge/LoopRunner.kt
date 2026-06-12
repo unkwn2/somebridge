@@ -50,7 +50,8 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         usePacked = s.usePacked,
                         laneLayout = laneLayout,
                         iconFieldNum = HudForegroundService.iconFieldNum,
-                        maneuverIcon = if (HudForegroundService.iconFieldNum > 0) maneuverVal else 0
+                        maneuverIcon = if (HudForegroundService.iconFieldNum > 0) maneuverVal else 0,
+                        iconPng = if (HudForegroundService.sendPngIcon) s.iconPng else null
                     )
                     val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
 
