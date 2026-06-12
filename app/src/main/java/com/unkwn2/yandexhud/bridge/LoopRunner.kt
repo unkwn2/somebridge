@@ -10,7 +10,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
     @Volatile var maneuverTagIdx: Int = 0
     @Volatile var useGaodeEnum: Boolean = true
 
-    fun start(periodMs: Long = 1000L) {
+    fun start(periodMs: Long = 300L) {
         if (running) return
         running = true
         counter = 0
@@ -54,13 +54,13 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                     )
                     val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
 
-                    if (counter % 10 == 0) {
+                    if (counter % 30 == 0) {
                         val enumLabel = if (useGaodeEnum) "GAODE" else "v33"
                         val packLabel = if (s.usePacked) "pk" else "np"
                         val iconLabel = if (HudForegroundService.iconFieldNum > 0) " ICON=f${HudForegroundService.iconFieldNum}=$maneuverVal" else ""
                         Logger.i(TAG, "tick #$counter rc=$rc m=$maneuverVal($enumLabel) $packLabel d=${s.distanceMeters} road='${s.road}' iconIdx=$statusIconVal lanes=${if (s.testLanes) laneLayout else "-"}$iconLabel")
                     }
-                } else if (counter % 30 == 0) {
+                } else if (counter % 100 == 0) {
                     Logger.i(TAG, "tick #$counter (idle)")
                 }
                 try { Thread.sleep(periodMs) } catch (_: InterruptedException) { break }

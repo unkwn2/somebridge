@@ -98,7 +98,7 @@ class HudForegroundService : Service() {
     override fun onDestroy() {
         _loopRunner?.stop()
         _loopRunner = null
-        _bridge?.stopService(SomeIpBridge.TOPIC_NAVI)
+        _bridge?.stopService(SomeIpBridge.SERVICE_ID_NAVI)
         _bridge?.unbind()
         _bridge = null
         _bound = false
