@@ -24,7 +24,10 @@ data class RvNaviInfo(
     val totalDistM: Int = 0,
     val arrivalTime: String = "",
     val remainingTimeSec: Int = 0,
-    val maneuverPng: ByteArray? = null
+    val maneuverPng: ByteArray? = null,
+    val trafficLightColor: String = "",  // "red", "green", "yellow", или ""
+    val trafficLightSeconds: Int = 0,
+    val cameraAlert: String = ""         // "camera", "accident", "roadworks", "other", или ""
 )
 
 object RemoteViewsParser {
@@ -43,10 +46,9 @@ object RemoteViewsParser {
     private const val F_ARRIVAL = "timeofarrivalview"
     private const val F_REMAINING = "remainingtimeview"
 
-    // Имена картинок-стрелок (квадратные 48x48)
+    // Имена картинок-стрелок (квадратные 48x48) — точное совпадение с resource entry name
     private val MANEUVER_ICON_NAMES = setOf(
-        "primaryicontinted", "primaryicon",
-        "nextmaneuverviewtinted", "nextmaneuverview"
+        "primaryicontinted", "nextmaneuverviewtinted", "nextmaneuverview"
     )
     // Картинки, которые НИКОГДА не должны попасть в f8
     private val IMAGE_BLOCKLIST = listOf(
@@ -149,7 +151,6 @@ object RemoteViewsParser {
             if (isMaps) {
                 instruction = descVal
             } else {
-                // Навигатор: если descVal — манёвр ("Направо"), то instruction, иначе road
                 val m = ManeuverMapper.fromRussianText(descVal)
                 if (m != ManeuverMapper.M_UNKNOWN) instruction = descVal else road = descVal
             }
@@ -160,7 +161,19 @@ object RemoteViewsParser {
         var arrival = arrivalByName ?: ""
         var remaining = remainingByName ?: 0
 
-        // --- 2. Fallback по эвристике (свёрнутые уведомления без resource id) ---
+        // --- 2. Светофоры ---
+        val trafficLightImgs = images.filter { "traffic_light" in it.name }
+        val trafficLightColor = trafficLightImgs.firstNotNullOfOrNull { detectDominantColor(it.drawable) }
+        val trafficLightSeconds = texts.firstOrNull { "traffic_light" in it.name }
+            ?.value?.filter { it.isDigit() }?.toIntOrNull() ?: 0
+
+        // --- 3. Камера (primaryicon — без tinted) ---
+        val cameraAlert = when {
+            images.any { it.name == "primaryicon" } -> "camera"
+            else -> ""
+        }
+
+        // --- 4. Fallback по эвристике (свёрнутые уведомления без resource id) ---
         if (distManeuver == 0 || distTotal == 0 || arrival.isEmpty() || remaining == 0 || (road.isEmpty() && instruction.isEmpty())) {
             val values = texts.map { it.value }
             val dists = values.mapNotNull { parseDistance(it) }
@@ -190,8 +203,8 @@ object RemoteViewsParser {
         if (ACTION_BUTTON_TEXTS.any { it in road.lowercase() } ||
             road == "Навигатор запущен") road = ""
 
-        // --- 3. Картинка строго по имени, иначе самая квадратная (без блок-листа) ---
-        val byIconName = images.firstOrNull { im -> MANEUVER_ICON_NAMES.any { it in im.name } }
+        // --- 5. Картинка строго по имени (точное совпадение), иначе самая квадратная (без блок-листа) ---
+        val byIconName = images.firstOrNull { im -> MANEUVER_ICON_NAMES.contains(im.name) }
         val pngDrawable = byIconName?.drawable ?: images
             .filter { im -> IMAGE_BLOCKLIST.none { it in im.name } }
             .minByOrNull { im ->
@@ -200,7 +213,39 @@ object RemoteViewsParser {
                 else kotlin.math.abs(w.toDouble() / h.toDouble() - 1.0)
             }?.drawable
 
-        return RvNaviInfo(instruction, road, distManeuver, distTotal, arrival, remaining, pngDrawable?.let { toPng(it) })
+        return RvNaviInfo(
+            instruction, road, distManeuver, distTotal, arrival, remaining,
+            pngDrawable?.let { toPng(it) },
+            trafficLightColor, trafficLightSeconds, cameraAlert
+        )
+    }
+
+    // Определяем доминирующий цвет маленькой иконки (traffic light dot 24x24)
+    private fun detectDominantColor(d: Drawable): String? {
+        val bmp = if (d is BitmapDrawable) d.bitmap else return null
+        val w = bmp.width; val h = bmp.height
+        if (w < 4 || h < 4) return null
+        val pixels = IntArray(w * h).also { bmp.getPixels(it, 0, w, 0, 0, w, h) }
+        var r = 0L; var g = 0L; var b = 0L; var count = 0L
+        for (y in 0 until h) {
+            for (x in 0 until w) {
+                val p = pixels[y * w + x]
+                if ((p ushr 24) and 0xff > 128) {
+                    r += (p ushr 16) and 0xff
+                    g += (p ushr 8) and 0xff
+                    b += p and 0xff
+                    count++
+                }
+            }
+        }
+        if (count < 3) return null
+        r /= count; g /= count; b /= count
+        return when {
+            r > 180 && g < 120 && b < 120 -> "red"
+            g > 150 && b < 130 -> "green"
+            r > 180 && g > 150 && b < 100 -> "yellow"
+            else -> null
+        }
     }
 
     private fun parseDistance(s: String): Int? {

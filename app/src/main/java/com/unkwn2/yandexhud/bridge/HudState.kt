@@ -21,7 +21,10 @@ object HudState {
         val testLanes: Boolean = false,
         val nextNextManeuver: Int = 0,
         val usePacked: Boolean = true,
-        val iconPng: ByteArray? = null      // PNG иконки манёвра из RemoteViews → f8
+        val iconPng: ByteArray? = null,      // PNG иконки манёвра из RemoteViews → f8
+        val trafficLightColor: String = "",   // "red"/"green"/"yellow" из RemoteViews
+        val trafficLightSeconds: Int = 0,     // секунды до смены светофора
+        val cameraAlert: String = ""          // "camera"/"accident"/"roadworks"/"other"
     )
 
     @Volatile private var current = Snapshot()

@@ -25,6 +25,7 @@ class YandexA11yService : AccessibilityService() {
         private val VID_MANEUVER_DIST = "text_maneuverballoon_distance"
         private val VID_MANEUVER_UNIT = "text_maneuverballoon_metrics"
         private val VID_NEXTSTREET = "text_nextstreet"
+        private val VID_ROADSIGN = "roadsign_container"
         private val VID_ETA_DIST = "textview_eta_distance"
         private val VID_ETA_TIME = "textview_eta_time"
         private val VID_SPEEDLIMIT = "text_speedlimit"
@@ -236,6 +237,9 @@ class YandexA11yService : AccessibilityService() {
     private fun resolveRoad(byVid: Map<String, NodeData>): String {
         val streetNode = byVid[VID_NEXTSTREET]
         if (streetNode != null && streetNode.text.isNotEmpty()) return streetNode.text
+
+        val roadSignNode = byVid[VID_ROADSIGN]
+        if (roadSignNode != null && roadSignNode.text.isNotEmpty()) return roadSignNode.text
 
         for ((vid, n) in byVid) {
             if (vid.startsWith("text_") && n.text.isNotEmpty()) {

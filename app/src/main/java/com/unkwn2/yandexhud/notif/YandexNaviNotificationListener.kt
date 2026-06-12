@@ -63,7 +63,7 @@ class YandexNaviNotificationListener : NotificationListenerService() {
                 ?: maneuverFromBitmap ?: ManeuverMapper.M_UNKNOWN
             val etaSeconds = if (rv.remainingTimeSec > 0) rv.remainingTimeSec
                 else parseEtaSeconds(ext.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: "")
-            Logger.i(TAG, "posted rv m=$maneuver(${ManeuverMapper.maneuverName(maneuver)}) txt=$maneuverFromText bmp=$maneuverFromBitmap d=${rv.distToManeuverM}m road='${rv.road}' eta=${etaSeconds}s png=${if (rv.maneuverPng != null) "${rv.maneuverPng.size}B" else "none"}")
+            Logger.i(TAG, "posted rv m=$maneuver(${ManeuverMapper.maneuverName(maneuver)}) txt=$maneuverFromText bmp=$maneuverFromBitmap d=${rv.distToManeuverM}m road='${rv.road}' eta=${etaSeconds}s tl=${rv.trafficLightColor}${if (rv.trafficLightSeconds > 0) " ${rv.trafficLightSeconds}s" else ""} cam='${rv.cameraAlert}' png=${if (rv.maneuverPng != null) "${rv.maneuverPng.size}B" else "none"}")
             removePostedMs = 0L
             HudState.update { prev ->
                 prev.copy(
@@ -75,6 +75,9 @@ class YandexNaviNotificationListener : NotificationListenerService() {
                     totalDistMeters = if (rv.totalDistM > 0) rv.totalDistM else prev.totalDistMeters,
                     totalTimeSeconds = if (etaSeconds > 0) etaSeconds else prev.totalTimeSeconds,
                     iconPng = rv.maneuverPng,
+                    trafficLightColor = if (rv.trafficLightColor.isNotEmpty()) rv.trafficLightColor else prev.trafficLightColor,
+                    trafficLightSeconds = if (rv.trafficLightSeconds > 0) rv.trafficLightSeconds else prev.trafficLightSeconds,
+                    cameraAlert = if (rv.cameraAlert.isNotEmpty()) rv.cameraAlert else prev.cameraAlert,
                     lastUpdateMs = System.currentTimeMillis()
                 )
             }
