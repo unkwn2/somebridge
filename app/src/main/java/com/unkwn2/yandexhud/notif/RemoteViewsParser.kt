@@ -40,35 +40,35 @@ object RemoteViewsParser {
         val rv = n.bigContentView ?: n.contentView ?: n.headsUpContentView
             ?: run { Logger.w(TAG, "no RemoteViews"); return null }
 
-        var result: RvNaviInfo? = null
-        var error: String? = null
-        val lock = Object()
-
-        Handler(Looper.getMainLooper()).post {
-            try {
-                val parent = FrameLayout(ctx)
-                rv.apply(ctx, parent)
-                val texts = mutableListOf<Pair<Int, String>>()
-                val images = mutableListOf<Pair<Int, Drawable>>()
-                walk(parent, texts, images)
-
-                if (probe) dump(ctx, pkg, texts, images)
-
-                result = classify(texts, images)
-            } catch (t: Throwable) {
-                error = t.message
-                Logger.w(TAG, "parse error: ${t.message}")
-            } finally {
+        return if (Looper.myLooper() == Looper.getMainLooper()) {
+            // Уже на main-потоке (колбэк листенера) — работаем напрямую
+            parseOnMain(ctx, rv, pkg, probe)
+        } else {
+            // Фон — переключаемся на main
+            var result: RvNaviInfo? = null
+            val lock = Object()
+            Handler(Looper.getMainLooper()).post {
+                result = parseOnMain(ctx, rv, pkg, probe)
                 synchronized(lock) { lock.notifyAll() }
             }
+            synchronized(lock) {
+                try { lock.wait(TIMEOUT_MS) } catch (_: InterruptedException) {}
+            }
+            result
         }
+    }
 
-        synchronized(lock) {
-            try { lock.wait(TIMEOUT_MS) } catch (_: InterruptedException) {}
-        }
-
-        if (error != null) Logger.w(TAG, "failed: $error")
-        return result
+    private fun parseOnMain(ctx: Context, rv: RemoteViews, pkg: String, probe: Boolean): RvNaviInfo? = try {
+        val parent = FrameLayout(ctx)
+        val view = rv.apply(ctx, parent)  // ← инфлейтнутое дерево, а НЕ parent
+        val texts = mutableListOf<Pair<Int, String>>()
+        val images = mutableListOf<Pair<Int, Drawable>>()
+        walk(view, texts, images)
+        if (probe) dump(ctx, pkg, texts, images)
+        classify(texts, images)
+    } catch (t: Throwable) {
+        Logger.w(TAG, "parse error: ${t.message}")
+        null
     }
 
     private fun walk(v: View, texts: MutableList<Pair<Int, String>>, images: MutableList<Pair<Int, Drawable>>) {
