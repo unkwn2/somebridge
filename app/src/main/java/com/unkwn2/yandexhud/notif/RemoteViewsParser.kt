@@ -47,9 +47,6 @@ object RemoteViewsParser {
     private const val F_REMAINING = "remainingtimeview"
 
     // Имена картинок-стрелок (квадратные 48x48) — точное совпадение с resource entry name
-    private val MANEUVER_ICON_NAMES = setOf(
-        "primaryicontinted", "nextmaneuverviewtinted", "nextmaneuverview"
-    )
     // Картинки, которые НИКОГДА не должны попасть в f8
     private val IMAGE_BLOCKLIST = listOf(
         "traffic_light", "etaprogress", "progress", "action", "eta", "dots"
@@ -203,8 +200,9 @@ object RemoteViewsParser {
         if (ACTION_BUTTON_TEXTS.any { it in road.lowercase() } ||
             road == "Навигатор запущен") road = ""
 
-        // --- 5. Картинка строго по имени (точное совпадение), иначе самая квадратная (без блок-листа) ---
-        val byIconName = images.firstOrNull { im -> MANEUVER_ICON_NAMES.contains(im.name) }
+        // --- 5. Картинка: primaryIconTinted приоритет, потом nextManeuver, потом самая квадратная ---
+        val byIconName = images.firstOrNull { it.name == "primaryicontinted" }
+            ?: images.firstOrNull { "nextmaneuver" in it.name }
         val pngDrawable = byIconName?.drawable ?: images
             .filter { im -> IMAGE_BLOCKLIST.none { it in im.name } }
             .minByOrNull { im ->
@@ -242,8 +240,8 @@ object RemoteViewsParser {
         r /= count; g /= count; b /= count
         return when {
             r > 180 && g < 120 && b < 120 -> "red"
-            g > 150 && b < 130 -> "green"
             r > 180 && g > 150 && b < 100 -> "yellow"
+            g > 150 && r < 130 && b < 130 -> "green"
             else -> null
         }
     }
