@@ -2,8 +2,10 @@ package com.unkwn2.yandexhud.notif
 
 import android.app.Notification
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import com.unkwn2.yandexhud.bridge.HudForegroundService
 import com.unkwn2.yandexhud.bridge.HudState
 import com.unkwn2.yandexhud.util.Logger
 
@@ -12,8 +14,8 @@ class YandexNaviNotificationListener : NotificationListenerService() {
         private const val TAG = "YandexNotif"
         private const val REMOVE_DEBOUNCE_MS = 3000L
 
-        // RemoteViews probe: true = дамп полей в лог (выключить после первой поездки)
-        private const val PROBE_RV = true
+        // RemoteViews probe: toggle через HudForegroundService.probeRv (кнопка RV DUMP)
+        private val PROBE_RV get() = HudForegroundService.probeRv
         val YANDEX_PKGS = setOf(
             "ru.yandex.yandexnavi", "ru.yandex.yandexnavi.inhouse", "ru.yandex.yandexnavi.rustore",
             "ru.yandex.yandexmaps", "ru.yandex.yandexmaps.beta", "ru.yandex.yandexmaps.inhouse", "ru.yandex.yandexmaps.rustore"
@@ -49,10 +51,19 @@ class YandexNaviNotificationListener : NotificationListenerService() {
         }
 
         if (rv != null) {
-            val maneuver = ManeuverMapper.fromRussianText(rv.instruction)
+            // Манёвр: сначала из текста (если descriptionView = "Направо"), потом из bitmap иконки
+            val maneuverFromText = ManeuverMapper.fromRussianText(rv.instruction)
+            val maneuverFromBitmap = if (rv.maneuverPng != null && maneuverFromText == ManeuverMapper.M_UNKNOWN) {
+                try {
+                    val bmp = BitmapFactory.decodeByteArray(rv.maneuverPng, 0, rv.maneuverPng.size)
+                    if (bmp != null) detectManeuverFromBitmap(bmp) else null
+                } catch (_: Throwable) { null }
+            } else null
+            val maneuver = maneuverFromText.takeIf { it != ManeuverMapper.M_UNKNOWN }
+                ?: maneuverFromBitmap ?: ManeuverMapper.M_UNKNOWN
             val etaSeconds = if (rv.remainingTimeSec > 0) rv.remainingTimeSec
                 else parseEtaSeconds(ext.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: "")
-            Logger.i(TAG, "posted rv m=$maneuver(${ManeuverMapper.maneuverName(maneuver)}) d=${rv.distToManeuverM}m road='${rv.road}' eta=${etaSeconds}s png=${if (rv.maneuverPng != null) "${rv.maneuverPng.size}B" else "none"}")
+            Logger.i(TAG, "posted rv m=$maneuver(${ManeuverMapper.maneuverName(maneuver)}) txt=$maneuverFromText bmp=$maneuverFromBitmap d=${rv.distToManeuverM}m road='${rv.road}' eta=${etaSeconds}s png=${if (rv.maneuverPng != null) "${rv.maneuverPng.size}B" else "none"}")
             removePostedMs = 0L
             HudState.update { prev ->
                 prev.copy(

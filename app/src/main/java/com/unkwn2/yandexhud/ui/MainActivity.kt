@@ -41,6 +41,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnGrant: Button
     private lateinit var btnIconScan: Button
     private lateinit var btnPngIcon: Button
+    private lateinit var btnRvDump: Button
 
     private var yandexOn = false
     private var mockOn = false
@@ -72,6 +73,7 @@ class MainActivity : AppCompatActivity() {
         btnGrant = findViewById(R.id.btnGrant)
         btnIconScan = findViewById(R.id.btnIconScan)
         btnPngIcon = findViewById(R.id.btnPngIcon)
+        btnRvDump = findViewById(R.id.btnRvDump)
 
         btnYandex.setOnClickListener { toggleYandex() }
         btnMockGps.setOnClickListener { toggleMockGps() }
@@ -86,6 +88,7 @@ class MainActivity : AppCompatActivity() {
         btnGrant.setOnClickListener { grantPermissions() }
         btnIconScan.setOnClickListener { cycleIconField() }
         btnPngIcon.setOnClickListener { cyclePngIcon() }
+        btnRvDump.setOnClickListener { cycleRvDump() }
         findViewById<Button>(R.id.btnSaveLog).setOnClickListener { saveLog() }
         findViewById<Button>(R.id.btnNotifAccess).setOnClickListener {
             try {
@@ -322,6 +325,14 @@ class MainActivity : AppCompatActivity() {
         runOnUiThread { btnPngIcon.text = label }
         Logger.i("TEST", "sendPngIcon=${HudForegroundService.sendPngIcon}")
         toast("f8 PNG: ${if (HudForegroundService.sendPngIcon) "ON" else "OFF"}")
+    }
+
+    private fun cycleRvDump() {
+        HudForegroundService.probeRv = !HudForegroundService.probeRv
+        val label = if (HudForegroundService.probeRv) "RV: ON" else "RV: OFF"
+        runOnUiThread { btnRvDump.text = label }
+        Logger.i("TEST", "probeRv=${HudForegroundService.probeRv}")
+        toast("RV dump: ${if (HudForegroundService.probeRv) "ON" else "OFF"}")
     }
 
     private fun saveLog() {

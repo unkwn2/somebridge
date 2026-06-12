@@ -34,6 +34,9 @@ class HudForegroundService : Service() {
         // f8 PNG from RemoteViews — false = OFF (по умолчанию, т.к. на нашей прошивке f8 = repeated int32)
         @Volatile var sendPngIcon: Boolean = false
 
+        // RV dump in log — false = OFF (засоряет логи)
+        @Volatile var probeRv: Boolean = false
+
         fun start(ctx: Context) {
             ctx.startForegroundService(Intent(ctx, HudForegroundService::class.java))
         }

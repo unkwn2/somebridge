@@ -101,6 +101,11 @@ object RemoteViewsParser {
         Logger.i(TAG, "=== END DUMP ===")
     }
 
+    // Строки-действия кнопок, которые не должны попасть в instruction/road
+    private val ACTION_BUTTON_TEXTS = setOf(
+        "завершить маршрут", "отмена", "отменить", "закрыть"
+    )
+
     private fun classify(texts: List<Pair<Int, String>>, images: List<Pair<Int, Drawable>>): RvNaviInfo {
         val values = texts.map { it.second }
 
@@ -113,14 +118,36 @@ object RemoteViewsParser {
             if (v.contains("мин") || v.contains("ч")) parseDuration(v).takeIf { it > 0 } else null
         } ?: 0
 
-        val textual = values.filter { s ->
-            s.any { it.isLetter() } && parseDistance(s) == null && !TIME_HHMM.matches(s)
-        }.sortedByDescending { it.length }
-        val instruction = textual.getOrElse(0) { "" }
-        val road = textual.getOrElse(1) { instruction }
+        // Ищем текст манёвра: любой текст, совпадающий с известными фразами
+        val maneuverText = values.firstNotNullOfOrNull { v ->
+            val m = ManeuverMapper.fromRussianText(v)
+            if (m != ManeuverMapper.M_UNKNOWN) v else null
+        }
 
-        val png = images.maxByOrNull { it.second.intrinsicWidth.toLong() * it.second.intrinsicHeight.toLong() }
-            ?.second?.let { toPng(it) }
+        // Текстовые строки без цифр/дистанций — сортируем по длине
+        // Исключаем тексты кнопок (actionButton и т.п.)
+        val textual = values.filter { s ->
+            s.any { it.isLetter() }
+                && parseDistance(s) == null
+                && !TIME_HHMM.matches(s)
+                && ACTION_BUTTON_TEXTS.none { it in s.lowercase() }
+        }.sortedByDescending { it.length }
+
+        // Если найден текст манёвра — он instruction, иначе самая длинная строка
+        val instruction = maneuverText ?: textual.getOrElse(0) { "" }
+        val road = if (maneuverText != null) {
+            // Если манёвр нашли — дорога это следующая по длине текстовая строка
+            textual.filter { it != maneuverText }.getOrElse(0) { "" }
+        } else {
+            textual.getOrElse(1) { instruction }
+        }
+
+        // Иконка манёвра: выбираем самую КВАДРАТНУЮ (aspect ratio ~1), не самую большую
+        val png = images.minByOrNull { (_, d) ->
+            val w = d.intrinsicWidth; val h = d.intrinsicHeight
+            if (w <= 0 || h <= 0) Double.MAX_VALUE
+            else kotlin.math.abs(w.toDouble() / h.toDouble() - 1.0)
+        }?.second?.let { toPng(it) }
 
         return RvNaviInfo(instruction, road, distManeuver, distTotal, arrival, remaining, png)
     }
