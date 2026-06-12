@@ -163,7 +163,7 @@ object RemoteViewsParser {
 
         // --- 2. Светофоры ---
         val trafficLightImgs = images.filter { "traffic_light" in it.name }
-        val trafficLightColor = trafficLightImgs.firstNotNullOfOrNull { detectDominantColor(it.drawable) }
+        val trafficLightColor = trafficLightImgs.firstNotNullOfOrNull { detectDominantColor(it.drawable) } ?: ""
         val trafficLightSeconds = texts.firstOrNull { "traffic_light" in it.name }
             ?.value?.filter { it.isDigit() }?.toIntOrNull() ?: 0
 
