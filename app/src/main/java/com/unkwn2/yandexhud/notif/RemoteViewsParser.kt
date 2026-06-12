@@ -36,15 +36,43 @@ object RemoteViewsParser {
     private val TIME_HHMM = Regex("""\b([01]?\d|2[0-3]):([0-5]\d)\b""")
     private val DUR = Regex("""(?:(\d+)\s*ч)?\s*(?:(\d+)\s*мин)?""")
 
+    // --- Имена полей из RV DUMP (точные id Яндекса, в lowercase) ---
+    private const val F_DIST_TO_MANEUVER = "titleview"
+    private const val F_DESCRIPTION = "descriptionview"
+    private const val F_TOTAL_DIST = "remainingdistanceview"
+    private const val F_ARRIVAL = "timeofarrivalview"
+    private const val F_REMAINING = "remainingtimeview"
+
+    // Имена картинок-стрелок (квадратные 48x48)
+    private val MANEUVER_ICON_NAMES = setOf(
+        "primaryicontinted", "primaryicon",
+        "nextmaneuverviewtinted", "nextmaneuverview"
+    )
+    // Картинки, которые НИКОГДА не должны попасть в f8
+    private val IMAGE_BLOCKLIST = listOf(
+        "traffic_light", "etaprogress", "progress", "action", "eta", "dots"
+    )
+
+    private val ACTION_BUTTON_TEXTS = setOf(
+        "завершить маршрут", "отмена", "отменить", "закрыть",
+        "без уведомлений", "выключить уведомления", "парковки", "обзор"
+    )
+
+    private val MAPS_PKGS = setOf(
+        "ru.yandex.yandexmaps", "ru.yandex.yandexmaps.beta",
+        "ru.yandex.yandexmaps.inhouse", "ru.yandex.yandexmaps.rustore"
+    )
+
+    private data class NamedText(val name: String, val value: String)
+    private data class NamedImage(val name: String, val drawable: Drawable)
+
     fun parse(ctx: Context, n: Notification, pkg: String, probe: Boolean): RvNaviInfo? {
         val rv = n.bigContentView ?: n.contentView ?: n.headsUpContentView
             ?: run { Logger.w(TAG, "no RemoteViews"); return null }
 
         return if (Looper.myLooper() == Looper.getMainLooper()) {
-            // Уже на main-потоке (колбэк листенера) — работаем напрямую
             parseOnMain(ctx, rv, pkg, probe)
         } else {
-            // Фон — переключаемся на main
             var result: RvNaviInfo? = null
             val lock = Object()
             Handler(Looper.getMainLooper()).post {
@@ -60,12 +88,24 @@ object RemoteViewsParser {
 
     private fun parseOnMain(ctx: Context, rv: RemoteViews, pkg: String, probe: Boolean): RvNaviInfo? = try {
         val parent = FrameLayout(ctx)
-        val view = rv.apply(ctx, parent)  // ← инфлейтнутое дерево, а НЕ parent
-        val texts = mutableListOf<Pair<Int, String>>()
-        val images = mutableListOf<Pair<Int, Drawable>>()
-        walk(view, texts, images)
-        if (probe) dump(ctx, pkg, texts, images)
-        classify(texts, images)
+        val view = rv.apply(ctx, parent)
+
+        // Резолвер имён ресурсов исходного пакета (Яндекса)
+        val res = try { ctx.createPackageContext(pkg, 0).resources } catch (_: Throwable) { null }
+        fun nameOf(id: Int): String {
+            if (id == View.NO_ID || res == null) return ""
+            return try { res.getResourceEntryName(id).lowercase() } catch (_: Throwable) { "" }
+        }
+
+        val rawTexts = mutableListOf<Pair<Int, String>>()
+        val rawImages = mutableListOf<Pair<Int, Drawable>>()
+        walk(view, rawTexts, rawImages)
+
+        val texts = rawTexts.map { NamedText(nameOf(it.first), it.second) }
+        val images = rawImages.map { NamedImage(nameOf(it.first), it.second) }
+
+        if (probe) dump(pkg, texts, images)
+        classify(texts, images, pkg in MAPS_PKGS)
     } catch (t: Throwable) {
         Logger.w(TAG, "parse error: ${t.message}")
         null
@@ -82,74 +122,85 @@ object RemoteViewsParser {
                 if (d.intrinsicWidth > 0 && d.intrinsicHeight > 0) images.add(v.id to d)
             }
         }
-        if (v is ViewGroup) {
-            for (i in 0 until v.childCount) {
-                walk(v.getChildAt(i), texts, images)
-            }
-        }
+        if (v is ViewGroup) for (i in 0 until v.childCount) walk(v.getChildAt(i), texts, images)
     }
 
-    private fun dump(ctx: Context, pkg: String, texts: List<Pair<Int, String>>, images: List<Pair<Int, Drawable>>) {
-        val res = try { ctx.createPackageContext(pkg, 0).resources } catch (_: Throwable) { null }
-        fun name(id: Int): String {
-            if (id == View.NO_ID || res == null) return "NO_ID"
-            return try { res.getResourceEntryName(id) } catch (_: Throwable) { "id_$id" }
-        }
+    private fun dump(pkg: String, texts: List<NamedText>, images: List<NamedImage>) {
         Logger.i(TAG, "=== RV DUMP ($pkg) ===")
-        for ((id, t) in texts) Logger.i(TAG, "TEXT [${name(id)}] = \"$t\"")
-        for ((id, d) in images) Logger.i(TAG, "IMAGE [${name(id)}] ${d.intrinsicWidth}x${d.intrinsicHeight}")
+        for (t in texts) Logger.i(TAG, "TEXT [${t.name.ifEmpty { "NO_ID" }}] = \"${t.value}\"")
+        for (im in images) Logger.i(TAG, "IMAGE [${im.name.ifEmpty { "NO_ID" }}] ${im.drawable.intrinsicWidth}x${im.drawable.intrinsicHeight}")
         Logger.i(TAG, "=== END DUMP ===")
     }
 
-    // Строки-действия кнопок, которые не должны попасть в instruction/road
-    private val ACTION_BUTTON_TEXTS = setOf(
-        "завершить маршрут", "отмена", "отменить", "закрыть"
-    )
+    private fun classify(texts: List<NamedText>, images: List<NamedImage>, isMaps: Boolean): RvNaviInfo {
+        fun byName(n: String) = texts.firstOrNull { it.name == n }?.value
 
-    private fun classify(texts: List<Pair<Int, String>>, images: List<Pair<Int, Drawable>>): RvNaviInfo {
-        val values = texts.map { it.second }
+        // --- 1. Детерминированно по именам полей ---
+        val titleVal = byName(F_DIST_TO_MANEUVER)
+        val descVal = byName(F_DESCRIPTION)
+        val totalVal = byName(F_TOTAL_DIST)
+        val arrivalByName = byName(F_ARRIVAL)?.let { TIME_HHMM.find(it)?.value }
+        val remainingByName = byName(F_REMAINING)?.let { parseDuration(it).takeIf { s -> s > 0 } }
 
-        val dists = values.mapNotNull { parseDistance(it) }
-        val distManeuver = dists.getOrElse(0) { 0 }
-        val distTotal = dists.getOrElse(1) { 0 }
-
-        val arrival = values.firstNotNullOfOrNull { TIME_HHMM.find(it)?.value } ?: ""
-        val remaining = values.firstNotNullOfOrNull { v ->
-            if (v.contains("мин") || v.contains("ч")) parseDuration(v).takeIf { it > 0 } else null
-        } ?: 0
-
-        // Ищем текст манёвра: любой текст, совпадающий с известными фразами
-        val maneuverText = values.firstNotNullOfOrNull { v ->
-            val m = ManeuverMapper.fromRussianText(v)
-            if (m != ManeuverMapper.M_UNKNOWN) v else null
+        // descriptionView: у Карт = манёвр всегда; у Навигатора = ИЛИ улица ИЛИ манёвр
+        var instruction = ""
+        var road = ""
+        if (descVal != null) {
+            if (isMaps) {
+                instruction = descVal
+            } else {
+                // Навигатор: если descVal — манёвр ("Направо"), то instruction, иначе road
+                val m = ManeuverMapper.fromRussianText(descVal)
+                if (m != ManeuverMapper.M_UNKNOWN) instruction = descVal else road = descVal
+            }
         }
 
-        // Текстовые строки без цифр/дистанций — сортируем по длине
-        // Исключаем тексты кнопок (actionButton и т.п.)
-        val textual = values.filter { s ->
-            s.any { it.isLetter() }
-                && parseDistance(s) == null
-                && !TIME_HHMM.matches(s)
-                && ACTION_BUTTON_TEXTS.none { it in s.lowercase() }
-        }.sortedByDescending { it.length }
+        var distManeuver = titleVal?.let { parseDistance(it) } ?: 0
+        var distTotal = totalVal?.let { parseDistance(it) } ?: 0
+        var arrival = arrivalByName ?: ""
+        var remaining = remainingByName ?: 0
 
-        // Если найден текст манёвра — он instruction, иначе самая длинная строка
-        val instruction = maneuverText ?: textual.getOrElse(0) { "" }
-        val road = if (maneuverText != null) {
-            // Если манёвр нашли — дорога это следующая по длине текстовая строка
-            textual.filter { it != maneuverText }.getOrElse(0) { "" }
-        } else {
-            textual.getOrElse(1) { instruction }
+        // --- 2. Fallback по эвристике (свёрнутые уведомления без resource id) ---
+        if (distManeuver == 0 || distTotal == 0 || arrival.isEmpty() || remaining == 0 || (road.isEmpty() && instruction.isEmpty())) {
+            val values = texts.map { it.value }
+            val dists = values.mapNotNull { parseDistance(it) }
+            if (distManeuver == 0) distManeuver = dists.getOrElse(0) { 0 }
+            if (distTotal == 0) distTotal = dists.getOrElse(1) { 0 }
+            if (arrival.isEmpty()) arrival = values.firstNotNullOfOrNull { TIME_HHMM.find(it)?.value } ?: ""
+            if (remaining == 0) remaining = values.firstNotNullOfOrNull { v ->
+                if (v.contains("мин") || v.contains("ч")) parseDuration(v).takeIf { it > 0 } else null
+            } ?: 0
+
+            val textual = values.filter { s ->
+                s.any { it.isLetter() } &&
+                    parseDistance(s) == null &&
+                    !TIME_HHMM.matches(s) &&
+                    ACTION_BUTTON_TEXTS.none { it in s.lowercase() }
+            }.sortedByDescending { it.length }
+
+            if (instruction.isEmpty()) {
+                instruction = textual.firstOrNull { ManeuverMapper.fromRussianText(it) != ManeuverMapper.M_UNKNOWN } ?: ""
+            }
+            if (road.isEmpty()) {
+                road = textual.firstOrNull { it != instruction } ?: ""
+            }
         }
 
-        // Иконка манёвра: выбираем самую КВАДРАТНУЮ (aspect ratio ~1), не самую большую
-        val png = images.minByOrNull { (_, d) ->
-            val w = d.intrinsicWidth; val h = d.intrinsicHeight
-            if (w <= 0 || h <= 0) Double.MAX_VALUE
-            else kotlin.math.abs(w.toDouble() / h.toDouble() - 1.0)
-        }?.second?.let { toPng(it) }
+        // Подстраховка: служебные строки не должны быть дорогой
+        if (ACTION_BUTTON_TEXTS.any { it in road.lowercase() } ||
+            road == "Навигатор запущен") road = ""
 
-        return RvNaviInfo(instruction, road, distManeuver, distTotal, arrival, remaining, png)
+        // --- 3. Картинка строго по имени, иначе самая квадратная (без блок-листа) ---
+        val byIconName = images.firstOrNull { im -> MANEUVER_ICON_NAMES.any { it in im.name } }
+        val pngDrawable = byIconName?.drawable ?: images
+            .filter { im -> IMAGE_BLOCKLIST.none { it in im.name } }
+            .minByOrNull { im ->
+                val w = im.drawable.intrinsicWidth; val h = im.drawable.intrinsicHeight
+                if (w <= 0 || h <= 0) Double.MAX_VALUE
+                else kotlin.math.abs(w.toDouble() / h.toDouble() - 1.0)
+            }?.drawable
+
+        return RvNaviInfo(instruction, road, distManeuver, distTotal, arrival, remaining, pngDrawable?.let { toPng(it) })
     }
 
     private fun parseDistance(s: String): Int? {
@@ -177,8 +228,7 @@ object RemoteViewsParser {
             }
         }
         ByteArrayOutputStream().use { out ->
-            bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
-            out.toByteArray()
+            bmp.compress(Bitmap.CompressFormat.PNG, 100, out); out.toByteArray()
         }
     } catch (_: Throwable) { null }
 }

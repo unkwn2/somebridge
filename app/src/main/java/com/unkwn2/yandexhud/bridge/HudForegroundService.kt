@@ -31,7 +31,7 @@ class HudForegroundService : Service() {
         @Volatile var iconFieldNum: Int = 0
         val ICON_CANDIDATES = intArrayOf(11, 12, 13, 14, 15, 17, 18, 21, 22, 23, 24, 25, 27)
 
-        // f8 PNG from RemoteViews — false = OFF (по умолчанию, т.к. на нашей прошивке f8 = repeated int32)
+        // f8 PNG from RemoteViews — false = OFF (по умолчанию, пока не убедимся что идёт стрелка, а не полоса/точки)
         @Volatile var sendPngIcon: Boolean = false
 
         // RV dump in log — false = OFF (засоряет логи)
