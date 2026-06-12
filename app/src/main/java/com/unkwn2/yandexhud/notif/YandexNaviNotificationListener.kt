@@ -42,7 +42,7 @@ class YandexNaviNotificationListener : NotificationListenerService() {
 
         // RemoteViews — приоритетный источник (структурированные данные)
         val rv = try {
-            RemoteViewsParser.parse(applicationContext, n, PROBE_RV)
+            RemoteViewsParser.parse(applicationContext, n, sbn.packageName, PROBE_RV)
         } catch (t: Throwable) {
             Logger.w(TAG, "rv parse error: ${t.message}")
             null

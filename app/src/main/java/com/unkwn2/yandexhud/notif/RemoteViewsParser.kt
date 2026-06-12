@@ -36,7 +36,7 @@ object RemoteViewsParser {
     private val TIME_HHMM = Regex("""\b([01]?\d|2[0-3]):([0-5]\d)\b""")
     private val DUR = Regex("""(?:(\d+)\s*ч)?\s*(?:(\d+)\s*мин)?""")
 
-    fun parse(ctx: Context, n: Notification, probe: Boolean): RvNaviInfo? {
+    fun parse(ctx: Context, n: Notification, pkg: String, probe: Boolean): RvNaviInfo? {
         val rv = n.bigContentView ?: n.contentView ?: n.headsUpContentView
             ?: run { Logger.w(TAG, "no RemoteViews"); return null }
 
@@ -52,7 +52,7 @@ object RemoteViewsParser {
                 val images = mutableListOf<Pair<Int, Drawable>>()
                 walk(parent, texts, images)
 
-                if (probe) dump(ctx, n.packageName, texts, images)
+                if (probe) dump(ctx, pkg, texts, images)
 
                 result = classify(texts, images)
             } catch (t: Throwable) {
