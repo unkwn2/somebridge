@@ -184,7 +184,7 @@ object ManeuverMapper {
 
     fun toGaode(m: Int): Int = when (m) {
         M_LEFT -> 1; M_RIGHT -> 2
-        M_SLIGHT_LEFT -> 5; M_SLIGHT_RIGHT -> 4
+        M_SLIGHT_LEFT -> 3; M_SLIGHT_RIGHT -> 4   // 3, не 5 — текстуры 0x5 нет в прошивке
         M_FORK_LEFT -> 5; M_FORK_RIGHT -> 4
         M_HARD_LEFT -> 7; M_HARD_RIGHT -> 8
         M_EXIT_LEFT -> 7; M_EXIT_RIGHT -> 8
@@ -193,5 +193,53 @@ object ManeuverMapper {
         M_ROUNDABOUT_ENTER -> 13; M_ROUNDABOUT_EXIT -> 24
         M_FERRY -> 46; M_TUNNEL -> 49; M_TOLL -> 47
         else -> 0
+    }
+
+    // GAODE-коды напрямую для A11y contentDescription (f28)
+    private const val GAODE_STRAIGHT = 11
+    private const val GAODE_LEFT = 1
+    private const val GAODE_RIGHT = 2
+    private const val GAODE_SLIGHT_LEFT = 3
+    private const val GAODE_SLIGHT_RIGHT = 4
+    private const val GAODE_HARD_LEFT = 7
+    private const val GAODE_HARD_RIGHT = 8
+    private const val GAODE_UTURN = 9
+    private const val GAODE_ROUNDABOUT_ENTER = 13
+    private const val GAODE_ARRIVE = 48
+    private const val GAODE_TUNNEL = 49
+    private const val GAODE_WAYPOINT = 45
+    private const val GAODE_ROUNDABOUT_EXIT_BASE = 24
+
+    private val ROUNDABOUT_EXIT = Regex("""(\d+)[-‑]й\s+съезд""")
+
+    fun fromA11yDescription(text: String?): Int {
+        if (text == null || text == ">>>") return GAODE_STRAIGHT
+        val lower = text.lowercase().trim()
+
+        val exitMatch = ROUNDABOUT_EXIT.find(lower)
+        val exitNum = exitMatch?.groupValues?.get(1)?.toIntOrNull()
+        if (exitNum != null && exitNum in 1..10) {
+            return GAODE_ROUNDABOUT_EXIT_BASE + exitNum
+        }
+
+        return when {
+            "кольцевое" in lower || "выезд с кольца" in lower || "круговое" in lower -> GAODE_ROUNDABOUT_ENTER
+            "промежуточная точка" in lower -> GAODE_WAYPOINT
+            "съезд с парома" in lower || "выезд с парома" in lower -> GAODE_STRAIGHT
+            "прибытие" in lower || "маршрут окончен" in lower || "конечная" in lower || "достигнут" in lower -> GAODE_ARRIVE
+            "тоннель" in lower || "туннель" in lower -> GAODE_TUNNEL
+            "плавный поворот налево" in lower || "плавно налево" in lower || "держитесь левее" in lower -> GAODE_SLIGHT_LEFT
+            "плавный поворот направо" in lower || "плавно направо" in lower || "держитесь правее" in lower -> GAODE_SLIGHT_RIGHT
+            "резкий поворот налево" in lower || "резко налево" in lower -> GAODE_HARD_LEFT
+            "резкий поворот направо" in lower || "резко направо" in lower -> GAODE_HARD_RIGHT
+            "разворот" in lower || "развернитесь" in lower -> GAODE_UTURN
+            "поверните налево" in lower || "поворот налево" in lower || "налево" in lower -> GAODE_LEFT
+            "поверните направо" in lower || "поворот направо" in lower || "направо" in lower -> GAODE_RIGHT
+            "прямо" in lower || "продолжайте" in lower || "двигайтесь" in lower -> GAODE_STRAIGHT
+            else -> {
+                val internal = fromRussianText(text)
+                if (internal != M_UNKNOWN) toGaode(internal) else 0
+            }
+        }
     }
 }

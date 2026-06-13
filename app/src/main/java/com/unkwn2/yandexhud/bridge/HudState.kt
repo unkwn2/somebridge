@@ -24,7 +24,8 @@ object HudState {
         val iconPng: ByteArray? = null,      // PNG иконки манёвра из RemoteViews → f8
         val trafficLightColor: String = "",   // "red"/"green"/"yellow" из RemoteViews
         val trafficLightSeconds: Int = 0,     // секунды до смены светофора
-        val cameraAlert: String = ""          // "camera"/"accident"/"roadworks"/"other"
+        val cameraAlert: String = "",          // "camera"/"accident"/"roadworks"/"other"
+        val maneuverGaode: Int = 0              // GAODE-код манёвра из A11y contentDescription (0 = не установлен)
     )
 
     @Volatile private var current = Snapshot()

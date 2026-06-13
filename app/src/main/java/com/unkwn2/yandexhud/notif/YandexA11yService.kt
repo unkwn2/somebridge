@@ -116,6 +116,7 @@ class YandexA11yService : AccessibilityService() {
                                      byVid.containsKey(VID_NEXTSTREET)
 
             val maneuver = resolveManeuver(byVid)
+            val maneuverGaode = resolveManeuverGaode(byVid)
             val distance = resolveDistance(byVid)
             val road = resolveRoad(byVid)
             val eta = resolveEta(byVid)
@@ -126,9 +127,10 @@ class YandexA11yService : AccessibilityService() {
             if (hasManeuverBalloon || (maneuver != ManeuverMapper.M_UNKNOWN && distance > 0)) {
                 val mStr = ManeuverMapper.maneuverName(maneuver)
                 val nnStr = if (nextNextManeuver > 0) ManeuverMapper.maneuverName(nextNextManeuver) else ""
-                Logger.i(TAG, "pkg=$pkg m=$mStr d=${distance}m road='$road' eta=${eta}s balloon=$hasManeuverBalloon nextNext=$nnStr")
+                Logger.i(TAG, "pkg=$pkg m=$mStr gaode=$maneuverGaode d=${distance}m road='$road' eta=${eta}s balloon=$hasManeuverBalloon nextNext=$nnStr")
                 HudState.update { prev ->
                     val mergeManeuver = if (maneuver != ManeuverMapper.M_UNKNOWN) maneuver else prev.maneuver
+                    val mergeGaode = if (maneuverGaode > 0) maneuverGaode else prev.maneuverGaode
                     val mergeDist = if (distance > 0) distance else prev.distanceMeters
                     val mergeRoad = if (road.isNotEmpty()) road else prev.road
                     val mergeEta = if (eta > 0) eta else prev.etaSeconds
@@ -139,6 +141,7 @@ class YandexA11yService : AccessibilityService() {
                     prev.copy(
                         active = true,
                         maneuver = mergeManeuver,
+                        maneuverGaode = mergeGaode,
                         distanceMeters = mergeDist,
                         road = mergeRoad,
                         etaSeconds = mergeEta,
@@ -206,6 +209,21 @@ class YandexA11yService : AccessibilityService() {
         }
 
         return ManeuverMapper.M_UNKNOWN
+    }
+
+    private fun resolveManeuverGaode(byVid: Map<String, NodeData>): Int {
+        val iconNode = byVid[VID_MANEUVER_ICON]
+        if (iconNode == null) return 0
+
+        val desc = iconNode.desc.ifEmpty { iconNode.text }.ifEmpty { return 0 }
+
+        // Добавляем номер съезда (для колец)
+        val exitNode = byVid[VID_EXIT_NUM]
+        val fullDesc = if (exitNode != null && exitNode.text.isNotEmpty()) {
+            "$desc ${exitNode.text}"
+        } else desc
+
+        return ManeuverMapper.fromA11yDescription(fullDesc)
     }
 
     private fun resolveDistance(byVid: Map<String, NodeData>): Int {
