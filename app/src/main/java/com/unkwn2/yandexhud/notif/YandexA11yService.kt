@@ -34,6 +34,12 @@ class YandexA11yService : AccessibilityService() {
         private val VID_THEN_DIST = "text_maneuverballoon_distance_second"
         private val VID_THEN_ROAD = "text_nextstreet_second"
 
+        private val TARGET_VIDS = setOf(
+            VID_MANEUVER_ICON, VID_MANEUVER_DIST, VID_MANEUVER_UNIT,
+            VID_NEXTSTREET, VID_THEN_ICON, VID_THEN_DIST, VID_THEN_ROAD,
+            VID_EXIT_NUM
+        )
+
         private val IGNORE_VID = setOf(
             "control_ruler_text", "control_weather_text", "control_traffic",
             "control_carparks", "control_tilt_reset",
@@ -177,8 +183,9 @@ class YandexA11yService : AccessibilityService() {
         val desc = node.contentDescription?.toString()?.trim() ?: ""
         val cls = node.className?.toString() ?: ""
         val vid = node.viewIdResourceName ?: ""
+        val short = vid.substringAfter('/', "")
 
-        if (text.isNotEmpty() || desc.isNotEmpty()) {
+        if (text.isNotEmpty() || desc.isNotEmpty() || short in TARGET_VIDS) {
             out += NodeData(text, desc, cls, vid, depth)
         }
 
@@ -191,9 +198,14 @@ class YandexA11yService : AccessibilityService() {
 
     private fun resolveManeuver(byVid: Map<String, NodeData>): Int {
         val iconNode = byVid[VID_MANEUVER_ICON]
-        if (iconNode != null && iconNode.desc.isNotEmpty()) {
-            val m = ManeuverMapper.fromRussianText(iconNode.desc)
-            if (m != ManeuverMapper.M_UNKNOWN) return m
+        if (iconNode != null) {
+            if (iconNode.desc.isNotEmpty()) {
+                val m = ManeuverMapper.fromRussianText(iconNode.desc)
+                if (m != ManeuverMapper.M_UNKNOWN) return m
+            }
+            if (iconNode.desc.isEmpty() && iconNode.text.isEmpty()) {
+                return ManeuverMapper.M_STRAIGHT
+            }
         }
 
         for ((vid, n) in byVid) {
@@ -215,11 +227,10 @@ class YandexA11yService : AccessibilityService() {
         val iconNode = byVid[VID_MANEUVER_ICON]
         if (iconNode == null) return 0
 
-        val desc = iconNode.desc.ifEmpty { iconNode.text }.ifEmpty { return 0 }
+        val desc = iconNode.desc.ifEmpty { iconNode.text }.ifEmpty { null }
 
-        // Добавляем номер съезда (для колец)
         val exitNode = byVid[VID_EXIT_NUM]
-        val fullDesc = if (exitNode != null && exitNode.text.isNotEmpty()) {
+        val fullDesc = if (desc != null && exitNode != null && exitNode.text.isNotEmpty()) {
             "$desc ${exitNode.text}"
         } else desc
 

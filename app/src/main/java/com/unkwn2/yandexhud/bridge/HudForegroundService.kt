@@ -29,7 +29,7 @@ class HudForegroundService : Service() {
 
         // Field scanner for small arrow (ICON_SIMPLE_NAVI) — 0 = OFF
         @Volatile var iconFieldNum: Int = 0
-        val ICON_CANDIDATES = intArrayOf(11, 12, 13, 14, 15, 17, 18, 21, 22, 23, 24, 25, 27)
+        val ICON_CANDIDATES = intArrayOf(11, 13, 14, 15, 17, 18, 21, 22, 23, 24, 25, 27)
 
         // f8 PNG from RemoteViews — false = OFF (по умолчанию, пока не убедимся что идёт стрелка, а не полоса/точки)
         @Volatile var sendPngIcon: Boolean = false
