@@ -238,18 +238,17 @@ class SomeIpBridge(private val ctx: Context) {
 
             val topics = listOf(0x4010a00018001L, 0x4010a00018002L, 0x4010a00018003L)
             for (topic in topics) {
+                val d = Parcel.obtain(); val r = Parcel.obtain()
                 try {
-                    val d = Parcel.obtain(); val r = Parcel.obtain()
                     d.writeInterfaceToken(CLIENT_DESC)
                     d.writeLong(topic)
                     cb.transact(2, d, r, 0)
                     r.readException()
                     val subRc = r.readInt()
                     Logger.i(TAG, "sniffer sub tx=2(0x${topic.toString(16)}) rc=$subRc")
-                    r.recycle(); d.recycle()
                 } catch (t: Throwable) {
                     Logger.i(TAG, "sniffer sub tx=2(0x${topic.toString(16)}) err: ${t.message}")
-                }
+                } finally { r.recycle(); d.recycle() }
                 Thread.sleep(100)
             }
             Logger.i(TAG, "sniffer active — waiting for events")

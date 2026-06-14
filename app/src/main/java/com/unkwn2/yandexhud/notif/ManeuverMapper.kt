@@ -149,6 +149,7 @@ object ManeuverMapper {
             lower.contains("hard_right") -> M_HARD_RIGHT
             lower.contains("slight_left") -> M_SLIGHT_LEFT
             lower.contains("slight_right") -> M_SLIGHT_RIGHT
+            lower.contains("uturn_right") || lower.contains("right_uturn") -> M_UTURN_RIGHT
             lower.contains("uturn") -> M_UTURN_LEFT
             lower.contains("fork_left") -> M_FORK_LEFT
             lower.contains("fork_right") -> M_FORK_RIGHT

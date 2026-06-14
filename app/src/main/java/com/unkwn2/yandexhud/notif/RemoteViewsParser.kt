@@ -261,7 +261,8 @@ object RemoteViewsParser {
         return h * 3600 + min * 60
     }
 
-    private fun toPng(d: Drawable): ByteArray? = try {
+    private fun toPng(d: Drawable): ByteArray? {
+        val isShared = d is BitmapDrawable
         val bmp = if (d is BitmapDrawable) d.bitmap
         else {
             val w = d.intrinsicWidth.coerceAtLeast(1)
@@ -270,8 +271,11 @@ object RemoteViewsParser {
                 val c = Canvas(b); d.setBounds(0, 0, w, h); d.draw(c)
             }
         }
-        ByteArrayOutputStream().use { out ->
-            bmp.compress(Bitmap.CompressFormat.PNG, 100, out); out.toByteArray()
-        }
-    } catch (_: Throwable) { null }
+        return try {
+            ByteArrayOutputStream().use { out ->
+                bmp.compress(Bitmap.CompressFormat.PNG, 100, out); out.toByteArray()
+            }
+        } catch (_: Throwable) { null }
+        finally { if (!isShared) bmp.recycle() }
+    }
 }
