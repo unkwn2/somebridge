@@ -14,8 +14,8 @@ object Logger {
     private const val APP_TAG = "YandexHUD"
     private const val LOG_DIR = "yandexhud/logs"
     private const val MAX_LOG_AGE_MS = 7 * 24 * 3600 * 1000L
-    private val fmt = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
-    private val dateFmt = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
+    private val fmt = ThreadLocal.withInitial { SimpleDateFormat("HH:mm:ss.SSS", Locale.US) }
+    private val dateFmt = ThreadLocal.withInitial { SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US) }
     private val listeners = CopyOnWriteArrayList<(String) -> Unit>()
     @Volatile private var logWriter: PrintWriter? = null
 
@@ -26,7 +26,7 @@ object Logger {
 
             deleteOldLogs(dir)
 
-            val logFile = File(dir, "yandexhud_${dateFmt.format(Date())}.log")
+            val logFile = File(dir, "yandexhud_${dateFmt.get().format(Date())}.log")
             logWriter = PrintWriter(FileWriter(logFile, true), true)
             Log.println(Log.INFO, APP_TAG, "[Logger] log file: ${logFile.absolutePath}")
         } catch (t: Throwable) {
@@ -39,7 +39,7 @@ object Logger {
     fun e(tag: String, msg: String) = log(Log.ERROR, tag, msg)
 
     private fun log(level: Int, tag: String, msg: String) {
-        val line = "${fmt.format(Date())}\t${levelChar(level)}\t$tag\t$msg"
+        val line = "${fmt.get().format(Date())}\t${levelChar(level)}\t$tag\t$msg"
         Log.println(level, APP_TAG, "[$tag] $msg")
         listeners.forEach { it(line) }
         try { logWriter?.println(line) } catch (_: Throwable) {}

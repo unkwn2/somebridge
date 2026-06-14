@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="seed">#FF6200EE</color>
+
+    <color name="md_theme_primary">#FFB0BEC5</color>
+    <color name="md_theme_onPrimary">#FF1B2631</color>
+    <color name="md_theme_primaryContainer">#FF37474F</color>
+    <color name="md_theme_onPrimaryContainer">#FFCFD8DC</color>
+
+    <color name="md_theme_secondary">#FF80CBC4</color>
+    <color name="md_theme_onSecondary">#FF1B2631</color>
+    <color name="md_theme_secondaryContainer">#FF004D40</color>
+    <color name="md_theme_onSecondaryContainer">#FFB2DFDB</color>
+
+    <color name="md_theme_background">#FF0D1117</color>
+    <color name="md_theme_onBackground">#FFC9D1D9</color>
+    <color name="md_theme_surface">#FF161B22</color>
+    <color name="md_theme_onSurface">#FFC9D1D9</color>
+    <color name="md_theme_surfaceVariant">#FF21262D</color>
+    <color name="md_theme_onSurfaceVariant">#FF8B949E</color>
+
+    <color name="md_theme_error">#FFFF6B6B</color>
+    <color name="md_theme_onError">#FF1B2631</color>
+
+    <color name="status_active">#FF4CAF50</color>
+    <color name="status_warning">#FFFFC107</color>
+    <color name="status_error">#FFFF5252</color>
+    <color name="status_idle">#FF616161</color>
+
+    <color name="card_bg">#FF161B22</color>
+    <color name="card_stroke">#FF30363D</color>
+    <color name="divider">#FF21262D</color>
+
+    <color name="log_bg">#FF0D1117</color>
+    <color name="log_text">#FF7EE787</color>
+</resources>

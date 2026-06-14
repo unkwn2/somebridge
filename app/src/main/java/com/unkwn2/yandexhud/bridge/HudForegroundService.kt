@@ -26,7 +26,7 @@ class HudForegroundService : Service() {
         @Volatile var instance: HudForegroundService? = null
         val bridge: SomeIpBridge? get() = instance?._bridge
         val loopRunner: LoopRunner? get() = instance?._loopRunner
-        val isReady: Boolean get() = instance?._bridge != null && instance!!._bound
+        val isReady: Boolean get() { val i = instance; return i?._bridge != null && i._bound }
 
         // Field scanner for small arrow (ICON_SIMPLE_NAVI) — 0 = OFF
         @Volatile var iconFieldNum: Int = 0

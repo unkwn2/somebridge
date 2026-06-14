@@ -33,10 +33,10 @@ class SomeIpBridge(private val ctx: Context) {
         const val SERVICE_ID_NAVI = 0xB010A00010000L
     }
 
-    private var serverBinder: IBinder? = null
-    private var clientBinder: IBinder? = null
-    private var serverConnected = false
-    private var clientConnected = false
+    @Volatile private var serverBinder: IBinder? = null
+    @Volatile private var clientBinder: IBinder? = null
+    @Volatile private var serverConnected = false
+    @Volatile private var clientConnected = false
 
     private val callback = object : Binder() {
         override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean {

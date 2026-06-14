@@ -8,16 +8,21 @@ class LoopRunner(private val bridge: SomeIpBridge) {
     @Volatile private var running = false
     @Volatile private var counter = 0
     @Volatile var useGaodeEnum: Boolean = true
+    @Volatile private var wasActive = false
+    @Volatile private var worker: Thread? = null
 
     fun start(periodMs: Long = 300L) {
         if (running) return
+        worker?.let { try { it.join(500) } catch (_: InterruptedException) {} }
         running = true
         counter = 0
-        Thread {
+        wasActive = false
+        val t = Thread {
             Logger.i(TAG, "started @ ${periodMs}ms gaode=$useGaodeEnum")
             while (running) {
                 val s = HudState.snapshot()
                 if (HudForegroundService.DEBUG_ARROW_SCAN && s.arrowScanActive) {
+                    wasActive = true
                     val payload = ProtobufBuilder.build(
                         counter = counter++,
                         maneuver = 0,
@@ -43,6 +48,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         Logger.i(TAG, "arrowScan idx=${s.arrowScanIndex} rc=$rc")
                     }
                 } else if (s.active) {
+                    wasActive = true
                     val cal = java.util.Calendar.getInstance()
                     val nowTotalMin = cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE)
                     val etaTotalMin = s.etaSeconds / 60
@@ -54,7 +60,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                     val a11yFresh = s.maneuverGaode > 0 && (System.currentTimeMillis() - s.maneuverGaodeMs) < 5000
                     val maneuverVal = if (a11yFresh) s.maneuverGaode
                         else if (useGaodeEnum) toGaodeEnum(s.maneuver) else s.maneuver
-                    val statusIconVal = if (s.active) 2 else 1  // navigatingStatus: 2=draw, 1=clear
+                    val statusIconVal = 2
                     val arriveText = if (maneuverVal == 48) s.arriveText.ifEmpty { "Прибытие" } else ""
 
                     // HudRoadInfoNotifyStruct protobuf — все поля
@@ -89,16 +95,28 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         val scanLabel = if (HudForegroundService.DEBUG_ARROW_SCAN && HudForegroundService.iconFieldNum > 0) " SCAN=f${HudForegroundService.iconFieldNum}=$maneuverVal NOF28" else ""
                         Logger.i(TAG, "tick #$counter rc=$rc m=$maneuverVal($enumLabel) $packLabel d=${s.distanceMeters} road='${s.road}' iconIdx=$statusIconVal lanes=${if (s.testLanes) laneLayout else "-"}$scanLabel")
                     }
-                } else if (counter % 100 == 0) {
-                    Logger.i(TAG, "tick #$counter (idle)")
+                } else {
+                    if (wasActive) {
+                        val clearPayload = ProtobufBuilder.build(counter = counter++, maneuver = 0,
+                            distance = 0, road = "", lat = 0.0, lon = 0.0, etaString = "",
+                            statusIcon = 1, iconPng = null, testLanes = false, laneLayout = "",
+                            usePacked = s.usePacked)
+                        bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, clearPayload)
+                        wasActive = false
+                        Logger.i(TAG, "sent HUD clear frame (statusIcon=1)")
+                    } else if (counter % 100 == 0) {
+                        Logger.i(TAG, "tick #$counter (idle)")
+                    }
                 }
                 try { Thread.sleep(periodMs) } catch (_: InterruptedException) { break }
             }
             Logger.i(TAG, "stopped")
-        }.apply { name = "HudLoop"; isDaemon = false; priority = Thread.MAX_PRIORITY }.start()
+        }
+        t.name = "HudLoop"; t.isDaemon = false; t.priority = Thread.MAX_PRIORITY
+        worker = t; t.start()
     }
 
-    fun stop() { running = false }
+    fun stop() { running = false; worker?.interrupt() }
     val isRunning: Boolean get() = running
 
     private fun toGaodeEnum(m: Int): Int = ManeuverMapper.toGaode(m)
