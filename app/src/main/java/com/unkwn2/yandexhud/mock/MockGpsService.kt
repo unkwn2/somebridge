@@ -43,9 +43,10 @@ object MockGpsService {
 
             var counter = 0
             while (running) {
+                val angle = (counter * 0.01) % (2 * Math.PI)
                 val loc = Location(LocationManager.GPS_PROVIDER).apply {
-                    latitude = lat + counter * 0.000001
-                    longitude = lon + counter * 0.000001
+                    latitude = lat + 0.001 * Math.sin(angle)
+                    longitude = lon + 0.001 * Math.cos(angle)
                     accuracy = 5f
                     bearing = 45f
                     speed = 10f

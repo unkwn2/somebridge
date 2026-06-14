@@ -18,9 +18,8 @@ class LoopRunner(private val bridge: SomeIpBridge) {
             while (running) {
                 val s = HudState.snapshot()
                 if (HudForegroundService.DEBUG_ARROW_SCAN && s.arrowScanActive) {
-                    counter++
                     val payload = ProtobufBuilder.build(
-                        counter = counter,
+                        counter = counter++,
                         maneuver = 0,
                         distance = 0,
                         road = "",
@@ -77,7 +76,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         laneLayout = laneLayout,
                         iconFieldNum = if (HudForegroundService.DEBUG_ARROW_SCAN) HudForegroundService.iconFieldNum else 0,
                         maneuverIcon = if (HudForegroundService.DEBUG_ARROW_SCAN && HudForegroundService.iconFieldNum > 0) maneuverVal else 0,
-                        iconPng = if (HudForegroundService.DEBUG_ARROW_SCAN && HudForegroundService.sendPngIcon) s.iconPng else null,
+                        iconPng = if (HudForegroundService.sendPngIcon) s.iconPng else null,
                         nextManeuverFieldNum = if (HudForegroundService.DEBUG_ARROW_SCAN) HudForegroundService.nextManeuverFieldNum else 0,
                         nextManeuverValue = if (HudForegroundService.DEBUG_ARROW_SCAN && HudForegroundService.nextManeuverFieldNum > 0) toGaodeEnum(s.nextNextManeuver) else 0,
                         suppressF28 = HudForegroundService.DEBUG_ARROW_SCAN && HudForegroundService.iconFieldNum > 0

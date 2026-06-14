@@ -97,9 +97,9 @@ class YandexA11yService : AccessibilityService() {
                 Logger.i(TAG, "=== END DUMP ===")
             }
 
-            val now = System.currentTimeMillis()
-            if (now - lastDumpMs > 15000) {
-                lastDumpMs = now
+            val nowDump = System.currentTimeMillis()
+            if (nowDump - lastDumpMs > 15000) {
+                lastDumpMs = nowDump
                 val relevant = collected.filter {
                     val short = it.vid.substringAfter('/', "")
                     short.isNotEmpty() && short !in IGNORE_VID
@@ -206,7 +206,7 @@ class YandexA11yService : AccessibilityService() {
                 if (m != ManeuverMapper.M_UNKNOWN) return m
             }
             if (iconNode.desc.isEmpty() && iconNode.text.isEmpty()) {
-                return ManeuverMapper.M_STRAIGHT
+                return ManeuverMapper.M_UNKNOWN
             }
         }
 
@@ -223,6 +223,7 @@ class YandexA11yService : AccessibilityService() {
         }
 
         for ((vid, n) in byVid) {
+            if (vid !in TARGET_VIDS) continue
             val t = n.desc.ifEmpty { n.text }
             if (t.isNotEmpty()) {
                 val m = ManeuverMapper.fromIconName(t)
@@ -239,8 +240,11 @@ class YandexA11yService : AccessibilityService() {
 
         val desc = iconNode.desc.ifEmpty { iconNode.text }.ifEmpty { null }
 
+        if (desc == null) return 0
+
         val exitNode = byVid[VID_EXIT_NUM]
-        if (desc != null && exitNode != null && exitNode.text.isNotEmpty()) {
+        val isRoundaboutDesc = desc != null && ("кольцев" in desc.lowercase() || "выезд с кольца" in desc.lowercase() || "съезд" in desc.lowercase())
+        if (isRoundaboutDesc && exitNode != null && exitNode.text.isNotEmpty()) {
             val exitNum = exitNode.text.trim().toIntOrNull()
             if (exitNum != null && exitNum in 1..10) {
                 return 24 + exitNum
@@ -256,10 +260,16 @@ class YandexA11yService : AccessibilityService() {
         val distNode = byVid[VID_MANEUVER_DIST]
         val unitNode = byVid[VID_MANEUVER_UNIT]
         if (distNode != null) {
-            val num = distNode.text.toIntOrNull()
+            val raw = distNode.text.trim()
+            val num = raw.toIntOrNull()
             if (num != null) {
                 val unit = unitNode?.text?.trim()?.lowercase() ?: "м"
                 return if (unit.startsWith("км") || unit.startsWith("km")) num * 1000 else num
+            }
+            val frac = raw.replace(',', '.').toDoubleOrNull()
+            if (frac != null) {
+                val unit = unitNode?.text?.trim()?.lowercase() ?: "м"
+                return if (unit.startsWith("км") || unit.startsWith("km")) (frac * 1000).toInt() else frac.toInt()
             }
         }
 
@@ -285,8 +295,8 @@ class YandexA11yService : AccessibilityService() {
         val roadSignNode = byVid[VID_ROADSIGN]
         if (roadSignNode != null && roadSignNode.text.isNotEmpty()) return roadSignNode.text
 
-        for ((vid, n) in byVid) {
-            if (vid.contains("text") && n.text.isNotEmpty()) {
+        for ((_, n) in byVid) {
+            if (n.text.isNotEmpty()) {
                 val t = n.text
                 if (t.contains("ул") || t.contains("пр") || t.contains("ш") ||
                     t.contains("проспект") || t.contains("улица") || t.contains("шоссе") ||

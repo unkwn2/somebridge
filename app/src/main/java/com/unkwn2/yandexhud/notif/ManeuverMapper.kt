@@ -216,7 +216,7 @@ object ManeuverMapper {
     private val ROUNDABOUT_EXIT = Regex("""(\d+)[-‑]й\s+съезд""")
 
     fun fromA11yDescription(text: String?): Int {
-        if (text == null || text == ">>>") return GAODE_STRAIGHT
+        if (text == null || text == ">>>") return 0
         val lower = text.lowercase().trim()
 
         val exitMatch = ROUNDABOUT_EXIT.find(lower)

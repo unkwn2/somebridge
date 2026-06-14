@@ -89,9 +89,8 @@ object ProtobufBuilder {
             val iLon = when (maneuver) {
                 1 -> lon - turn          // GAODE: LEFT
                 2 -> lon + turn          // GAODE: RIGHT
-                3 -> lon - turn * 0.5    // GAODE: SLIGHT_LEFT
+                3 -> lon - turn * 0.5    // GAODE: SLIGHT_LEFT / FORK_LEFT
                 4 -> lon + turn * 0.5    // GAODE: SLIGHT_RIGHT / FORK_RIGHT
-                5 -> lon - turn * 0.5    // GAODE: FORK_LEFT
                 7 -> lon - turn * 1.5    // GAODE: HARD_LEFT
                 8 -> lon + turn * 1.5    // GAODE: HARD_RIGHT
                 9 -> lon - turn * 2      // GAODE: UTURN_LEFT
