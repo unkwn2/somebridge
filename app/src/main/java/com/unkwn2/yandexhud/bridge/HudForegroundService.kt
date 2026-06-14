@@ -82,9 +82,9 @@ class HudForegroundService : Service() {
                 _bound = true
                 val rc = _bridge?.startService(SomeIpBridge.SERVICE_ID_NAVI) ?: -1
                 Logger.i(TAG, "startService rc=$rc")
+                val savedGaode = loadGaode(this)
                 _loopRunner = LoopRunner(_bridge!!)
-                _loopRunner?.useGaodeEnum = true
-                saveSettings(this, true)
+                _loopRunner?.useGaodeEnum = savedGaode
                 _loopRunner?.start()
             } else {
                 Logger.e(TAG, "bind failed")

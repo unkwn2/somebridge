@@ -90,7 +90,7 @@ class YandexNaviNotificationListener : NotificationListenerService() {
 
         if (smallIconName == "notifications_app_logo" ||
             (distanceMeters == 0 && road.contains("навигатор", ignoreCase = true))) {
-            Logger.d(TAG, "skipping idle notification: $road")
+            Logger.i(TAG, "skipping idle notification: $road")
             return
         }
 

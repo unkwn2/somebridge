@@ -28,7 +28,10 @@ android {
     }
 
     buildTypes {
-        getByName("release") { isMinifyEnabled = false }
+        getByName("release") {
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
         getByName("debug")   { isMinifyEnabled = false }
     }
 }

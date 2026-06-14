@@ -81,7 +81,8 @@ class MainActivity : AppCompatActivity() {
         btnTestNavMap.setOnClickListener { testNavMap() }
         btnTestNextNext.setOnClickListener { testNextNext() }
         btnTogglePacked.setOnClickListener { togglePacked() }
-        btnHudMode.setOnClickListener { tryHudMode() }
+        btnHudMode.setOnClickListener { toggleHudMode() }
+        btnHudMode.text = if (useGaodeEnum) "GAODE" else "v33"
         btnGrant.setOnClickListener { grantPermissions() }
         btnIconScan.setOnClickListener { cycleIconField() }
         btnPngIcon.setOnClickListener { cyclePngIcon() }
@@ -250,16 +251,14 @@ class MainActivity : AppCompatActivity() {
         Logger.i("UI", "usePacked=${!current}")
     }
 
-    private fun tryHudMode() {
-        val adbCmds = listOf(
-            "adb shell settings put system navi_screen_status 3",
-            "adb shell settings put global navi_screen_status 3",
-            "adb shell settings put system byd_navi_screen_status 3",
-            "adb shell am broadcast -a com.byd.amapservice.ACTION_START_NAVI"
-        )
-        copyAdbCmd(adbCmds.joinToString("\n"))
-        toast("ADB cmds copied to clipboard")
-        Logger.i("HUD", "ADB cmds copied")
+    private fun toggleHudMode() {
+        useGaodeEnum = !useGaodeEnum
+        HudForegroundService.loopRunner?.useGaodeEnum = useGaodeEnum
+        HudForegroundService.saveSettings(this, useGaodeEnum)
+        val label = if (useGaodeEnum) "GAODE" else "v33"
+        runOnUiThread { btnHudMode.text = label }
+        toast("Protocol: $label")
+        Logger.i("UI", "useGaodeEnum=$useGaodeEnum ($label)")
     }
 
     private fun testManeuver(maneuver: Int, name: String) {
