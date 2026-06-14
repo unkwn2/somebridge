@@ -165,6 +165,8 @@ class YandexA11yService : AccessibilityService() {
             }
         } catch (t: Throwable) {
             Logger.e(TAG, "parse error: ${t.message}")
+        } finally {
+            try { root.recycle() } catch (_: Throwable) {}
         }
     }
 

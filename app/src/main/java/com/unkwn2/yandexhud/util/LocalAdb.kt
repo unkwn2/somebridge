@@ -37,11 +37,11 @@ object LocalAdb {
     private const val VERSION = 0x01000000
     private const val MAXDATA = 256 * 1024
 
-    private var privateKey: java.security.PrivateKey? = null
-    private var publicKey: RSAPublicKey? = null
-    private var socket: Socket? = null
-    private var input: DataInputStream? = null
-    private var output: DataOutputStream? = null
+    @Volatile private var privateKey: java.security.PrivateKey? = null
+    @Volatile private var publicKey: RSAPublicKey? = null
+    @Volatile private var socket: Socket? = null
+    @Volatile private var input: DataInputStream? = null
+    @Volatile private var output: DataOutputStream? = null
 
     data class Result(val success: Boolean, val output: String = "", val error: String = "")
 

@@ -36,9 +36,11 @@ object HudState {
 
     fun snapshot(): Snapshot {
         val s = current
-        return if (s.active && !isTestLatched() && System.currentTimeMillis() - s.lastUpdateMs > 30_000) {
-            s.copy(active = false).also { current = it }
-        } else s
+        if (s.active && !isTestLatched() && System.currentTimeMillis() - s.lastUpdateMs > 30_000) {
+            update { if (it === s) it.copy(active = false) else it }
+            return current
+        }
+        return s
     }
 
     @Synchronized
