@@ -88,6 +88,12 @@ class YandexNaviNotificationListener : NotificationListenerService() {
 
         Logger.i(TAG, "posted fallback m=$maneuver(${ManeuverMapper.maneuverName(maneuver)}) txt=${maneuverFromText} icon=$smallIconName d=${distanceMeters}m road='$road' eta=${etaSeconds}s maps=$isMaps")
 
+        if (smallIconName == "notifications_app_logo" ||
+            (distanceMeters == 0 && road.contains("навигатор", ignoreCase = true))) {
+            Logger.d(TAG, "skipping idle notification: $road")
+            return
+        }
+
         removePostedMs = 0L
 
         val notifManeuverKnown = maneuver != ManeuverMapper.M_UNKNOWN

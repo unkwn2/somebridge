@@ -64,6 +64,7 @@ object ManeuverMapper {
         "пошлина" to M_TOLL,
         "вы прибыли" to M_ARRIVE,
         "маршрут завершён" to M_ARRIVE,
+        "до конца маршрута" to M_ARRIVE,
         "конец маршрута" to M_ARRIVE,
         "конечная" to M_ARRIVE,
         "достигнут" to M_ARRIVE,
@@ -124,6 +125,8 @@ object ManeuverMapper {
 
     fun fromRussianText(text: String): Int {
         val lower = text.lowercase().trim()
+            .replace('\u00A0', ' ')        // normalize non-breaking space
+            .replace(Regex("\\s+"), " ")   // collapse multiple spaces
         for ((phrase, m) in RU_PHRASES) {
             if (phrase in lower) return m
         }
@@ -216,7 +219,8 @@ object ManeuverMapper {
     private val ROUNDABOUT_EXIT = Regex("""(\d+)[-‑]й\s+съезд""")
 
     fun fromA11yDescription(text: String?): Int {
-        if (text == null || text == ">>>") return 0
+        if (text == null || text.isBlank()) return 0   // 0 = unknown, not STRAIGHT
+        if (text == ">>>") return GAODE_STRAIGHT
         val lower = text.lowercase().trim()
 
         val exitMatch = ROUNDABOUT_EXIT.find(lower)

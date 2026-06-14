@@ -205,9 +205,8 @@ class YandexA11yService : AccessibilityService() {
                 val m = ManeuverMapper.fromRussianText(iconNode.desc)
                 if (m != ManeuverMapper.M_UNKNOWN) return m
             }
-            if (iconNode.desc.isEmpty() && iconNode.text.isEmpty()) {
-                return ManeuverMapper.M_UNKNOWN
-            }
+            // desc="" and text="" means Yandex didn't expose the icon — do NOT
+            // assume STRAIGHT, fall through to other passes
         }
 
         for ((vid, n) in byVid) {
@@ -294,6 +293,9 @@ class YandexA11yService : AccessibilityService() {
 
         val roadSignNode = byVid[VID_ROADSIGN]
         if (roadSignNode != null && roadSignNode.text.isNotEmpty()) return roadSignNode.text
+
+        val statusPanel = byVid["statusPanel"]
+        if (statusPanel != null && statusPanel.text.isNotEmpty()) return statusPanel.text
 
         for ((_, n) in byVid) {
             if (n.text.isNotEmpty()) {
