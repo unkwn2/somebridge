@@ -309,8 +309,14 @@ class MainActivity : AppCompatActivity() {
         } else {
             HudState.update { it.copy(arrowScanActive = false) }
             runOnUiThread { btnArrowScan.text = "ARROW SCAN" }
+            val clearPayload = ProtobufBuilder.build(
+                counter = 0, maneuver = 0, distance = 0, road = "",
+                lat = 0.0, lon = 0.0, etaString = "",
+                statusIcon = 1, suppressF28 = true
+            )
+            HudForegroundService.bridge?.fireEvent(SomeIpBridge.TOPIC_NAVI, clearPayload)
             toast("Arrow scan stopped")
-            Logger.i("TEST", "arrowScan OFF")
+            Logger.i("TEST", "arrowScan OFF — sent clear f16=1")
         }
     }
 
