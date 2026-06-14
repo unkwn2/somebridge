@@ -71,30 +71,28 @@ object LocalAdb {
 
     private fun loadOrCreateKeys(ctx: android.content.Context) {
         try {
-            // Derive deterministic key from APK signing certificate — survives reinstall
-            val certBytes = try {
-                @Suppress("DEPRECATION")
-                val info = ctx.packageManager.getPackageInfo(ctx.packageName, android.content.pm.PackageManager.GET_SIGNATURES)
-                info.signatures?.firstOrNull()?.toByteArray() ?: throw Exception("no sig")
-            } catch (_: Throwable) {
-                ByteArray(0)
-            }
-            val seed = if (certBytes.isNotEmpty()) {
-                java.security.MessageDigest.getInstance("SHA-256").digest(certBytes)
+            val keyFile = java.io.File(ctx.filesDir, "adb_key.der")
+            if (keyFile.exists()) {
+                val encoded = keyFile.readBytes()
+                val kf = KeyFactory.getInstance("RSA")
+                privateKey = kf.generatePrivate(java.security.spec.PKCS8EncodedKeySpec(encoded))
+                val pubFile = java.io.File(ctx.filesDir, "adb_key.pub.der")
+                if (pubFile.exists()) {
+                    val pubEnc = pubFile.readBytes()
+                    publicKey = kf.generatePublic(java.security.spec.X509EncodedKeySpec(pubEnc)) as RSAPublicKey
+                }
             } else {
-                // fallback — use a constant so all installs share the same key
-                "YandexHUD_fallback_seed_2024".toByteArray()
+                val kpg = KeyPairGenerator.getInstance("RSA")
+                kpg.initialize(2048, SecureRandom())
+                val kp = kpg.generateKeyPair()
+                privateKey = kp.private
+                publicKey = kp.public as RSAPublicKey
+                keyFile.writeBytes(kp.private.encoded)
+                java.io.File(ctx.filesDir, "adb_key.pub.der").writeBytes(kp.public.encoded)
             }
-            val rand = java.security.SecureRandom(seed)
-            val kpg = java.security.KeyPairGenerator.getInstance("RSA")
-            kpg.initialize(2048, rand)
-            val kp = kpg.generateKeyPair()
-            privateKey = kp.private
-            publicKey = kp.public as RSAPublicKey
         } catch (e: Exception) {
             Logger.e(TAG, "keygen: ${e.message}")
-            // ultimate fallback
-            val kpg = java.security.KeyPairGenerator.getInstance("RSA")
+            val kpg = KeyPairGenerator.getInstance("RSA")
             kpg.initialize(2048)
             val kp = kpg.generateKeyPair()
             privateKey = kp.private

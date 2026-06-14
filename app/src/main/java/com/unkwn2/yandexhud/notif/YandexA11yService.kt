@@ -213,12 +213,14 @@ class YandexA11yService : AccessibilityService() {
 
         for ((vid, n) in byVid) {
             if (n.desc.isEmpty()) continue
+            if (n.vid == VID_NEXTSTREET || n.vid == VID_ROADSIGN || n.vid == "statusPanel") continue
             val m = ManeuverMapper.fromRussianText(n.desc)
             if (m != ManeuverMapper.M_UNKNOWN) return m
         }
 
         for ((vid, n) in byVid) {
             if (n.text.isEmpty()) continue
+            if (n.vid == VID_NEXTSTREET || n.vid == VID_ROADSIGN || n.vid == "statusPanel") continue
             val m = ManeuverMapper.fromRussianText(n.text)
             if (m != ManeuverMapper.M_UNKNOWN) return m
         }
@@ -299,13 +301,9 @@ class YandexA11yService : AccessibilityService() {
         val statusPanel = byVid["statusPanel"]
         if (statusPanel != null && statusPanel.text.isNotEmpty()) return statusPanel.text
 
+        val roadPrefix = Regex("""(?i)\b(ул|улица|пр-т|проспект|просп|ш|шоссе|пер|переулок|наб|бул|пл)\b""")
         for ((_, n) in byVid) {
-            if (n.text.isNotEmpty()) {
-                val t = n.text
-                if (t.contains("ул") || t.contains("пр") || t.contains("ш") ||
-                    t.contains("проспект") || t.contains("улица") || t.contains("шоссе") ||
-                    t.contains("дор")) return t
-            }
+            if (n.text.isNotEmpty() && roadPrefix.containsMatchIn(n.text)) return n.text
         }
         return ""
     }
