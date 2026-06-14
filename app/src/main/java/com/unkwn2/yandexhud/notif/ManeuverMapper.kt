@@ -62,6 +62,7 @@ object ManeuverMapper {
         "пошлина" to M_TOLL,
         "вы прибыли" to M_ARRIVE,
         "маршрут завершён" to M_ARRIVE,
+        "конец маршрута" to M_ARRIVE,
         "конечная" to M_ARRIVE,
         "достигнут" to M_ARRIVE,
         "прибытие" to M_ARRIVE,

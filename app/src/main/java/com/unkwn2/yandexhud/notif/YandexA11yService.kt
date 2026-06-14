@@ -271,7 +271,7 @@ class YandexA11yService : AccessibilityService() {
         if (roadSignNode != null && roadSignNode.text.isNotEmpty()) return roadSignNode.text
 
         for ((vid, n) in byVid) {
-            if (vid.startsWith("text_") && n.text.isNotEmpty()) {
+            if (vid.contains("text") && n.text.isNotEmpty()) {
                 val t = n.text
                 if (t.contains("ул") || t.contains("пр") || t.contains("ш") ||
                     t.contains("проспект") || t.contains("улица") || t.contains("шоссе") ||
@@ -337,12 +337,6 @@ class YandexA11yService : AccessibilityService() {
                     if (m != ManeuverMapper.M_UNKNOWN) return m
                 }
             }
-        }
-        val exitNode = byVid[VID_EXIT_NUM]
-        if (exitNode != null && exitNode.text.isNotEmpty()) {
-            val exitNum = exitNode.text.trim()
-            val n = Regex("""(\d+)""").find(exitNum)?.groupValues?.get(1)?.toIntOrNull() ?: 0
-            if (n > 0 && n <= 8) return ManeuverMapper.M_ROUNDABOUT_ENTER
         }
         return 0
     }

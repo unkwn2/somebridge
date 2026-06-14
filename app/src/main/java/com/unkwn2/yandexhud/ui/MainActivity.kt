@@ -32,7 +32,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnMockGps: Button
     private lateinit var btnSniffer: Button
     private lateinit var btnA11y: Button
-    private lateinit var btnToggleSchema: Button
     private lateinit var btnTestLanes: Button
     private lateinit var btnTestNavMap: Button
     private lateinit var btnTestNextNext: Button
@@ -42,18 +41,17 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnIconScan: Button
     private lateinit var btnPngIcon: Button
     private lateinit var btnRvDump: Button
+    private lateinit var btnArrowScan: Button
 
     private var yandexOn = false
     private var mockOn = false
     private var snifferOn = false
-    private var maneuverTagIdx = 0
     private var useGaodeEnum = true
     private var statusRefreshThread: Thread? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Logger.init(applicationContext)
-        maneuverTagIdx = HudForegroundService.loadTagIdx(this)
         useGaodeEnum = HudForegroundService.loadGaode(this)
         setContentView(R.layout.activity_main)
 
@@ -64,7 +62,6 @@ class MainActivity : AppCompatActivity() {
         btnMockGps = findViewById(R.id.btnMockGps)
         btnSniffer = findViewById(R.id.btnSniffer)
         btnA11y = findViewById(R.id.btnA11y)
-        btnToggleSchema = findViewById(R.id.btnToggleSchema)
         btnTestLanes = findViewById(R.id.btnTestLanes)
         btnTestNavMap = findViewById(R.id.btnTestNavMap)
         btnTestNextNext = findViewById(R.id.btnTestNextNext)
@@ -74,12 +71,12 @@ class MainActivity : AppCompatActivity() {
         btnIconScan = findViewById(R.id.btnIconScan)
         btnPngIcon = findViewById(R.id.btnPngIcon)
         btnRvDump = findViewById(R.id.btnRvDump)
+        btnArrowScan = findViewById(R.id.btnArrowScan)
 
         btnYandex.setOnClickListener { toggleYandex() }
         btnMockGps.setOnClickListener { toggleMockGps() }
         btnSniffer.setOnClickListener { toggleSniffer() }
         btnA11y.setOnClickListener { enableA11y() }
-        btnToggleSchema.setOnClickListener { toggleSchema() }
         btnTestLanes.setOnClickListener { testLanes() }
         btnTestNavMap.setOnClickListener { testNavMap() }
         btnTestNextNext.setOnClickListener { testNextNext() }
@@ -89,6 +86,7 @@ class MainActivity : AppCompatActivity() {
         btnIconScan.setOnClickListener { cycleIconField() }
         btnPngIcon.setOnClickListener { cyclePngIcon() }
         btnRvDump.setOnClickListener { cycleRvDump() }
+        btnArrowScan.setOnClickListener { toggleArrowScan() }
         findViewById<Button>(R.id.btnSaveLog).setOnClickListener { saveLog() }
         findViewById<Button>(R.id.btnNotifAccess).setOnClickListener {
             try {
@@ -110,7 +108,14 @@ class MainActivity : AppCompatActivity() {
                 logScroll.post { logScroll.fullScroll(ScrollView.FOCUS_DOWN) }
             }
         }
-        HudState.observe { updateStatusBar() }
+        HudState.observe { s ->
+            updateStatusBar()
+            runOnUiThread {
+                if (s.arrowScanActive && ::btnArrowScan.isInitialized) {
+                    btnArrowScan.text = "ARROW: ${s.arrowScanIndex}"
+                }
+            }
+        }
         startStatusRefresh()
     }
 
@@ -145,16 +150,6 @@ class MainActivity : AppCompatActivity() {
                 updateStatusBar()
             }
         }
-    }
-
-    private fun toggleSchema() {
-        maneuverTagIdx = (maneuverTagIdx + 1) % 3
-        HudForegroundService.loopRunner?.maneuverTagIdx = maneuverTagIdx
-        HudForegroundService.saveSettings(this, maneuverTagIdx, useGaodeEnum)
-        val labels = arrayOf("f28", "f5", "f6")
-        btnToggleSchema.text = "TAG:${labels[maneuverTagIdx]}"
-        Logger.i("UI", "maneuver tag = ${labels[maneuverTagIdx]}")
-        toast("Maneuver field: ${labels[maneuverTagIdx]}")
     }
 
     private fun toggleMockGps() {
@@ -292,16 +287,31 @@ class MainActivity : AppCompatActivity() {
 
     private fun testManeuver(maneuver: Int, name: String) {
         if (!yandexOn) { toast("Start YANDEX NAVI first"); return }
-        val tagLabels = arrayOf("f28", "f5", "f6")
         val enumLabel = if (useGaodeEnum) "GAODE" else "v33"
         val gaodeVal = if (useGaodeEnum) toGaodeDisplay(maneuver) else maneuver
-        Logger.i("TEST", "maneuver=$name code=$maneuver gaode=$gaodeVal tag=${tagLabels[maneuverTagIdx]} enum=$enumLabel")
+        Logger.i("TEST", "maneuver=$name code=$maneuver gaode=$gaodeVal enum=$enumLabel")
         HudState.update {
             it.copy(active = true, maneuver = maneuver, distanceMeters = 500,
                 road = "Test $name", etaSeconds = 300, lastUpdateMs = System.currentTimeMillis())
         }
         HudState.setTestLatch(10000L)
         toast("TEST $name → HUD $gaodeVal (latch 10s)")
+    }
+
+    private fun toggleArrowScan() {
+        if (!yandexOn) { toast("Start YANDEX NAVI first"); return }
+        val s = HudState.snapshot()
+        if (!s.arrowScanActive) {
+            if (!s.active) forceActiveForTest()
+            HudState.update { it.copy(arrowScanActive = true, arrowScanIndex = 0) }
+            toast("Arrow scan started: idx=0")
+            Logger.i("TEST", "arrowScan ON (f27 texture 0..47)")
+        } else {
+            HudState.update { it.copy(arrowScanActive = false) }
+            runOnUiThread { btnArrowScan.text = "ARROW SCAN" }
+            toast("Arrow scan stopped")
+            Logger.i("TEST", "arrowScan OFF")
+        }
     }
 
     private fun toGaodeDisplay(m: Int): Int = ManeuverMapper.toGaode(m)
@@ -391,7 +401,6 @@ class MainActivity : AppCompatActivity() {
             10 -> "UTURN_L"; 11 -> "UTURN_R"; 12 -> "ARRIVE"
             else -> "${s.maneuver}"
         }
-        val tagLabels = arrayOf("f28", "f5", "f6")
         val yStatus = if (yandexOn) "ON" else "OFF"
         val fgsReady = HudForegroundService.isReady
         val navStatus = if (s.active) "$maneuverStr ${s.distanceMeters}m" else "idle"
@@ -401,7 +410,7 @@ class MainActivity : AppCompatActivity() {
         val nnLabel = if (s.nextNextManeuver > 0) "N${s.nextNextManeuver}" else ""
 
         runOnUiThread {
-            statusBar.text = "Y:$yStatus FGS:$fgsReady | $navStatus | TAG:${tagLabels[maneuverTagIdx]} $packLabel${lanesLabel}${nnLabel} | A11y:$a11yStatus"
+            statusBar.text = "Y:$yStatus FGS:$fgsReady | $navStatus | $packLabel${lanesLabel}${nnLabel} | A11y:$a11yStatus"
         }
     }
 

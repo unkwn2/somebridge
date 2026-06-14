@@ -7,7 +7,6 @@ object ProtobufBuilder {
     fun build(
         counter: Int,
         maneuver: Int,
-        maneuverTagIdx: Int,
         distance: Int,
         road: String,
         lat: Double, lon: Double,
@@ -22,7 +21,11 @@ object ProtobufBuilder {
         laneLayout: String = "",
         iconFieldNum: Int = 0,
         maneuverIcon: Int = 0,
-        iconPng: ByteArray? = null          // f8 PNG иконки манёвра (экспериментально)
+        iconPng: ByteArray? = null,         // f8 PNG иконки манёвра (экспериментально)
+        nextManeuverFieldNum: Int = 0,      // номер поля для nextNextManeuver (экспериментально)
+        nextManeuverValue: Int = 0,         // GAODE-код следующего-следующего манёвра
+        suppressF28: Boolean = false,       // подавить f28 (режим скана полей)
+        simpleNaviIndex: Int = -1           // f27 texture index для ICON_SIMPLE_NAVI (0..47, -1 = не слать)
     ): ByteArray {
         val inner = ByteArrayOutputStream()
 
@@ -33,13 +36,21 @@ object ProtobufBuilder {
         writeStringField(inner, 10, road)                         // f10 nextRoadName
         writeVarintField(inner, 16, statusIcon.toLong())           // f16 navigatingStatus: 2=draw, 1=clear
         writeStringField(inner, 26, etaString)                    // f26 ETA "HH:MM"
-        writeVarintField(inner, 28, maneuver.toLong())            // f28 recommendedDrivingDirectionsId
+        if (!suppressF28) {
+            writeVarintField(inner, 28, maneuver.toLong())            // f28 recommendedDrivingDirectionsId
+        }
+        if (simpleNaviIndex in 0..47) {
+            writeVarintField(inner, 27, simpleNaviIndex.toLong())     // f27 ICON_SIMPLE_NAVI texture index
+        }
         if (iconFieldNum > 0 && maneuverIcon > 0) {
             writeVarintField(inner, iconFieldNum, maneuverIcon.toLong())
         }
         if (testLanes && laneLayout.isNotEmpty()) {
             writeVarintField(inner, 5, laneLayout.split(",").size.toLong())  // f5 lane count
             writeStringField(inner, 29, laneLayout)               // f29 lane layout "back,front|"
+        }
+        if (nextManeuverFieldNum > 0 && nextManeuverValue > 0) {
+            writeVarintField(inner, nextManeuverFieldNum, nextManeuverValue.toLong())
         }
         writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver)) // f30 guideLine
         writeStringField(inner, 31, "$lon,$lat,0")               // f31 guidePoint
@@ -74,13 +85,17 @@ object ProtobufBuilder {
             val iLat = lat + i * step
             val turn = if (i > turnStart) (i - turnStart) * step else 0.0
             val iLon = when (maneuver) {
-                1 -> lon - turn
-                2 -> lon + turn
-                7 -> lon - turn * 1.5
-                8 -> lon + turn * 1.5
-                9 -> lon - turn * 2
-                10 -> lon + turn * 2
-                13 -> lon + turn * 0.5
+                1 -> lon - turn          // GAODE: LEFT
+                2 -> lon + turn          // GAODE: RIGHT
+                3 -> lon - turn * 0.5    // GAODE: SLIGHT_LEFT
+                4 -> lon + turn * 0.5    // GAODE: SLIGHT_RIGHT / FORK_RIGHT
+                5 -> lon - turn * 0.5    // GAODE: FORK_LEFT
+                7 -> lon - turn * 1.5    // GAODE: HARD_LEFT
+                8 -> lon + turn * 1.5    // GAODE: HARD_RIGHT
+                9 -> lon - turn * 2      // GAODE: UTURN_LEFT
+                10 -> lon + turn * 2     // GAODE: UTURN_RIGHT
+                11 -> lon                 // GAODE: STRAIGHT
+                13 -> lon + turn * 0.5   // GAODE: ROUNDABOUT_ENTER
                 else -> lon
             }
             if (i > 0) sb.append(",")

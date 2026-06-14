@@ -7,7 +7,6 @@ class LoopRunner(private val bridge: SomeIpBridge) {
     private val TAG = "LOOP"
     @Volatile private var running = false
     @Volatile private var counter = 0
-    @Volatile var maneuverTagIdx: Int = 0
     @Volatile var useGaodeEnum: Boolean = true
 
     fun start(periodMs: Long = 300L) {
@@ -15,10 +14,36 @@ class LoopRunner(private val bridge: SomeIpBridge) {
         running = true
         counter = 0
         Thread {
-            Logger.i(TAG, "started @ ${periodMs}ms tagIdx=$maneuverTagIdx gaode=$useGaodeEnum")
+            Logger.i(TAG, "started @ ${periodMs}ms gaode=$useGaodeEnum")
             while (running) {
                 val s = HudState.snapshot()
-                if (s.active) {
+                if (s.arrowScanActive) {
+                    counter++
+                    val payload = ProtobufBuilder.build(
+                        counter = counter,
+                        maneuver = 0,
+                        distance = 0,
+                        road = "",
+                        lat = 0.0, lon = 0.0,
+                        etaString = "",
+                        statusIcon = 2,
+                        simpleNaviIndex = s.arrowScanIndex,
+                        suppressF28 = true,
+                        iconFieldNum = 0,
+                        maneuverIcon = 0,
+                        iconPng = null,
+                        testLanes = false,
+                        laneLayout = "",
+                        usePacked = s.usePacked
+                    )
+                    val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
+                    if (counter % 5 == 0) {
+                        HudState.update { it.copy(arrowScanIndex = (it.arrowScanIndex + 1) % 48) }
+                    }
+                    if (counter % 5 == 0) {
+                        Logger.i(TAG, "arrowScan idx=${s.arrowScanIndex} rc=$rc")
+                    }
+                } else if (s.active) {
                     val cal = java.util.Calendar.getInstance()
                     val nowTotalMin = cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE)
                     val etaTotalMin = s.etaSeconds / 60
@@ -37,7 +62,6 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                     val payload = ProtobufBuilder.build(
                         counter = counter++,
                         maneuver = maneuverVal,
-                        maneuverTagIdx = maneuverTagIdx,
                         distance = s.distanceMeters,
                         road = s.road,
                         lat = s.lat, lon = s.lon,
@@ -52,15 +76,18 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         laneLayout = laneLayout,
                         iconFieldNum = HudForegroundService.iconFieldNum,
                         maneuverIcon = if (HudForegroundService.iconFieldNum > 0) maneuverVal else 0,
-                        iconPng = if (HudForegroundService.sendPngIcon) s.iconPng else null
+                        iconPng = if (HudForegroundService.sendPngIcon) s.iconPng else null,
+                        nextManeuverFieldNum = HudForegroundService.nextManeuverFieldNum,
+                        nextManeuverValue = if (HudForegroundService.nextManeuverFieldNum > 0) toGaodeEnum(s.nextNextManeuver) else 0,
+                        suppressF28 = HudForegroundService.iconFieldNum > 0
                     )
                     val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
 
                     if (counter % 30 == 0) {
                         val enumLabel = if (useGaodeEnum) "GAODE" else "v33"
                         val packLabel = if (s.usePacked) "pk" else "np"
-                        val iconLabel = if (HudForegroundService.iconFieldNum > 0) " ICON=f${HudForegroundService.iconFieldNum}=$maneuverVal" else ""
-                        Logger.i(TAG, "tick #$counter rc=$rc m=$maneuverVal($enumLabel) $packLabel d=${s.distanceMeters} road='${s.road}' iconIdx=$statusIconVal lanes=${if (s.testLanes) laneLayout else "-"}$iconLabel")
+                        val scanLabel = if (HudForegroundService.iconFieldNum > 0) " SCAN=f${HudForegroundService.iconFieldNum}=$maneuverVal NOF28" else ""
+                        Logger.i(TAG, "tick #$counter rc=$rc m=$maneuverVal($enumLabel) $packLabel d=${s.distanceMeters} road='${s.road}' iconIdx=$statusIconVal lanes=${if (s.testLanes) laneLayout else "-"}$scanLabel")
                     }
                 } else if (counter % 100 == 0) {
                     Logger.i(TAG, "tick #$counter (idle)")

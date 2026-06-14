@@ -25,7 +25,9 @@ object HudState {
         val trafficLightColor: String = "",   // "red"/"green"/"yellow" из RemoteViews
         val trafficLightSeconds: Int = 0,     // секунды до смены светофора
         val cameraAlert: String = "",          // "camera"/"accident"/"roadworks"/"other"
-        val maneuverGaode: Int = 0              // GAODE-код манёвра из A11y contentDescription (0 = не установлен)
+        val maneuverGaode: Int = 0,             // GAODE-код манёвра из A11y contentDescription (0 = не установлен)
+        val arrowScanActive: Boolean = false,   // режим перебора стрелок ICON_SIMPLE_NAVI
+        val arrowScanIndex: Int = 0             // текущий индекс текстуры 0..47
     )
 
     @Volatile private var current = Snapshot()
@@ -33,7 +35,7 @@ object HudState {
 
     fun snapshot(): Snapshot {
         val s = current
-        return if (s.active && System.currentTimeMillis() - s.lastUpdateMs > 30_000) {
+        return if (s.active && !isTestLatched() && System.currentTimeMillis() - s.lastUpdateMs > 30_000) {
             s.copy(active = false).also { current = it }
         } else s
     }

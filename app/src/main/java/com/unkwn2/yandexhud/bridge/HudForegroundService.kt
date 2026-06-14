@@ -19,7 +19,6 @@ class HudForegroundService : Service() {
         private const val CH_ID = "yandexhud_fg"
         private const val NOTIF_ID = 1
         private const val PREFS = "yandexhud_prefs"
-        private const val KEY_TAG_IDX = "maneuverTagIdx"
         private const val KEY_GAODE = "useGaodeEnum"
 
         @Volatile var instance: HudForegroundService? = null
@@ -29,10 +28,13 @@ class HudForegroundService : Service() {
 
         // Field scanner for small arrow (ICON_SIMPLE_NAVI) — 0 = OFF
         @Volatile var iconFieldNum: Int = 0
-        val ICON_CANDIDATES = intArrayOf(11, 13, 14, 15, 17, 18, 21, 22, 23, 24, 25, 27)
+        val ICON_CANDIDATES = intArrayOf(27, 11, 13, 17, 18, 21, 22, 23, 24, 25)  // 27 приоритет (ICON_SIMPLE_NAVI); f12-f15 исключены как ядовитые
 
         // f8 PNG from RemoteViews — false = OFF (по умолчанию, пока не убедимся что идёт стрелка, а не полоса/точки)
         @Volatile var sendPngIcon: Boolean = false
+
+        // nextNextManeuver field number — 0 = OFF (экспериментально)
+        @Volatile var nextManeuverFieldNum: Int = 0
 
         // RV dump in log — false = OFF (засоряет логи)
         @Volatile var probeRv: Boolean = false
@@ -44,15 +46,11 @@ class HudForegroundService : Service() {
             ctx.stopService(Intent(ctx, HudForegroundService::class.java))
         }
 
-        fun saveSettings(ctx: Context, tagIdx: Int, gaode: Boolean) {
+        fun saveSettings(ctx: Context, gaode: Boolean) {
             ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                .putInt(KEY_TAG_IDX, tagIdx)
                 .putBoolean(KEY_GAODE, gaode)
                 .apply()
         }
-
-        fun loadTagIdx(ctx: Context): Int =
-            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_TAG_IDX, 0)
 
         fun loadGaode(ctx: Context): Boolean =
             ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_GAODE, true)
@@ -83,9 +81,8 @@ class HudForegroundService : Service() {
                 val rc = _bridge?.startService(SomeIpBridge.SERVICE_ID_NAVI) ?: -1
                 Logger.i(TAG, "startService rc=$rc")
                 _loopRunner = LoopRunner(_bridge!!)
-                _loopRunner?.maneuverTagIdx = loadTagIdx(this)
                 _loopRunner?.useGaodeEnum = true
-                saveSettings(this, loadTagIdx(this), true)
+                saveSettings(this, true)
                 _loopRunner?.start()
             } else {
                 Logger.e(TAG, "bind failed")
