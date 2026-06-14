@@ -1,8 +1,6 @@
 package com.unkwn2.yandexhud.notif
 
 import android.app.Notification
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.unkwn2.yandexhud.bridge.HudForegroundService
@@ -51,16 +49,10 @@ class YandexNaviNotificationListener : NotificationListenerService() {
         }
 
         if (rv != null) {
-            val maneuverFromText = ManeuverMapper.fromRussianText(rv.instruction)
-            val maneuverFromBitmap = if (maneuverFromText == ManeuverMapper.M_UNKNOWN && rv.maneuverPng != null) {
-                val bmp = try { BitmapFactory.decodeByteArray(rv.maneuverPng, 0, rv.maneuverPng.size) } catch (_: Throwable) { null }
-                if (bmp != null) detectManeuverFromBitmap(bmp) else null
-            } else null
-            val maneuver = maneuverFromBitmap ?: maneuverFromText
+            val maneuver = ManeuverMapper.fromRussianText(rv.instruction)
             val etaSeconds = if (rv.remainingTimeSec > 0) rv.remainingTimeSec
                 else parseEtaSeconds(ext.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: "")
-            val bmpLabel = if (maneuverFromBitmap != null) maneuverFromBitmap.toString() else "null"
-            Logger.i(TAG, "posted rv m=$maneuver(${ManeuverMapper.maneuverName(maneuver)}) txt=${maneuverFromText} bmp=$bmpLabel d=${rv.distToManeuverM}m road='${rv.road}' eta=${etaSeconds}s tl=${rv.trafficLightColor}${if (rv.trafficLightSeconds > 0) " ${rv.trafficLightSeconds}s" else ""} cam='${rv.cameraAlert}' png=${if (rv.maneuverPng != null) "${rv.maneuverPng.size}B" else "none"}")
+            Logger.i(TAG, "posted rv m=$maneuver(${ManeuverMapper.maneuverName(maneuver)}) d=${rv.distToManeuverM}m road='${rv.road}' eta=${etaSeconds}s tl=${rv.trafficLightColor}${if (rv.trafficLightSeconds > 0) " ${rv.trafficLightSeconds}s" else ""} cam='${rv.cameraAlert}' png=${if (rv.maneuverPng != null) "${rv.maneuverPng.size}B" else "none"}")
             removePostedMs = 0L
             HudState.update { prev ->
                 prev.copy(
@@ -88,11 +80,8 @@ class YandexNaviNotificationListener : NotificationListenerService() {
         val isMaps = sbn.packageName in YANDEX_MAPS_PKGS
 
         val maneuverFromText = ManeuverMapper.fromRussianText("$title $text")
-        val largeIcon = ext.getParcelable<Bitmap>(Notification.EXTRA_LARGE_ICON)
-        val maneuverFromIcon = if (maneuverFromText == ManeuverMapper.M_UNKNOWN && largeIcon != null) detectManeuverFromBitmap(largeIcon) else null
         val smallIconName = resolveIconName(sbn.packageName, n.smallIcon?.resId ?: 0)
-        val maneuverFromSmall = if (maneuverFromIcon == null && maneuverFromText == ManeuverMapper.M_UNKNOWN) ManeuverMapper.fromIconName(smallIconName) else ManeuverMapper.M_UNKNOWN
-        val maneuver = maneuverFromIcon ?: if (maneuverFromSmall != ManeuverMapper.M_UNKNOWN) maneuverFromSmall else maneuverFromText
+        val maneuver = if (maneuverFromText == ManeuverMapper.M_UNKNOWN) ManeuverMapper.fromIconName(smallIconName) else maneuverFromText
         val distanceMeters = parseDistance(text) ?: parseDistance(title) ?: 0
         val road = extractRoad(title, text)
         val etaSeconds = parseEtaSeconds(subText)
@@ -147,35 +136,6 @@ class YandexNaviNotificationListener : NotificationListenerService() {
             val ctx = createPackageContext(pkg, 0)
             ctx.resources.getResourceEntryName(resId)
         } catch (_: Throwable) { "" }
-    }
-
-    private fun detectManeuverFromBitmap(bmp: Bitmap): Int? {
-        val w = bmp.width; val h = bmp.height
-        if (w < 8 || h < 8) return null
-        val pixels = IntArray(w * h).also { bmp.getPixels(it, 0, w, 0, 0, w, h) }
-        var left = 0L; var right = 0L; var top = 0L; var bottom = 0L; var count = 0
-        for (y in 0 until h) {
-            for (x in 0 until w) {
-                val a = (pixels[y * w + x] ushr 24) and 0xff
-                if (a > 128) {
-                    count++
-                    if (x < w / 2) left++; else right++
-                    if (y < h / 2) top++; else bottom++
-                }
-            }
-        }
-        if (count < 5) return null
-        val hBias = (right - left).toDouble() / count.toDouble()
-        val vBias = (bottom - top).toDouble() / count.toDouble()
-        return when {
-            hBias > 0.25 && kotlin.math.abs(vBias) < 0.25 -> ManeuverMapper.M_RIGHT
-            hBias < -0.25 && kotlin.math.abs(vBias) < 0.25 -> ManeuverMapper.M_LEFT
-            vBias < -0.25 && kotlin.math.abs(hBias) < 0.25 -> ManeuverMapper.M_STRAIGHT
-            vBias > 0.35 && kotlin.math.abs(hBias) < 0.25 -> ManeuverMapper.M_UTURN_LEFT
-            hBias > 0.25 && vBias < -0.25 -> ManeuverMapper.M_SLIGHT_RIGHT
-            hBias < -0.25 && vBias < -0.25 -> ManeuverMapper.M_SLIGHT_LEFT
-            else -> null
-        }
     }
 
     private fun extractRoad(title: String, text: String): String {

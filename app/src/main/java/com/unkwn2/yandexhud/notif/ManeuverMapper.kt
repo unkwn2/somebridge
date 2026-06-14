@@ -43,6 +43,8 @@ object ManeuverMapper {
         "поворот налево" to M_LEFT,
         "налево" to M_LEFT,
         "левый" to M_LEFT,
+        "левее" to M_SLIGHT_LEFT,
+        "правее" to M_SLIGHT_RIGHT,
         "поверните направо" to M_RIGHT,
         "поворот направо" to M_RIGHT,
         "направо" to M_RIGHT,
@@ -186,7 +188,7 @@ object ManeuverMapper {
     fun toGaode(m: Int): Int = when (m) {
         M_LEFT -> 1; M_RIGHT -> 2
         M_SLIGHT_LEFT -> 3; M_SLIGHT_RIGHT -> 4   // 3, не 5 — текстуры 0x5 нет в прошивке
-        M_FORK_LEFT -> 5; M_FORK_RIGHT -> 4
+        M_FORK_LEFT -> 3; M_FORK_RIGHT -> 4        // FORK_LEFT тоже 3 (текстуры 0x5 нет)
         M_HARD_LEFT -> 7; M_HARD_RIGHT -> 8
         M_EXIT_LEFT -> 7; M_EXIT_RIGHT -> 8
         M_UTURN_LEFT -> 9; M_UTURN_RIGHT -> 10
@@ -224,7 +226,9 @@ object ManeuverMapper {
         }
 
         return when {
-            "кольцевое" in lower || "выезд с кольца" in lower || "круговое" in lower -> GAODE_ROUNDABOUT_ENTER
+            "въезд на паром" in lower -> 46  // GAODE: FERRY
+            "кольцевое" in lower || "круговое" in lower -> GAODE_ROUNDABOUT_ENTER
+            "выезд с кольца" in lower || "съезд с кольца" in lower -> GAODE_ROUNDABOUT_EXIT_BASE
             "промежуточная точка" in lower -> GAODE_WAYPOINT
             "съезд с парома" in lower || "выезд с парома" in lower -> GAODE_STRAIGHT
             "прибытие" in lower || "маршрут окончен" in lower || "конечная" in lower || "достигнут" in lower -> GAODE_ARRIVE

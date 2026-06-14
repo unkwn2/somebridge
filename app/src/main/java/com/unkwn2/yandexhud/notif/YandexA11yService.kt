@@ -137,6 +137,7 @@ class YandexA11yService : AccessibilityService() {
                 HudState.update { prev ->
                     val mergeManeuver = if (maneuver != ManeuverMapper.M_UNKNOWN) maneuver else prev.maneuver
                     val mergeGaode = if (maneuverGaode > 0) maneuverGaode else prev.maneuverGaode
+                    val mergeGaodeMs = if (maneuverGaode > 0) System.currentTimeMillis() else prev.maneuverGaodeMs
                     val mergeDist = if (distance > 0) distance else prev.distanceMeters
                     val mergeRoad = if (road.isNotEmpty()) road else prev.road
                     val mergeEta = if (eta > 0) eta else prev.etaSeconds
@@ -148,6 +149,7 @@ class YandexA11yService : AccessibilityService() {
                         active = true,
                         maneuver = mergeManeuver,
                         maneuverGaode = mergeGaode,
+                        maneuverGaodeMs = mergeGaodeMs,
                         distanceMeters = mergeDist,
                         road = mergeRoad,
                         etaSeconds = mergeEta,
@@ -238,11 +240,16 @@ class YandexA11yService : AccessibilityService() {
         val desc = iconNode.desc.ifEmpty { iconNode.text }.ifEmpty { null }
 
         val exitNode = byVid[VID_EXIT_NUM]
-        val fullDesc = if (desc != null && exitNode != null && exitNode.text.isNotEmpty()) {
-            "$desc ${exitNode.text}"
-        } else desc
+        if (desc != null && exitNode != null && exitNode.text.isNotEmpty()) {
+            val exitNum = exitNode.text.trim().toIntOrNull()
+            if (exitNum != null && exitNum in 1..10) {
+                return 24 + exitNum
+            }
+            val fullDesc = "$desc ${exitNode.text}-й съезд"
+            return ManeuverMapper.fromA11yDescription(fullDesc)
+        }
 
-        return ManeuverMapper.fromA11yDescription(fullDesc)
+        return ManeuverMapper.fromA11yDescription(desc)
     }
 
     private fun resolveDistance(byVid: Map<String, NodeData>): Int {

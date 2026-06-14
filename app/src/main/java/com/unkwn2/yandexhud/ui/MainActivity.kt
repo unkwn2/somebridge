@@ -251,29 +251,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun tryHudMode() {
-        var tried = 0
-        var succeeded = 0
-        val keys = listOf(
-            "navi_screen_status", "byd_navi_screen_status",
-            "hud_navi_status", "byd_hud_navi_mode"
-        )
-        for (key in keys) {
-            try {
-                Settings.System.putInt(contentResolver, key, 3)
-                succeeded++
-                Logger.i("HUD", "Settings.System.putInt($key, 3) OK")
-            } catch (t: Throwable) {
-                Logger.i("HUD", "Settings.System.putInt($key, 3) FAIL: ${t.message}")
-            }
-            try {
-                Settings.Global.putInt(contentResolver, key, 3)
-                succeeded++
-                Logger.i("HUD", "Settings.Global.putInt($key, 3) OK")
-            } catch (t: Throwable) {
-                Logger.i("HUD", "Settings.Global.putInt($key, 3) FAIL: ${t.message}")
-            }
-            tried += 2
-        }
         val adbCmds = listOf(
             "adb shell settings put system navi_screen_status 3",
             "adb shell settings put global navi_screen_status 3",
@@ -281,8 +258,8 @@ class MainActivity : AppCompatActivity() {
             "adb shell am broadcast -a com.byd.amapservice.ACTION_START_NAVI"
         )
         copyAdbCmd(adbCmds.joinToString("\n"))
-        toast("HUD mode: $succeeded/$tried OK. ADB cmds copied")
-        Logger.i("HUD", "tried=$tried succeeded=$succeeded — ADB cmds copied")
+        toast("ADB cmds copied to clipboard")
+        Logger.i("HUD", "ADB cmds copied")
     }
 
     private fun testManeuver(maneuver: Int, name: String) {
@@ -299,6 +276,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun toggleArrowScan() {
+        if (!HudForegroundService.DEBUG_ARROW_SCAN) { toast("Arrow scan disabled"); return }
         if (!yandexOn) { toast("Start YANDEX NAVI first"); return }
         val s = HudState.snapshot()
         if (!s.arrowScanActive) {

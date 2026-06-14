@@ -26,6 +26,7 @@ object HudState {
         val trafficLightSeconds: Int = 0,     // секунды до смены светофора
         val cameraAlert: String = "",          // "camera"/"accident"/"roadworks"/"other"
         val maneuverGaode: Int = 0,             // GAODE-код манёвра из A11y contentDescription (0 = не установлен)
+        val maneuverGaodeMs: Long = 0L,         // когда был установлен maneuverGaode (ms)
         val arrowScanActive: Boolean = false,   // режим перебора стрелок ICON_SIMPLE_NAVI
         val arrowScanIndex: Int = 0             // текущий индекс текстуры 0..47
     )

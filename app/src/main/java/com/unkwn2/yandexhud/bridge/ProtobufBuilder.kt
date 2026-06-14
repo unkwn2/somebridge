@@ -39,23 +39,25 @@ object ProtobufBuilder {
         if (!suppressF28) {
             writeVarintField(inner, 28, maneuver.toLong())            // f28 recommendedDrivingDirectionsId
         }
-        if (simpleNaviIndex in 0..47) {
+        if (HudForegroundService.DEBUG_ARROW_SCAN && simpleNaviIndex in 0..47) {
             writeVarintField(inner, 27, simpleNaviIndex.toLong())     // f27 ICON_SIMPLE_NAVI texture index
         }
-        if (iconFieldNum > 0 && maneuverIcon > 0) {
+        if (HudForegroundService.DEBUG_ARROW_SCAN && iconFieldNum > 0 && maneuverIcon > 0) {
             writeVarintField(inner, iconFieldNum, maneuverIcon.toLong())
         }
         if (testLanes && laneLayout.isNotEmpty()) {
             writeVarintField(inner, 5, laneLayout.split(",").size.toLong())  // f5 lane count
             writeStringField(inner, 29, laneLayout)               // f29 lane layout "back,front|"
         }
-        if (nextManeuverFieldNum > 0 && nextManeuverValue > 0) {
+        if (HudForegroundService.DEBUG_ARROW_SCAN && nextManeuverFieldNum > 0 && nextManeuverValue > 0) {
             writeVarintField(inner, nextManeuverFieldNum, nextManeuverValue.toLong())
         }
-        writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver)) // f30 guideLine
-        writeStringField(inner, 31, "$lon,$lat,0")               // f31 guidePoint
-        writeDoubleField(inner, 19, lon)                          // f19 longitude (вспом.)
-        writeDoubleField(inner, 20, lat)                          // f20 latitude (вспом.)
+        if (lat != 0.0 || lon != 0.0) {
+            writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver)) // f30 guideLine
+            writeStringField(inner, 31, "$lon,$lat,0")               // f31 guidePoint
+            writeDoubleField(inner, 19, lon)                          // f19 longitude (вспом.)
+            writeDoubleField(inner, 20, lat)                          // f20 latitude (вспом.)
+        }
         val innerBytes = inner.toByteArray()
 
         val outer = ByteArrayOutputStream()

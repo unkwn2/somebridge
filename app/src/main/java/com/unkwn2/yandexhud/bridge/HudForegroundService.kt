@@ -21,6 +21,8 @@ class HudForegroundService : Service() {
         private const val PREFS = "yandexhud_prefs"
         private const val KEY_GAODE = "useGaodeEnum"
 
+        const val DEBUG_ARROW_SCAN = false      // перебор стрелок f27 (только для отладки)
+
         @Volatile var instance: HudForegroundService? = null
         val bridge: SomeIpBridge? get() = instance?._bridge
         val loopRunner: LoopRunner? get() = instance?._loopRunner
