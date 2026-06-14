@@ -220,6 +220,14 @@ class YandexA11yService : AccessibilityService() {
             if (m != ManeuverMapper.M_UNKNOWN) return m
         }
 
+        for ((vid, n) in byVid) {
+            val t = n.desc.ifEmpty { n.text }
+            if (t.isNotEmpty()) {
+                val m = ManeuverMapper.fromIconName(t)
+                if (m != ManeuverMapper.M_UNKNOWN) return m
+            }
+        }
+
         return ManeuverMapper.M_UNKNOWN
     }
 
@@ -334,6 +342,11 @@ class YandexA11yService : AccessibilityService() {
                 }
                 if (n.text.isNotEmpty()) {
                     val m = ManeuverMapper.fromRussianText(n.text)
+                    if (m != ManeuverMapper.M_UNKNOWN) return m
+                }
+                val t = n.desc.ifEmpty { n.text }
+                if (t.isNotEmpty()) {
+                    val m = ManeuverMapper.fromIconName(t)
                     if (m != ManeuverMapper.M_UNKNOWN) return m
                 }
             }
