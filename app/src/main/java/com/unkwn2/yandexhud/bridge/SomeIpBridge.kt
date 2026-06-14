@@ -224,15 +224,15 @@ class SomeIpBridge(private val ctx: Context) {
             val cb = clientBinder ?: run { Logger.e(TAG, "sniffer timeout"); return@Thread }
 
             Logger.i(TAG, "sniffer: registering client callback...")
+            val d = Parcel.obtain(); val r = Parcel.obtain()
             try {
-                val d = Parcel.obtain(); val r = Parcel.obtain()
                 d.writeInterfaceToken(CLIENT_DESC)
                 d.writeStrongBinder(callback)
                 cb.transact(1, d, r, 0)
                 r.readException()
                 Logger.i(TAG, "sniffer: regCb rc=${r.readInt()}")
-                r.recycle(); d.recycle()
             } catch (t: Throwable) { Logger.e(TAG, "sniffer regCb: ${t.message}") }
+            finally { r.recycle(); d.recycle() }
 
             Thread.sleep(300)
 
