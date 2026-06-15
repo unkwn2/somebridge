@@ -24,28 +24,28 @@ class ActivationActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_activation)
 
-        val pubKey = LicenseManager.getClientPublicKey(this)
-        findViewById<TextView>(R.id.deviceIdText).text = pubKey
+        val deviceId = LicenseManager.getDeviceId(this)
+        findViewById<TextView>(R.id.deviceIdText).text = deviceId
 
         findViewById<TextView>(R.id.copyDeviceId).setOnClickListener {
             (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-                .setPrimaryClip(ClipData.newPlainText("public_key", pubKey))
-            Toast.makeText(this, "Public key copied / Ключ скопирован", Toast.LENGTH_SHORT).show()
+                .setPrimaryClip(ClipData.newPlainText("device_id", deviceId))
+            Toast.makeText(this, "Device ID copied / ID скопирован", Toast.LENGTH_SHORT).show()
         }
 
         val licenseInput = findViewById<EditText>(R.id.licenseInput)
         findViewById<Button>(R.id.btnActivate).setOnClickListener {
             val licenseStr = licenseInput.text.toString().trim()
             if (licenseStr.isEmpty()) {
-                Toast.makeText(this, "Enter license key / Введите ключ", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Enter license / Введите лицензию", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            val ok = LicenseManager.activate(this, licenseStr)
+            val ok = LicenseManager.saveLicense(this, licenseStr)
             if (ok) {
-                Toast.makeText(this, "License activated!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "License activated! / Лицензия активирована!", Toast.LENGTH_SHORT).show()
                 startMain()
             } else {
-                Toast.makeText(this, "Invalid license key / Неверный ключ", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Invalid license / Неверная лицензия", Toast.LENGTH_LONG).show()
             }
         }
     }

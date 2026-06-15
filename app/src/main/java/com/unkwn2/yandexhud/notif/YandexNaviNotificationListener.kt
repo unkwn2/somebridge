@@ -5,6 +5,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.unkwn2.yandexhud.bridge.HudForegroundService
 import com.unkwn2.yandexhud.bridge.HudState
+import com.unkwn2.yandexhud.util.LicenseManager
 import com.unkwn2.yandexhud.util.Logger
 
 class YandexNaviNotificationListener : NotificationListenerService() {
@@ -27,6 +28,11 @@ class YandexNaviNotificationListener : NotificationListenerService() {
     }
 
     override fun onListenerConnected() {
+        if (!LicenseManager.isLicenseValid(this)) {
+            Logger.w(TAG, "no valid license — unbinding")
+            requestUnbind()
+            return
+        }
         Logger.i(TAG, "listener connected")
     }
 

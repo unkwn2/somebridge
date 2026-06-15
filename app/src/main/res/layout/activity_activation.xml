@@ -37,14 +37,14 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="32dp"
-        android:text="Your public key (send this to developer):"
+        android:text="Your device ID (send this to developer):"
         android:textSize="12sp"
         android:textColor="#8B949E" />
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Ваш публичный ключ (отправьте разработчику):"
+        android:text="Ваш ID устройства (отправьте разработчику):"
         android:textSize="11sp"
         android:textColor="#484F58" />
 
@@ -67,7 +67,7 @@
         android:layout_width="match_parent"
         android:layout_height="40dp"
         android:layout_marginTop="8dp"
-        android:text="Copy public key"
+        android:text="Copy device ID"
         android:textSize="11sp"
         android:textAllCaps="false" />
 
@@ -82,7 +82,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Paste full line from developer / Вставьте строку от разработчика"
+        android:text="Paste the full line from the developer / Вставьте строку от разработчика"
         android:textSize="10sp"
         android:textColor="#484F58" />
 
@@ -96,7 +96,7 @@
         android:textSize="11sp"
         android:fontFamily="monospace"
         android:textColor="#C9D1D9"
-                android:hint="Paste license key / Вставьте ключ"
+        android:hint="Paste license / Вставьте лицензию"
         android:inputType="textMultiLine"
         android:lines="3"
         android:gravity="top" />
