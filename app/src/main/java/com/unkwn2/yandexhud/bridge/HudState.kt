@@ -56,4 +56,6 @@ object HudState {
     fun setTestLatch(durationMs: Long = 5000L) {
         update { it.copy(testLatchUntilMs = System.currentTimeMillis() + durationMs) }
     }
+
+    fun clearManeuver() = update { it.copy(maneuverGaode = 0, maneuverGaodeMs = 0L) }
 }

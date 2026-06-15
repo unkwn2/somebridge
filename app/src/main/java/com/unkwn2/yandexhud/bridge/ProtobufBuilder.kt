@@ -36,6 +36,11 @@ object ProtobufBuilder {
         writeStringField(inner, 10, road)                         // f10 nextRoadName
         writeVarintField(inner, 16, statusIcon.toLong())           // f16 navigatingStatus: 2=draw, 1=clear
         writeStringField(inner, 26, etaString)                    // f26 ETA "HH:MM"
+        // TODO verify on glass — эти поля не найдены в git history, гипотеза из дизасма
+        if (totalDistMeters > 0)  writeVarintField(inner, 22, totalDistMeters.toLong())
+        if (totalTimeSeconds > 0) writeVarintField(inner, 23, totalTimeSeconds.toLong())
+        if (speedLimit > 0)       writeVarintField(inner, 24, speedLimit.toLong())
+        if (!arriveText.isNullOrEmpty()) writeStringField(inner, 27, arriveText)
         if (!suppressF28) {
             writeVarintField(inner, 28, maneuver.toLong())            // f28 recommendedDrivingDirectionsId
         }

@@ -49,7 +49,7 @@ object RemoteViewsParser {
     // Имена картинок-стрелок (квадратные 48x48) — точное совпадение с resource entry name
     // Картинки, которые НИКОГДА не должны попасть в f8
     private val IMAGE_BLOCKLIST = listOf(
-        "traffic_light", "etaprogress", "progress", "action", "eta", "dots"
+        "traffic_light", "etaprogress", "progress", "action", "eta", "dots", "primaryicon"
     )
 
     private val ACTION_BUTTON_TEXTS = setOf(

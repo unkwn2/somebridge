@@ -1,14 +1,15 @@
 package com.unkwn2.yandexhud.bridge
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.os.Handler
+import android.os.Build
 import android.os.IBinder
-import android.os.Looper
 import com.unkwn2.yandexhud.R
 import com.unkwn2.yandexhud.util.Logger
 
@@ -42,7 +43,14 @@ class HudForegroundService : Service() {
         @Volatile var probeRv: Boolean = false
 
         fun start(ctx: Context) {
-            ctx.startForegroundService(Intent(ctx, HudForegroundService::class.java))
+            try {
+                ctx.startForegroundService(Intent(ctx, HudForegroundService::class.java))
+            } catch (_: Throwable) {
+                val pi = PendingIntent.getForegroundService(ctx, 0, Intent(ctx, HudForegroundService::class.java),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+                val am = ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                am.set(AlarmManager.RTC, System.currentTimeMillis() + 100, pi)
+            }
         }
         fun stop(ctx: Context) {
             ctx.stopService(Intent(ctx, HudForegroundService::class.java))
@@ -111,16 +119,21 @@ class HudForegroundService : Service() {
         stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
         Logger.i(TAG, "destroyed — scheduling restart in 2s")
-        Handler(Looper.getMainLooper()).postDelayed({
-            try { startService(Intent(this, HudForegroundService::class.java).putExtra("RESTART", true)) }
-            catch (_: Throwable) {}
-        }, 2000)
+        scheduleRestart(2000)
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         Logger.w(TAG, "task removed — restarting")
-        startService(Intent(this, HudForegroundService::class.java).putExtra("RESTART", true))
+        scheduleRestart(2000)
         super.onTaskRemoved(rootIntent)
+    }
+
+    private fun scheduleRestart(delayMs: Long) {
+        val intent = Intent(this, HudForegroundService::class.java).putExtra("RESTART", true)
+        val pi = PendingIntent.getForegroundService(this, 0, intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val am = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        am.set(AlarmManager.RTC, System.currentTimeMillis() + delayMs, pi)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

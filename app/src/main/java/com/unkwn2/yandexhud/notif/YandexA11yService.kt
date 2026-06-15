@@ -130,7 +130,7 @@ class YandexA11yService : AccessibilityService() {
             val speedLimit = resolveSpeedLimit(byVid)
             val nextNextManeuver = resolveNextNextManeuver(byVid)
 
-            if (hasManeuverBalloon || (maneuver != ManeuverMapper.M_UNKNOWN && distance > 0)) {
+            if (hasManeuverBalloon) {
                 val mStr = ManeuverMapper.maneuverName(maneuver)
                 val nnStr = if (nextNextManeuver > 0) ManeuverMapper.maneuverName(nextNextManeuver) else ""
                 Logger.i(TAG, "pkg=$pkg m=$mStr gaode=$maneuverGaode d=${distance}m road='$road' eta=${eta}s balloon=$hasManeuverBalloon nextNext=$nnStr")
@@ -160,8 +160,8 @@ class YandexA11yService : AccessibilityService() {
                         lastUpdateMs = System.currentTimeMillis()
                     )
                 }
-            } else if (hasManeuverBalloon && maneuver == ManeuverMapper.M_UNKNOWN && distance == 0) {
-                HudState.update { it.copy(active = true, lastUpdateMs = System.currentTimeMillis()) }
+            } else {
+                HudState.clearManeuver()
             }
         } catch (t: Throwable) {
             Logger.e(TAG, "parse error: ${t.message}")
@@ -250,7 +250,8 @@ class YandexA11yService : AccessibilityService() {
         if (isRoundaboutDesc && exitNode != null && exitNode.text.isNotEmpty()) {
             val exitNum = exitNode.text.trim().toIntOrNull()
             if (exitNum != null && exitNum in 1..10) {
-                return 24 + exitNum
+                HudState.update { it.copy(arriveText = "$exitNum-й съезд") }
+                return 24
             }
             val fullDesc = "$desc ${exitNode.text}-й съезд"
             return ManeuverMapper.fromA11yDescription(fullDesc)
