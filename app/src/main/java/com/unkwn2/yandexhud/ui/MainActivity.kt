@@ -1,6 +1,7 @@
 package com.unkwn2.yandexhud.ui
 
 import com.unkwn2.yandexhud.R
+import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -8,6 +9,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -24,7 +26,11 @@ import com.unkwn2.yandexhud.util.LocalAdb
 import com.unkwn2.yandexhud.util.Logger
 
 class MainActivity : AppCompatActivity() {
-    companion object { private const val TAG = "UI" }
+    companion object {
+        private const val TAG = "UI"
+        private const val PREFS = "yandexhud_prefs"
+        private const val KEY_GRANT_DONE = "grant_done"
+    }
     private lateinit var statusBar: TextView
     private lateinit var logText: TextView
     private lateinit var logScroll: ScrollView
@@ -42,7 +48,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnPngIcon: Button
     private lateinit var btnRvDump: Button
     private lateinit var btnArrowScan: Button
-
+    private lateinit var hiddenPanel: LinearLayout
+    private var menuVisible = false
     private var yandexOn = false
     private var mockOn = false
     private var snifferOn = false
@@ -72,6 +79,7 @@ class MainActivity : AppCompatActivity() {
         btnPngIcon = findViewById(R.id.btnPngIcon)
         btnRvDump = findViewById(R.id.btnRvDump)
         btnArrowScan = findViewById(R.id.btnArrowScan)
+        hiddenPanel = findViewById(R.id.hiddenPanel)
 
         btnYandex.setOnClickListener { toggleYandex() }
         btnMockGps.setOnClickListener { toggleMockGps() }
@@ -102,6 +110,8 @@ class MainActivity : AppCompatActivity() {
             YandexA11yService.dumpRequested = true
             toast("Tree dump requested")
         }
+        findViewById<Button>(R.id.btnMenu).setOnClickListener { toggleMenu() }
+        findViewById<Button>(R.id.btnDonation).setOnClickListener { showDonationDialog() }
 
         Logger.observe { line ->
             runOnUiThread {
@@ -118,6 +128,58 @@ class MainActivity : AppCompatActivity() {
             }
         }
         startStatusRefresh()
+        autoGrant()
+    }
+
+    private fun autoGrant() {
+        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_GRANT_DONE, false)) return
+        Logger.i(TAG, "auto-grant: first launch, granting permissions...")
+        Thread {
+            val initOk = LocalAdb.init(applicationContext)
+            if (!initOk) {
+                Logger.w(TAG, "auto-grant: ADB init failed, will retry on manual GRANT")
+                return@Thread
+            }
+            val results = LocalAdb.grantAll()
+            val allOk = results.all { it.success }
+            if (allOk) {
+                prefs.edit().putBoolean(KEY_GRANT_DONE, true).apply()
+                Logger.i(TAG, "auto-grant: all permissions granted")
+                runOnUiThread { toast("All permissions granted") }
+            } else {
+                Logger.w(TAG, "auto-grant: some permissions failed, retry with GRANT button")
+            }
+        }.apply { isDaemon = true }.start()
+    }
+
+    private fun toggleMenu() {
+        menuVisible = !menuVisible
+        hiddenPanel.visibility = if (menuVisible) android.view.View.VISIBLE else android.view.View.GONE
+        findViewById<Button>(R.id.btnMenu).text = if (menuVisible) "HIDE" else "MENU"
+    }
+
+    private fun showDonationDialog() {
+        val donationText = """Bybit Pay: https://i.bybit.com/1ZabXMjn
+Сбербанк: https://messenger.online.sberbank.ru/sl/8mN4lmACrTZ8F568r
+USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
+        val tv = TextView(this).apply {
+            setTextColor(0xFFC9D1D9.toInt())
+            setBackgroundColor(0xFF0D1117.toInt())
+            setPadding(24, 24, 24, 24)
+            textSize = 13f
+            text = donationText
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Помощь проекту")
+            .setView(tv)
+            .setPositiveButton("Копировать") { _, _ ->
+                (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+                    .setPrimaryClip(ClipData.newPlainText("donation", donationText))
+                toast("Реквизиты скопированы")
+            }
+            .setNegativeButton("Закрыть", null)
+            .show()
     }
 
     override fun onDestroy() {
@@ -299,7 +361,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun toGaodeDisplay(m: Int): Int = ManeuverMapper.toGaode(m)
 
-    private var iconScanIdx = -1  // -1 = OFF
+    private var iconScanIdx = -1
 
     private fun cycleIconField() {
         val candidates = HudForegroundService.ICON_CANDIDATES
@@ -365,12 +427,18 @@ class MainActivity : AppCompatActivity() {
             val results = LocalAdb.grantAll()
             val labels = arrayOf("NOTIF", "A11Y", "MOCK", "NAVI_SET", "BG_RUN", "BATTRY")
             val sb = StringBuilder()
+            var allOk = true
             for ((i, r) in results.withIndex()) {
                 val label = labels.getOrElse(i) { "CMD#$i" }
                 Logger.i(TAG, "GRANT $label: success=${r.success} out='${r.output.take(80)}' err='${r.error}'")
                 sb.append("$label:${if (r.success) "OK" else "FAIL"} ")
+                if (!r.success) allOk = false
             }
             val msg = sb.toString().trim()
+            if (allOk) {
+                getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                    .edit().putBoolean(KEY_GRANT_DONE, true).apply()
+            }
             runOnUiThread { toast(msg) }
             Logger.i(TAG, "=== GRANT done: $msg ===")
         }.apply { isDaemon = true }.start()

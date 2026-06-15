@@ -11,7 +11,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@drawable/card_shape"
-        android:padding="12dp">
+        android:padding="12dp"
+        android:orientation="vertical">
 
         <TextView
             android:id="@+id/statusBar"
@@ -21,9 +22,17 @@
             android:textSize="12sp"
             android:textStyle="bold"
             android:textColor="#C9D1D9" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="by @RBGboost, https://t.me/byd_ota"
+            android:textSize="10sp"
+            android:textColor="#8B949E" />
     </LinearLayout>
 
-    <!-- SERVICES -->
+    <!-- MAIN CONTROLS: YANDEX NAVI, GRANT, SAVE LOG, MENU, DONATION -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -49,103 +58,39 @@
                 android:textAllCaps="false" />
 
             <Button
-                android:id="@+id/btnMockGps"
+                android:id="@+id/btnGrant"
                 style="@style/Widget.Button.Tonal"
                 android:layout_width="0dp"
                 android:layout_height="40dp"
                 android:layout_weight="1"
                 android:layout_marginStart="4dp"
                 android:layout_marginEnd="4dp"
-                android:text="MOCK GPS"
+                android:text="GRANT"
                 android:textSize="11sp"
+                android:textStyle="bold"
                 android:textAllCaps="false" />
 
             <Button
-                android:id="@+id/btnSniffer"
-                style="@style/Widget.Button.Tonal"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:text="SNIFFER"
-                android:textSize="11sp"
-                android:textAllCaps="false" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/btnNotifAccess"
-                style="@style/Widget.Button.Outlined"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="4dp"
-                android:text="NOTIF"
-                android:textSize="11sp"
-                android:textAllCaps="false" />
-
-            <Button
-                android:id="@+id/btnA11y"
+                android:id="@+id/btnSaveLog"
                 style="@style/Widget.Button.Outlined"
                 android:layout_width="0dp"
                 android:layout_height="40dp"
                 android:layout_weight="1"
                 android:layout_marginStart="4dp"
-                android:text="A11Y"
-                android:textSize="11sp"
-                android:textAllCaps="false" />
-        </LinearLayout>
-    </LinearLayout>
-
-    <!-- TEST -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:background="@drawable/card_shape"
-        android:padding="10dp"
-        android:orientation="vertical">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/btnTestLeft"
-                style="@style/Widget.Button.Tonal"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
                 android:layout_marginEnd="4dp"
-                android:text="LEFT"
-                android:textSize="11sp"
+                android:text="SAVE LOG"
+                android:textSize="10sp"
+                android:textStyle="bold"
                 android:textAllCaps="false" />
 
             <Button
-                android:id="@+id/btnDumpTree"
-                style="@style/Widget.Button.Tonal"
+                android:id="@+id/btnMenu"
+                style="@style/Widget.Button.Outlined"
                 android:layout_width="0dp"
                 android:layout_height="40dp"
                 android:layout_weight="1"
                 android:layout_marginStart="4dp"
-                android:layout_marginEnd="4dp"
-                android:text="DUMP"
-                android:textSize="11sp"
-                android:textAllCaps="false" />
-
-            <Button
-                android:id="@+id/btnIconScan"
-                style="@style/Widget.Button.Tonal"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
-                android:text="ICON: OFF"
+                android:text="MENU"
                 android:textSize="11sp"
                 android:textStyle="bold"
                 android:textAllCaps="false" />
@@ -158,142 +103,242 @@
             android:orientation="horizontal">
 
             <Button
-                android:id="@+id/btnPngIcon"
+                android:id="@+id/btnDonation"
                 style="@style/Widget.Button.Outlined"
                 android:layout_width="0dp"
                 android:layout_height="40dp"
                 android:layout_weight="1"
-                android:layout_marginEnd="4dp"
-                android:text="PNG: OFF"
+                android:text="ПОМОЩЬ"
                 android:textSize="11sp"
                 android:textStyle="bold"
                 android:textAllCaps="false" />
-
-            <Button
-                android:id="@+id/btnTestLanes"
-                style="@style/Widget.Button.Outlined"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:layout_marginEnd="4dp"
-                android:text="LANES"
-                android:textSize="11sp"
-                android:textAllCaps="false" />
-
-            <Button
-                android:id="@+id/btnTestNextNext"
-                style="@style/Widget.Button.Outlined"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
-                android:text="NEXT+NEXT"
-                android:textSize="11sp"
-                android:textAllCaps="false" />
         </LinearLayout>
 
+        <!-- HIDDEN PANEL (toggled by MENU) -->
         <LinearLayout
+            android:id="@+id/hiddenPanel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:orientation="horizontal">
+            android:layout_marginTop="8dp"
+            android:orientation="vertical"
+            android:visibility="gone">
 
-            <Button
-                android:id="@+id/btnTestNavMap"
-                style="@style/Widget.Button.Outlined"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="4dp"
-                android:text="NAVMAP"
-                android:textSize="11sp"
-                android:textAllCaps="false" />
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#21262D"
+                android:layout_marginBottom="6dp" />
 
-            <Button
-                android:id="@+id/btnArrowScan"
-                style="@style/Widget.Button.Outlined"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:text="ARROW SCAN"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:textAllCaps="false" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnMockGps"
+                    style="@style/Widget.Button.Tonal"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:text="MOCK GPS"
+                    android:textSize="10sp"
+                    android:textAllCaps="false" />
+
+                <Button
+                    android:id="@+id/btnSniffer"
+                    style="@style/Widget.Button.Tonal"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:text="SNIFFER"
+                    android:textSize="10sp"
+                    android:textAllCaps="false" />
+
+                <Button
+                    android:id="@+id/btnA11y"
+                    style="@style/Widget.Button.Tonal"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:text="A11Y"
+                    android:textSize="10sp"
+                    android:textAllCaps="false" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnNotifAccess"
+                    style="@style/Widget.Button.Outlined"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:text="NOTIF"
+                    android:textSize="10sp"
+                    android:textAllCaps="false" />
+
+                <Button
+                    android:id="@+id/btnTestLeft"
+                    style="@style/Widget.Button.Outlined"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:text="LEFT"
+                    android:textSize="10sp"
+                    android:textAllCaps="false" />
+
+                <Button
+                    android:id="@+id/btnDumpTree"
+                    style="@style/Widget.Button.Outlined"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:text="DUMP"
+                    android:textSize="10sp"
+                    android:textAllCaps="false" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnIconScan"
+                    style="@style/Widget.Button.Tonal"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:text="ICON: OFF"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false" />
+
+                <Button
+                    android:id="@+id/btnPngIcon"
+                    style="@style/Widget.Button.Tonal"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:text="PNG: ON"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false" />
+
+                <Button
+                    android:id="@+id/btnTestLanes"
+                    style="@style/Widget.Button.Outlined"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:text="LANES"
+                    android:textSize="10sp"
+                    android:textAllCaps="false" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnTestNextNext"
+                    style="@style/Widget.Button.Outlined"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:text="NEXT+NEXT"
+                    android:textSize="10sp"
+                    android:textAllCaps="false" />
+
+                <Button
+                    android:id="@+id/btnTestNavMap"
+                    style="@style/Widget.Button.Outlined"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:text="NAVMAP"
+                    android:textSize="10sp"
+                    android:textAllCaps="false" />
+
+                <Button
+                    android:id="@+id/btnArrowScan"
+                    style="@style/Widget.Button.Outlined"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:text="ARROW SCAN"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnTogglePacked"
+                    style="@style/Widget.Button.Tonal"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:text="PACKED"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false" />
+
+                <Button
+                    android:id="@+id/btnHudMode"
+                    style="@style/Widget.Button.Tonal"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:text="HUD MODE"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false" />
+
+                <Button
+                    android:id="@+id/btnRvDump"
+                    style="@style/Widget.Button.Outlined"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:text="RV: OFF"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false" />
+            </LinearLayout>
         </LinearLayout>
-    </LinearLayout>
-
-    <!-- SETTINGS -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:background="@drawable/card_shape"
-        android:padding="10dp"
-        android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/btnTogglePacked"
-            style="@style/Widget.Button.Tonal"
-            android:layout_width="0dp"
-            android:layout_height="40dp"
-            android:layout_weight="1"
-            android:layout_marginEnd="4dp"
-            android:text="PACKED"
-            android:textSize="10sp"
-            android:textStyle="bold"
-            android:textAllCaps="false" />
-
-        <Button
-            android:id="@+id/btnHudMode"
-            style="@style/Widget.Button.Tonal"
-            android:layout_width="0dp"
-            android:layout_height="40dp"
-            android:layout_weight="1"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="4dp"
-            android:text="HUD MODE"
-            android:textSize="10sp"
-            android:textStyle="bold"
-            android:textAllCaps="false" />
-
-        <Button
-            android:id="@+id/btnGrant"
-            style="@style/Widget.Button.Tonal"
-            android:layout_width="0dp"
-            android:layout_height="40dp"
-            android:layout_weight="1"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="4dp"
-            android:text="GRANT"
-            android:textSize="10sp"
-            android:textStyle="bold"
-            android:textAllCaps="false" />
-
-        <Button
-            android:id="@+id/btnSaveLog"
-            style="@style/Widget.Button.Outlined"
-            android:layout_width="0dp"
-            android:layout_height="40dp"
-            android:layout_weight="1"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="4dp"
-            android:text="SAVE LOG"
-            android:textSize="10sp"
-            android:textStyle="bold"
-            android:textAllCaps="false" />
-
-        <Button
-            android:id="@+id/btnRvDump"
-            style="@style/Widget.Button.Outlined"
-            android:layout_width="0dp"
-            android:layout_height="40dp"
-            android:layout_weight="1"
-            android:layout_marginStart="4dp"
-            android:text="RV: OFF"
-            android:textSize="10sp"
-            android:textStyle="bold"
-            android:textAllCaps="false" />
     </LinearLayout>
 
     <!-- LOG -->

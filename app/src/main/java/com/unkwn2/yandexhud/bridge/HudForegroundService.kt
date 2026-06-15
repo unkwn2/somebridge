@@ -33,8 +33,8 @@ class HudForegroundService : Service() {
         @Volatile var iconFieldNum: Int = 0
         val ICON_CANDIDATES = intArrayOf(27, 11, 13, 17, 18, 21, 22, 23, 24, 25)  // 27 приоритет (ICON_SIMPLE_NAVI); f12-f15 исключены как ядовитые
 
-        // f8 PNG from RemoteViews — false = OFF (по умолчанию, пока не убедимся что идёт стрелка, а не полоса/точки)
-        @Volatile var sendPngIcon: Boolean = false
+        // f8 PNG from RemoteViews — true = ON (по умолчанию)
+        @Volatile var sendPngIcon: Boolean = true
 
         // nextNextManeuver field number — 0 = OFF (экспериментально)
         @Volatile var nextManeuverFieldNum: Int = 0
