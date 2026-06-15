@@ -1,5 +1,7 @@
 package com.unkwn2.yandexhud.notif
 
+import com.unkwn2.yandexhud.bridge.HudState
+
 object ManeuverMapper {
     const val M_UNKNOWN = 0
     const val M_STRAIGHT = 9
@@ -227,7 +229,8 @@ object ManeuverMapper {
         val exitMatch = ROUNDABOUT_EXIT.find(lower)
         val exitNum = exitMatch?.groupValues?.get(1)?.toIntOrNull()
         if (exitNum != null && exitNum in 1..10) {
-            return GAODE_ROUNDABOUT_EXIT_BASE + exitNum
+            HudState.update { it.copy(arriveText = "$exitNum-й съезд") }
+            return GAODE_ROUNDABOUT_EXIT_BASE
         }
 
         return when {

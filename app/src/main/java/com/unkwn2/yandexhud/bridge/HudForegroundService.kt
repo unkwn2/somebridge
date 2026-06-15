@@ -68,7 +68,7 @@ class HudForegroundService : Service() {
 
     private var _bridge: SomeIpBridge? = null
     private var _loopRunner: LoopRunner? = null
-    private var _bound = false
+    @Volatile private var _bound = false
 
     override fun onCreate() {
         super.onCreate()
