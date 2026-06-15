@@ -17,7 +17,6 @@ class ActivationActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Check if license is already valid
         if (LicenseManager.isLicenseValid(this)) {
             startMain()
             return
@@ -25,13 +24,13 @@ class ActivationActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_activation)
 
-        val deviceId = LicenseManager.getDeviceId(this)
-        findViewById<TextView>(R.id.deviceIdText).text = deviceId
+        val pubKey = LicenseManager.getClientPublicKey(this)
+        findViewById<TextView>(R.id.deviceIdText).text = pubKey
 
         findViewById<TextView>(R.id.copyDeviceId).setOnClickListener {
             (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-                .setPrimaryClip(ClipData.newPlainText("device_id", deviceId))
-            Toast.makeText(this, "Device ID copied", Toast.LENGTH_SHORT).show()
+                .setPrimaryClip(ClipData.newPlainText("public_key", pubKey))
+            Toast.makeText(this, "Public key copied", Toast.LENGTH_SHORT).show()
         }
 
         val licenseInput = findViewById<EditText>(R.id.licenseInput)
@@ -41,7 +40,7 @@ class ActivationActivity : AppCompatActivity() {
                 Toast.makeText(this, "Enter license key", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            val ok = LicenseManager.saveLicense(this, licenseStr)
+            val ok = LicenseManager.activate(this, licenseStr)
             if (ok) {
                 Toast.makeText(this, "License activated!", Toast.LENGTH_SHORT).show()
                 startMain()

@@ -28,7 +28,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="32dp"
-        android:text="Device ID:"
+        android:text="Your Public Key (send this to developer):"
         android:textSize="12sp"
         android:textColor="#8B949E" />
 
@@ -39,7 +39,7 @@
         android:layout_marginTop="4dp"
         android:padding="12dp"
         android:background="#161B22"
-        android:textSize="11sp"
+        android:textSize="9sp"
         android:fontFamily="monospace"
         android:textColor="#C9D1D9"
         android:textIsSelectable="true"
@@ -51,7 +51,7 @@
         android:layout_width="match_parent"
         android:layout_height="40dp"
         android:layout_marginTop="8dp"
-        android:text="COPY DEVICE ID"
+        android:text="COPY PUBLIC KEY"
         android:textSize="11sp"
         android:textAllCaps="false" />
 
