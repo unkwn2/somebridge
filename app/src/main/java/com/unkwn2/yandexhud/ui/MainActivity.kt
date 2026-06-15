@@ -8,6 +8,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
+import android.text.Html
+import android.text.method.LinkMovementMethod
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -160,25 +162,34 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showDonationDialog() {
-        val donationText = """Bybit Pay: https://i.bybit.com/1ZabXMjn
-Сбербанк: https://messenger.online.sberbank.ru/sl/8mN4lmACrTZ8F568r
+        val ru = """<b>РУССКИЙ</b><br/>
+Bybit Pay: <a href="https://i.bybit.com/1ZabXMjn">https://i.bybit.com/1ZabXMjn</a><br/>
+Сбербанк: <a href="https://messenger.online.sberbank.ru/sl/8mN4lmACrTZ8F568r">https://messenger.online.sberbank.ru/sl/8mN4lmACrTZ8F568r</a><br/>
+USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR<br/><br/>
+<b>ENGLISH</b><br/>
+Bybit Pay: <a href="https://i.bybit.com/1ZabXMjn">https://i.bybit.com/1ZabXMjn</a><br/>
+Sberbank: <a href="https://messenger.online.sberbank.ru/sl/8mN4lmACrTZ8F568r">https://messenger.online.sberbank.ru/sl/8mN4lmACrTZ8F568r</a><br/>
 USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
         val tv = TextView(this).apply {
             setTextColor(0xFFC9D1D9.toInt())
             setBackgroundColor(0xFF0D1117.toInt())
             setPadding(24, 24, 24, 24)
             textSize = 13f
-            text = donationText
+            text = Html.fromHtml(ru, Html.FROM_HTML_MODE_LEGACY)
+            movementMethod = LinkMovementMethod.getInstance()
         }
+        val donationPlain = """Bybit Pay: https://i.bybit.com/1ZabXMjn
+Сбербанк: https://messenger.online.sberbank.ru/sl/8mN4lmACrTZ8F568r
+USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
         AlertDialog.Builder(this)
-            .setTitle("Помощь проекту")
+            .setTitle("Помощь проекту / Support")
             .setView(tv)
-            .setPositiveButton("Копировать") { _, _ ->
+            .setPositiveButton("Копировать / Copy") { _, _ ->
                 (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-                    .setPrimaryClip(ClipData.newPlainText("donation", donationText))
-                toast("Реквизиты скопированы")
+                    .setPrimaryClip(ClipData.newPlainText("donation", donationPlain))
+                toast("Реквизиты скопированы / Copied")
             }
-            .setNegativeButton("Закрыть", null)
+            .setNegativeButton("Закрыть / Close", null)
             .show()
     }
 
