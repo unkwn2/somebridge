@@ -25,9 +25,10 @@ data class RvNaviInfo(
     val arrivalTime: String = "",
     val remainingTimeSec: Int = 0,
     val maneuverPng: ByteArray? = null,
-    val trafficLightColor: String = "",  // "red", "green", "yellow", или ""
+    val trafficLightColor: String = "",
     val trafficLightSeconds: Int = 0,
-    val cameraAlert: String = ""         // "camera", "accident", "roadworks", "other", или ""
+    val cameraAlert: String = "",
+    val maneuverEnum: Int? = null     // детерминированный манёвр из имени ресурса (null = не извлекался)
 )
 
 object RemoteViewsParser {
@@ -39,15 +40,12 @@ object RemoteViewsParser {
     private val TIME_HHMM = Regex("""\b([01]?\d|2[0-3]):([0-5]\d)\b""")
     private val DUR = Regex("""(?:(\d+)\s*ч)?\s*(?:(\d+)\s*мин)?""")
 
-    // --- Имена полей из RV DUMP (точные id Яндекса, в lowercase) ---
     private const val F_DIST_TO_MANEUVER = "titleview"
     private const val F_DESCRIPTION = "descriptionview"
     private const val F_TOTAL_DIST = "remainingdistanceview"
     private const val F_ARRIVAL = "timeofarrivalview"
     private const val F_REMAINING = "remainingtimeview"
 
-    // Имена картинок-стрелок (квадратные 48x48) — точное совпадение с resource entry name
-    // Картинки, которые НИКОГДА не должны попасть в f8
     private val IMAGE_BLOCKLIST = listOf(
         "traffic_light", "etaprogress", "progress", "action", "eta", "dots", "primaryicon"
     )
@@ -69,7 +67,11 @@ object RemoteViewsParser {
         val rv = n.bigContentView ?: n.contentView ?: n.headsUpContentView
             ?: run { Logger.w(TAG, "no RemoteViews"); return null }
 
-        return if (Looper.myLooper() == Looper.getMainLooper()) {
+        val fromActions = RemoteViewsActionExtractor.extractActions(ctx, rv, pkg)
+            .takeIf { it.isNotEmpty() }
+            ?.let { buildFromActions(it) }
+
+        val fromRender = if (Looper.myLooper() == Looper.getMainLooper()) {
             parseOnMain(ctx, rv, pkg, probe)
         } else {
             var result: RvNaviInfo? = null
@@ -83,13 +85,91 @@ object RemoteViewsParser {
             }
             result
         }
+
+        return mergePreferActions(fromActions, fromRender)
     }
+
+    // --- Actions path (детерминированный, через mActions) ---
+
+    private fun buildFromActions(actions: List<RemoteViewsActionExtractor.RvAction>): RvNaviInfo {
+        var maneuverEnum: Int? = null
+        var road: String? = null
+        var distStr: String? = null
+        var cameraAlert: String? = null
+        var trafficColor: String? = null
+        var trafficSeconds: Int = 0
+
+        for (a in actions) {
+            when (a.viewIdName) {
+                "primaryicontinted" -> {
+                    if (a.op == RemoteViewsActionExtractor.Op.IMAGE_RES && a.value.isNotEmpty()) {
+                        val m = ManeuverMapper.fromYandexRes(a.value)
+                        if (m != ManeuverMapper.M_UNKNOWN) maneuverEnum = m
+                    }
+                }
+                "primaryicon" -> {
+                    if (a.op == RemoteViewsActionExtractor.Op.IMAGE_RES && a.value.isNotEmpty()) {
+                        val alert = ManeuverMapper.roadAlertFromRes(a.value)
+                        if (alert.isNotEmpty()) cameraAlert = alert
+                    }
+                }
+                "titleview" -> {
+                    if (a.op == RemoteViewsActionExtractor.Op.TEXT && a.value.isNotEmpty()) distStr = a.value
+                }
+                "descriptionview" -> {
+                    if (a.op == RemoteViewsActionExtractor.Op.TEXT && a.value.isNotEmpty()) {
+                        if (!ManeuverMapper.isServicePhrase(a.value)) road = a.value
+                    }
+                }
+            }
+            if (a.viewIdName.startsWith("traffic_light")) {
+                if (a.op == RemoteViewsActionExtractor.Op.BG_RES) {
+                    ManeuverMapper.trafficColorFromBgRes(a.value)?.let { trafficColor = it }
+                }
+                if (a.op == RemoteViewsActionExtractor.Op.TEXT) {
+                    val secs = a.value.filter { it.isDigit() }.toIntOrNull()
+                    if (secs != null && secs > 0) trafficSeconds = secs
+                }
+            }
+        }
+
+        return RvNaviInfo(
+            road = road ?: "",
+            distToManeuverM = distStr?.let { parseDistance(it) } ?: 0,
+            trafficLightColor = trafficColor ?: "",
+            trafficLightSeconds = trafficSeconds,
+            cameraAlert = cameraAlert ?: "",
+            maneuverEnum = maneuverEnum
+        )
+    }
+
+    // --- Merge: actions-путь приоритетнее рендера ---
+
+    private fun mergePreferActions(actions: RvNaviInfo?, render: RvNaviInfo?): RvNaviInfo? {
+        if (actions == null) return render
+        if (render == null) return actions
+
+        return RvNaviInfo(
+            instruction = render.instruction.ifEmpty { actions.instruction },
+            road = actions.road.ifEmpty { render.road },
+            distToManeuverM = actions.distToManeuverM.takeIf { it > 0 } ?: render.distToManeuverM,
+            totalDistM = render.totalDistM.takeIf { it > 0 } ?: actions.totalDistM,
+            arrivalTime = render.arrivalTime.ifEmpty { actions.arrivalTime },
+            remainingTimeSec = render.remainingTimeSec.takeIf { it > 0 } ?: actions.remainingTimeSec,
+            maneuverPng = render.maneuverPng ?: actions.maneuverPng,
+            trafficLightColor = actions.trafficLightColor.ifEmpty { render.trafficLightColor },
+            trafficLightSeconds = actions.trafficLightSeconds.takeIf { it > 0 } ?: render.trafficLightSeconds,
+            cameraAlert = actions.cameraAlert.ifEmpty { render.cameraAlert },
+            maneuverEnum = actions.maneuverEnum ?: render.maneuverEnum
+        )
+    }
+
+    // --- Render path (текущая реализация, fallback) ---
 
     private fun parseOnMain(ctx: Context, rv: RemoteViews, pkg: String, probe: Boolean): RvNaviInfo? = try {
         val parent = FrameLayout(ctx)
         val view = rv.apply(ctx, parent)
 
-        // Резолвер имён ресурсов исходного пакета (Яндекса)
         val res = try { ctx.createPackageContext(pkg, 0).resources } catch (_: Throwable) { null }
         fun nameOf(id: Int): String {
             if (id == View.NO_ID || res == null) return ""
@@ -134,14 +214,12 @@ object RemoteViewsParser {
     private fun classify(texts: List<NamedText>, images: List<NamedImage>, isMaps: Boolean): RvNaviInfo {
         fun byName(n: String) = texts.firstOrNull { it.name == n }?.value
 
-        // --- 1. Детерминированно по именам полей ---
         val titleVal = byName(F_DIST_TO_MANEUVER)
         val descVal = byName(F_DESCRIPTION)
         val totalVal = byName(F_TOTAL_DIST)
         val arrivalByName = byName(F_ARRIVAL)?.let { TIME_HHMM.find(it)?.value }
         val remainingByName = byName(F_REMAINING)?.let { parseDuration(it).takeIf { s -> s > 0 } }
 
-        // descriptionView: у Карт = манёвр всегда; у Навигатора = ИЛИ улица ИЛИ манёвр
         var instruction = ""
         var road = ""
         if (descVal != null) {
@@ -158,19 +236,16 @@ object RemoteViewsParser {
         var arrival = arrivalByName ?: ""
         var remaining = remainingByName ?: 0
 
-        // --- 2. Светофоры ---
         val trafficLightImgs = images.filter { "traffic_light" in it.name }
         val trafficLightColor = trafficLightImgs.firstNotNullOfOrNull { detectDominantColor(it.drawable) } ?: ""
         val trafficLightSeconds = texts.firstOrNull { "traffic_light" in it.name }
             ?.value?.filter { it.isDigit() }?.toIntOrNull() ?: 0
 
-        // --- 3. Камера (primaryicon — без tinted) ---
         val cameraAlert = when {
             images.any { it.name == "primaryicon" } -> "camera"
             else -> ""
         }
 
-        // --- 4. Fallback по эвристике (свёрнутые уведомления без resource id) ---
         if (distManeuver == 0 || distTotal == 0 || arrival.isEmpty() || remaining == 0 || (road.isEmpty() && instruction.isEmpty())) {
             val values = texts.map { it.value }
             val dists = values.mapNotNull { parseDistance(it) }
@@ -196,11 +271,9 @@ object RemoteViewsParser {
             }
         }
 
-        // Подстраховка: служебные строки не должны быть дорогой
         if (ACTION_BUTTON_TEXTS.any { it in road.lowercase() } ||
             road == "Навигатор запущен") road = ""
 
-        // --- 5. Картинка: primaryIconTinted приоритет, потом nextManeuver, потом самая квадратная ---
         val byIconName = images.firstOrNull { it.name == "primaryicontinted" }
             ?: images.firstOrNull { "nextmaneuver" in it.name }
         val pngDrawable = byIconName?.drawable ?: images
@@ -218,7 +291,6 @@ object RemoteViewsParser {
         )
     }
 
-    // Определяем доминирующий цвет маленькой иконки (traffic light dot 24x24)
     private fun detectDominantColor(d: Drawable): String? {
         val bmp = if (d is BitmapDrawable) d.bitmap else return null
         val w = bmp.width; val h = bmp.height

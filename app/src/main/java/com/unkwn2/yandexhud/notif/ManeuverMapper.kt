@@ -167,6 +167,54 @@ object ManeuverMapper {
         }
     }
 
+    // --- Детерминированные таблицы для RemoteViewsActionExtractor ---
+    // primaryIconTinted -> setImageResource(name): манёвр Яндекса
+    private val YANDEX_MANEUVER_RES = mapOf(
+        "notification_straight_sdl" to M_STRAIGHT,
+        "notification_left_sdl" to M_LEFT,
+        "notification_right_sdl" to M_RIGHT,
+        "notification_slight_left_sdl" to M_SLIGHT_LEFT,
+        "notification_slight_right_sdl" to M_SLIGHT_RIGHT,
+        "notification_hard_left_sdl" to M_HARD_LEFT,
+        "notification_hard_right_sdl" to M_HARD_RIGHT,
+        "notification_fork_left_sdl" to M_FORK_LEFT,
+        "notification_fork_right_sdl" to M_FORK_RIGHT,
+        "notification_uturn_left_sdl" to M_UTURN_LEFT,
+        "notification_uturn_right_sdl" to M_UTURN_RIGHT,
+        "notification_exit_left_sdl" to M_EXIT_LEFT,
+        "notification_exit_right_sdl" to M_EXIT_RIGHT,
+        "notification_enter_roundabout_sdl" to M_ROUNDABOUT_ENTER,
+        "notification_leave_roundabout_sdl" to M_ROUNDABOUT_EXIT,
+        "notification_finish_sdl" to M_ARRIVE,
+        "notification_ferry_sdl" to M_FERRY,
+    )
+
+    // primaryIcon -> setImageResource(name): тип дорожного события
+    private val YANDEX_ROAD_ALERT_RES = mapOf(
+        "road_alerts_camera_32" to "camera",
+        "road_alerts_accident_32" to "accident",
+        "road_alerts_road_works_32" to "roadworks",
+        "road_alerts_other_32" to "other",
+    )
+
+    fun fromYandexRes(resName: String): Int = YANDEX_MANEUVER_RES[resName] ?: M_UNKNOWN
+
+    fun roadAlertFromRes(resName: String): String = YANDEX_ROAD_ALERT_RES[resName] ?: ""
+
+    fun trafficColorFromBgRes(resName: String): String? = when {
+        "traffic_light_background_red" in resName -> "red"
+        "traffic_light_background_yellow" in resName -> "yellow"
+        "traffic_light_background_green" in resName -> "green"
+        else -> null
+    }
+
+    /** Служебные строки descriptionView, которые не должны быть дорогой */
+    private val SERVICE_PHRASES = setOf(
+        "камера контроля скорости", "направо", "налево",
+        "почти на месте", "кольцевое движение"
+    )
+    fun isServicePhrase(text: String): Boolean = SERVICE_PHRASES.any { it in text.lowercase() }
+
     fun maneuverName(code: Int): String = when (code) {
         M_UNKNOWN -> "NONE"
         M_STRAIGHT -> "STRAIGHT"

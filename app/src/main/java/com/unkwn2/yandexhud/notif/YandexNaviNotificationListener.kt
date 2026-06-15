@@ -55,7 +55,7 @@ class YandexNaviNotificationListener : NotificationListenerService() {
         }
 
         if (rv != null) {
-            val maneuver = ManeuverMapper.fromRussianText(rv.instruction)
+            val maneuver = rv.maneuverEnum ?: ManeuverMapper.fromRussianText(rv.instruction)
             val etaSeconds = if (rv.remainingTimeSec > 0) rv.remainingTimeSec
                 else parseEtaSeconds(ext.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: "")
             Logger.i(TAG, "posted rv m=$maneuver(${ManeuverMapper.maneuverName(maneuver)}) d=${rv.distToManeuverM}m road='${rv.road}' eta=${etaSeconds}s tl=${rv.trafficLightColor}${if (rv.trafficLightSeconds > 0) " ${rv.trafficLightSeconds}s" else ""} cam='${rv.cameraAlert}' png=${if (rv.maneuverPng != null) "${rv.maneuverPng.size}B" else "none"}")
