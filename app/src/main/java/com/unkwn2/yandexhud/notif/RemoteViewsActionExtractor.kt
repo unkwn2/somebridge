@@ -43,44 +43,40 @@ object RemoteViewsActionExtractor {
             val fields = collectFields(action.javaClass)
             val viewId = intFieldValue(fields, "viewId", action) ?: return null
             val methodName = stringFieldValue(fields, "methodName", action)
-
             val viewIdName = resolveName(srcRes, viewId)
+            val value = valueObject(fields, action)
 
             return when (methodName) {
                 "setImageResource", "setBackgroundResource" -> {
-                    val resId = resourceIntField(fields, action) ?: 0
+                    val resId = value as? Int ?: return null
                     val op = if (methodName == "setImageResource") Op.IMAGE_RES else Op.BG_RES
-                    val resName = resolveName(srcRes, resId)
-                    RvAction(viewIdName, viewId, op, resName)
+                    RvAction(viewIdName, viewId, op, resolveName(srcRes, resId))
                 }
-                "setText" -> {
-                    val text = charSequenceField(fields, action)?.toString() ?: ""
-                    RvAction(viewIdName, viewId, Op.TEXT, text)
+                "setText" -> RvAction(viewIdName, viewId, Op.TEXT, (value as? CharSequence)?.toString() ?: "")
+                "setVisibility" -> RvAction(viewIdName, viewId, Op.VISIBILITY, ((value as? Int) ?: -1).toString())
+                else -> when (value) {
+                    is CharSequence -> RvAction(viewIdName, viewId, Op.TEXT, value.toString())
+                    is Int -> {
+                        val nm = resolveName(srcRes, value)
+                        if (nm.isNotEmpty())
+                            RvAction(viewIdName, viewId,
+                                if (methodName?.contains("background", true) == true) Op.BG_RES else Op.IMAGE_RES, nm)
+                        else null
+                    }
+                    else -> null
                 }
-                "setVisibility" -> {
-                    val vis = resourceIntField(fields, action) ?: -1
-                    RvAction(viewIdName, viewId, Op.VISIBILITY, vis.toString())
-                }
-                else -> classifyFallback(viewIdName, viewId, fields, action, methodName, srcRes)
             }
         } catch (_: Throwable) { return null }
     }
 
-    private fun classifyFallback(
-        viewIdName: String, viewId: Int,
-        fields: List<java.lang.reflect.Field>, action: Any,
-        methodName: String?, srcRes: android.content.res.Resources?
-    ): RvAction? {
-        val cs = try { charSequenceField(fields, action) } catch (_: Throwable) { null }
-        if (cs != null) return RvAction(viewIdName, viewId, Op.TEXT, cs.toString())
-
-        val resId = try { resourceIntField(fields, action) } catch (_: Throwable) { null }
-        if (resId != null && resId != viewId && resId != 0) {
-            val resName = try { resolveName(srcRes, resId) } catch (_: Throwable) { "" }
-            if (resName.isNotEmpty()) {
-                val op = if (methodName?.contains("background", true) == true) Op.BG_RES else Op.IMAGE_RES
-                return RvAction(viewIdName, viewId, op, resName)
-            }
+    private fun valueObject(fields: List<java.lang.reflect.Field>, action: Any): Any? {
+        fields.firstOrNull { it.name == "value" }?.let {
+            return try { it.get(action) } catch (_: Throwable) { null }
+        }
+        for (f in fields) {
+            if (f.name == "viewId" || f.name == "methodName" || f.type.isPrimitive) continue
+            val v = try { f.get(action) } catch (_: Throwable) { null }
+            if (v is CharSequence || v is Int) return v
         }
         return null
     }
@@ -106,26 +102,6 @@ object RemoteViewsActionExtractor {
     private fun stringFieldValue(fields: List<java.lang.reflect.Field>, name: String, action: Any): String? {
         val f = fields.firstOrNull { it.name == name && it.type == String::class.java } ?: return null
         return try { f.get(action) as? String } catch (_: Throwable) { null }
-    }
-
-    private fun resourceIntField(fields: List<java.lang.reflect.Field>, action: Any): Int? {
-        val viewIdField = fields.firstOrNull { it.name == "viewId" }
-        for (f in fields) {
-            if (f === viewIdField) continue
-            if (f.type == Int::class.javaPrimitiveType || f.type == Integer::class.java) {
-                return try { f.getInt(action) } catch (_: Throwable) { null }
-            }
-        }
-        return null
-    }
-
-    private fun charSequenceField(fields: List<java.lang.reflect.Field>, action: Any): CharSequence? {
-        for (f in fields) {
-            if (CharSequence::class.java.isAssignableFrom(f.type)) {
-                return try { f.get(action) as? CharSequence } catch (_: Throwable) { null }
-            }
-        }
-        return null
     }
 
     private fun resolveName(res: android.content.res.Resources?, resId: Int): String {

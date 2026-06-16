@@ -114,11 +114,13 @@ object RemoteViewsParser {
                     }
                 }
                 "titleview" -> {
-                    if (a.op == RemoteViewsActionExtractor.Op.TEXT && a.value.isNotEmpty()) distStr = a.value
+                    if (a.op == RemoteViewsActionExtractor.Op.TEXT && a.value.isNotEmpty()
+                        && a.value != "setText") distStr = a.value
                 }
                 "descriptionview" -> {
-                    if (a.op == RemoteViewsActionExtractor.Op.TEXT && a.value.isNotEmpty()) {
-                        if (!ManeuverMapper.isServicePhrase(a.value)) road = a.value
+                    if (a.op == RemoteViewsActionExtractor.Op.TEXT && a.value.isNotEmpty()
+                        && a.value != "setText" && !ManeuverMapper.isServicePhrase(a.value)) {
+                        road = a.value
                     }
                 }
             }
