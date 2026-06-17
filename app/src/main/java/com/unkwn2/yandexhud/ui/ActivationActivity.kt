@@ -1,13 +1,9 @@
 package com.unkwn2.yandexhud.ui
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
-import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.unkwn2.yandexhud.R
@@ -24,28 +20,19 @@ class ActivationActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_activation)
 
-        val deviceId = LicenseManager.getDeviceId(this)
-        findViewById<TextView>(R.id.deviceIdText).text = deviceId
-
-        findViewById<TextView>(R.id.copyDeviceId).setOnClickListener {
-            (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-                .setPrimaryClip(ClipData.newPlainText("device_id", deviceId))
-            Toast.makeText(this, "Device ID copied / ID скопирован", Toast.LENGTH_SHORT).show()
-        }
-
         val licenseInput = findViewById<EditText>(R.id.licenseInput)
         findViewById<Button>(R.id.btnActivate).setOnClickListener {
-            val licenseStr = licenseInput.text.toString().trim()
-            if (licenseStr.isEmpty()) {
-                Toast.makeText(this, "Enter license / Введите лицензию", Toast.LENGTH_SHORT).show()
+            val key = licenseInput.text.toString().trim()
+            if (key.isEmpty()) {
+                Toast.makeText(this, "Enter key / Введите ключ", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            val ok = LicenseManager.saveLicense(this, licenseStr)
+            val ok = LicenseManager.saveLicense(this, key)
             if (ok) {
-                Toast.makeText(this, "License activated! / Лицензия активирована!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Activated! / Активировано!", Toast.LENGTH_SHORT).show()
                 startMain()
             } else {
-                Toast.makeText(this, "Invalid license / Неверная лицензия", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Invalid key / Неверный ключ", Toast.LENGTH_LONG).show()
             }
         }
     }

@@ -5,7 +5,6 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.unkwn2.yandexhud.bridge.HudForegroundService
 import com.unkwn2.yandexhud.bridge.HudState
-import com.unkwn2.yandexhud.util.LicenseManager
 import com.unkwn2.yandexhud.util.Logger
 
 class YandexNaviNotificationListener : NotificationListenerService() {

@@ -6,7 +6,6 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
 import android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
 import com.unkwn2.yandexhud.bridge.HudState
-import com.unkwn2.yandexhud.util.LicenseManager
 import com.unkwn2.yandexhud.util.Logger
 
 class YandexA11yService : AccessibilityService() {
@@ -69,11 +68,6 @@ class YandexA11yService : AccessibilityService() {
     }
 
     override fun onServiceConnected() {
-        if (!LicenseManager.isLicenseValid(this)) {
-            Logger.w(TAG, "no valid license — disabling")
-            disableSelf()
-            return
-        }
         Logger.i(TAG, "connected")
     }
 

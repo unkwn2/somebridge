@@ -11,7 +11,6 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import com.unkwn2.yandexhud.R
-import com.unkwn2.yandexhud.util.LicenseManager
 import com.unkwn2.yandexhud.util.Logger
 
 class HudForegroundService : Service() {
@@ -73,11 +72,6 @@ class HudForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        if (!LicenseManager.isLicenseValid(this)) {
-            Logger.w(TAG, "no valid license — stopping")
-            stopSelf()
-            return
-        }
         instance = this
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val ch = NotificationChannel(CH_ID, getString(R.string.hud_fg_channel), NotificationManager.IMPORTANCE_LOW)
