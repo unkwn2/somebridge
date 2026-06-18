@@ -10,13 +10,16 @@ class LoopRunner(private val bridge: SomeIpBridge) {
     @Volatile var useGaodeEnum: Boolean = true
     @Volatile private var wasActive = false
     @Volatile private var worker: Thread? = null
+    private val startLock = Any()
 
     fun start(periodMs: Long = 300L) {
-        if (running) return
+        synchronized(startLock) {
+            if (running) return
+            running = true
+            counter = 0
+            wasActive = false
+        }
         worker?.let { try { it.join(500) } catch (_: InterruptedException) {} }
-        running = true
-        counter = 0
-        wasActive = false
         val t = Thread {
             Logger.i(TAG, "started @ ${periodMs}ms gaode=$useGaodeEnum")
             while (running) {
@@ -117,6 +120,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
     }
 
     fun stop() { running = false; worker?.interrupt() }
+    fun joinWorker(timeoutMs: Long = 1000) { worker?.let { try { it.join(timeoutMs) } catch (_: InterruptedException) {} } }
     val isRunning: Boolean get() = running
 
     private fun toGaodeEnum(m: Int): Int = ManeuverMapper.toGaode(m)

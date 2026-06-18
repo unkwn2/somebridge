@@ -69,7 +69,7 @@ class AmapNaviReceiver : BroadcastReceiver() {
         2 -> ManeuverMapper.M_LEFT
         3 -> ManeuverMapper.M_RIGHT
         4 -> ManeuverMapper.M_SLIGHT_LEFT
-        5 -> ManeuverMapper.M_SLIGHT_LEFT
+        5 -> ManeuverMapper.M_SLIGHT_RIGHT
         6 -> ManeuverMapper.M_HARD_LEFT
         7 -> ManeuverMapper.M_HARD_RIGHT
         8 -> ManeuverMapper.M_UTURN_LEFT

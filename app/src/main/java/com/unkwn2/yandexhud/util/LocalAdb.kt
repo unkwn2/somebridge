@@ -21,14 +21,13 @@ object LocalAdb {
     private const val ADB_HOST = "127.0.0.1"
     private const val ADB_PORT = 5555
 
-    // Command magics (little-endian ASCII)
-    private const val A_CNXN = 0x4e584e43 // "CNXN"
-    private const val A_AUTH = 0x48545541 // "AUTH"
-    private const val A_OPEN = 0x4e45504f // "OPEN"
-    private const val A_OKAY = 0x59414b4f // "OKAY"
-    private const val A_WRTE = 0x45545257 // "WRTE"
-    private const val A_CLSE = 0x45534c43 // "CLSE"
-    private const val A_STLS = 0x534c5453 // "STLS"
+    private const val A_CNXN = 0x4e584e43
+    private const val A_AUTH = 0x48545541
+    private const val A_OPEN = 0x4e45504f
+    private const val A_OKAY = 0x59414b4f
+    private const val A_WRTE = 0x45545257
+    private const val A_CLSE = 0x45534c43
+    private const val A_STLS = 0x534c5453
 
     private const val ADB_AUTH_TOKEN = 1
     private const val ADB_AUTH_SIGNATURE = 2
@@ -37,6 +36,7 @@ object LocalAdb {
     private const val VERSION = 0x01000000
     private const val MAXDATA = 256 * 1024
 
+    private val lock = Any()
     @Volatile private var privateKey: java.security.PrivateKey? = null
     @Volatile private var publicKey: RSAPublicKey? = null
     @Volatile private var socket: Socket? = null
@@ -46,26 +46,27 @@ object LocalAdb {
     data class Result(val success: Boolean, val output: String = "", val error: String = "")
 
     fun init(ctx: android.content.Context): Boolean {
-        if (socket != null && socket?.isConnected == true) {
-            // keep-alive — already connected
-            return true
-        }
-        try {
-            loadOrCreateKeys(ctx)
-            val s = Socket()
-            s.connect(InetSocketAddress(ADB_HOST, ADB_PORT), 5000)
-            s.soTimeout = 60000
-            socket = s
-            input = DataInputStream(s.getInputStream())
-            output = DataOutputStream(s.getOutputStream())
+        synchronized(lock) {
+            if (socket != null && socket?.isConnected == true) {
+                return true
+            }
+            try {
+                loadOrCreateKeys(ctx)
+                val s = Socket()
+                s.connect(InetSocketAddress(ADB_HOST, ADB_PORT), 5000)
+                s.soTimeout = 60000
+                socket = s
+                input = DataInputStream(s.getInputStream())
+                output = DataOutputStream(s.getOutputStream())
 
-            val hostBytes = "host::\u0000".toByteArray()
-            send(A_CNXN, VERSION, MAXDATA, hostBytes)
-            return doAuth()
-        } catch (e: Exception) {
-            Logger.e(TAG, "init: ${e.message}")
-            disconnect()
-            return false
+                val hostBytes = "host::\u0000".toByteArray()
+                send(A_CNXN, VERSION, MAXDATA, hostBytes)
+                return doAuth()
+            } catch (e: Exception) {
+                Logger.e(TAG, "init: ${e.message}")
+                disconnect()
+                return false
+            }
         }
     }
 
@@ -138,28 +139,30 @@ object LocalAdb {
     }
 
     fun exec(command: String): Result {
-        if (output == null) return Result(false, error = "not connected")
-        try {
-            send(A_OPEN, 1, 0, "shell:$command\u0000".toByteArray())
-            val baos = ByteArrayOutputStream()
-            while (true) {
-                val msg = read() ?: break
-                when (msg.command) {
-                    A_OKAY -> {}
-                    A_WRTE -> {
-                        baos.write(msg.data)
-                        send(A_OKAY, msg.arg1, msg.arg0, ByteArray(0))
-                    }
-                    A_CLSE -> {
-                        send(A_CLSE, msg.arg1, msg.arg0, ByteArray(0))
-                        break
+        synchronized(lock) {
+            if (output == null) return Result(false, error = "not connected")
+            try {
+                send(A_OPEN, 1, 0, "shell:$command\u0000".toByteArray())
+                val baos = ByteArrayOutputStream()
+                while (true) {
+                    val msg = read() ?: break
+                    when (msg.command) {
+                        A_OKAY -> {}
+                        A_WRTE -> {
+                            baos.write(msg.data)
+                            send(A_OKAY, msg.arg1, msg.arg0, ByteArray(0))
+                        }
+                        A_CLSE -> {
+                            send(A_CLSE, msg.arg1, msg.arg0, ByteArray(0))
+                            break
+                        }
                     }
                 }
+                return Result(true, output = baos.toString(Charsets.UTF_8.name()).trim())
+            } catch (e: Exception) {
+                Logger.e(TAG, "exec '$command': ${e.message}")
+                return Result(false, error = e.message ?: "unknown")
             }
-            return Result(true, output = baos.toString(Charsets.UTF_8.name()).trim())
-        } catch (e: Exception) {
-            Logger.e(TAG, "exec '$command': ${e.message}")
-            return Result(false, error = e.message ?: "unknown")
         }
     }
 
@@ -205,8 +208,10 @@ object LocalAdb {
     }
 
     fun disconnect() {
-        try { socket?.close() } catch (_: Exception) {}
-        socket = null; input = null; output = null
+        synchronized(lock) {
+            try { socket?.close() } catch (_: Exception) {}
+            socket = null; input = null; output = null
+        }
     }
 
     // ---- android_pubkey (mincrypt) wire format ----

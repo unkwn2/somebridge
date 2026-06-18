@@ -124,8 +124,9 @@ class YandexNaviNotificationListener : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         if (sbn.packageName !in YANDEX_PKGS) return
-        if (removePostedMs != 0L) return
-        removePostedMs = System.currentTimeMillis()
+        val now = System.currentTimeMillis()
+        if (now - removePostedMs < REMOVE_DEBOUNCE_MS) return
+        removePostedMs = now
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             if (removePostedMs != 0L && System.currentTimeMillis() - removePostedMs >= REMOVE_DEBOUNCE_MS - 100) {
                 Logger.i(TAG, "removed after debounce — deactivating HUD")

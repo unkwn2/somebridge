@@ -42,10 +42,16 @@ class HudTestReceiver : BroadcastReceiver() {
             }
             "fire" -> {
                 val topicStr = intent.getStringExtra("topic") ?: "4010a00018001"
-                val topic = topicStr.toLong(16)
+                val topic = try { topicStr.toLong(16) } catch (_: NumberFormatException) {
+                    Logger.e(TAG, "invalid topic hex: $topicStr"); return
+                }
                 val payloadHex = (intent.getStringExtra("payload") ?: "").replace(" ", "")
-                val payload = payloadHex.chunked(2).filter { it.length == 2 }
-                    .map { it.toInt(16).toByte() }.toByteArray()
+                val payload = try {
+                    payloadHex.chunked(2).filter { it.length == 2 }
+                        .map { it.toInt(16).toByte() }.toByteArray()
+                } catch (_: NumberFormatException) {
+                    Logger.e(TAG, "invalid payload hex"); return
+                }
                 val bridge = HudForegroundService.bridge ?: run {
                     Logger.e(TAG, "bridge not ready")
                     return

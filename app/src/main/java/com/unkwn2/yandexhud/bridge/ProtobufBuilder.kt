@@ -1,5 +1,6 @@
 package com.unkwn2.yandexhud.bridge
 
+import com.unkwn2.yandexhud.notif.ManeuverMapper
 import java.io.ByteArrayOutputStream
 
 object ProtobufBuilder {
@@ -40,12 +41,13 @@ object ProtobufBuilder {
         if (totalDistMeters > 0)  writeVarintField(inner, 22, totalDistMeters.toLong())
         if (totalTimeSeconds > 0) writeVarintField(inner, 23, totalTimeSeconds.toLong())
         if (speedLimit > 0)       writeVarintField(inner, 24, speedLimit.toLong())
-        if (!arriveText.isNullOrEmpty()) writeStringField(inner, 27, arriveText)
+        if (!arriveText.isNullOrEmpty() && !(HudForegroundService.DEBUG_ARROW_SCAN && simpleNaviIndex in 0..47))
+            writeStringField(inner, 27, arriveText)
         if (!suppressF28) {
-            writeVarintField(inner, 28, maneuver.toLong())            // f28 recommendedDrivingDirectionsId
+            writeVarintField(inner, 28, maneuver.toLong())
         }
         if (HudForegroundService.DEBUG_ARROW_SCAN && simpleNaviIndex in 0..47) {
-            writeVarintField(inner, 27, simpleNaviIndex.toLong())     // f27 ICON_SIMPLE_NAVI texture index
+            writeVarintField(inner, 27, simpleNaviIndex.toLong())
         }
         if (HudForegroundService.DEBUG_ARROW_SCAN && iconFieldNum > 0 && maneuverIcon > 0) {
             writeVarintField(inner, iconFieldNum, maneuverIcon.toLong())
@@ -85,23 +87,24 @@ object ProtobufBuilder {
     }
 
     private fun buildGuideLine(lat: Double, lon: Double, maneuver: Int): String {
+        val g = if (maneuver in 1..13 || maneuver == 48) maneuver else ManeuverMapper.toGaode(maneuver)
         val sb = StringBuilder("[")
         val step = 0.0002
         val turnStart = 5
         for (i in 0..9) {
             val iLat = lat + i * step
             val turn = if (i > turnStart) (i - turnStart) * step else 0.0
-            val iLon = when (maneuver) {
-                1 -> lon - turn          // GAODE: LEFT
-                2 -> lon + turn          // GAODE: RIGHT
-                3 -> lon - turn * 0.5    // GAODE: SLIGHT_LEFT / FORK_LEFT
-                4 -> lon + turn * 0.5    // GAODE: SLIGHT_RIGHT / FORK_RIGHT
-                7 -> lon - turn * 1.5    // GAODE: HARD_LEFT
-                8 -> lon + turn * 1.5    // GAODE: HARD_RIGHT
-                9 -> lon - turn * 2      // GAODE: UTURN_LEFT
-                10 -> lon + turn * 2     // GAODE: UTURN_RIGHT
-                11 -> lon                 // GAODE: STRAIGHT
-                13 -> lon + turn * 0.5   // GAODE: ROUNDABOUT_ENTER
+            val iLon = when (g) {
+                1 -> lon - turn
+                2 -> lon + turn
+                3 -> lon - turn * 0.5
+                4 -> lon + turn * 0.5
+                7 -> lon - turn * 1.5
+                8 -> lon + turn * 1.5
+                9 -> lon - turn * 2
+                10 -> lon + turn * 2
+                11 -> lon
+                13 -> lon + turn * 0.5
                 else -> lon
             }
             if (i > 0) sb.append(",")
