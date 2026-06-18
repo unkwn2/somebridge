@@ -223,31 +223,51 @@ class SomeIpBridge(private val ctx: Context) {
             while (clientBinder == null && tries++ < 30) Thread.sleep(200)
             val cb = clientBinder ?: run { Logger.e(TAG, "sniffer timeout"); return@Thread }
 
-            Logger.i(TAG, "sniffer: registering client callback...")
-            val d = Parcel.obtain(); val r = Parcel.obtain()
-            try {
-                d.writeInterfaceToken(CLIENT_DESC)
-                d.writeStrongBinder(callback)
-                cb.transact(1, d, r, 0)
-                r.readException()
-                Logger.i(TAG, "sniffer: regCb rc=${r.readInt()}")
-            } catch (t: Throwable) { Logger.e(TAG, "sniffer regCb: ${t.message}") }
-            finally { r.recycle(); d.recycle() }
+            // Step 1: registerCallback (tx=1)
+            Logger.i(TAG, "sniffer: registerCallback...")
+            run {
+                val d = Parcel.obtain(); val r = Parcel.obtain()
+                try {
+                    d.writeInterfaceToken(CLIENT_DESC)
+                    d.writeStrongBinder(callback)
+                    cb.transact(1, d, r, 0)
+                    r.readException()
+                    Logger.i(TAG, "sniffer: registerCallback ok")
+                } catch (t: Throwable) { Logger.e(TAG, "sniffer regCb: ${t.message}") }
+                finally { r.recycle(); d.recycle() }
+            }
 
-            Thread.sleep(300)
+            Thread.sleep(200)
 
+            // Step 2: startClients (tx=6) — без аргументов
+            Logger.i(TAG, "sniffer: startClients...")
+            run {
+                val d = Parcel.obtain(); val r = Parcel.obtain()
+                try {
+                    d.writeInterfaceToken(CLIENT_DESC)
+                    cb.transact(6, d, r, 0)
+                    r.readException()
+                    val rc2 = r.readInt()
+                    Logger.i(TAG, "sniffer: startClients rc=$rc2")
+                } catch (t: Throwable) { Logger.e(TAG, "sniffer startClients: ${t.message}") }
+                finally { r.recycle(); d.recycle() }
+            }
+
+            Thread.sleep(200)
+
+            // Step 3: subscribe (tx=8) на три топика
             val topics = listOf(0x4010a00018001L, 0x4010a00018002L, 0x4010a00018003L)
             for (topic in topics) {
                 val d = Parcel.obtain(); val r = Parcel.obtain()
                 try {
                     d.writeInterfaceToken(CLIENT_DESC)
                     d.writeLong(topic)
-                    cb.transact(2, d, r, 0)
+                    cb.transact(8, d, r, 0)
                     r.readException()
                     val subRc = r.readInt()
-                    Logger.i(TAG, "sniffer sub tx=2(0x${topic.toString(16)}) rc=$subRc")
+                    Logger.i(TAG, "sniffer subscribe tx=8(0x${topic.toString(16)}) rc=$subRc")
                 } catch (t: Throwable) {
-                    Logger.i(TAG, "sniffer sub tx=2(0x${topic.toString(16)}) err: ${t.message}")
+                    Logger.e(TAG, "sniffer subscribe tx=8(0x${topic.toString(16)}) err: ${t.message}")
                 } finally { r.recycle(); d.recycle() }
                 Thread.sleep(100)
             }

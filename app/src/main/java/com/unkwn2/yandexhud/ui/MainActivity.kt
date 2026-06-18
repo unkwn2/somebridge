@@ -25,6 +25,7 @@ import com.unkwn2.yandexhud.mock.MockGpsService
 import com.unkwn2.yandexhud.notif.ManeuverMapper
 import com.unkwn2.yandexhud.notif.YandexA11yService
 import com.unkwn2.yandexhud.util.LocalAdb
+import com.unkwn2.yandexhud.util.LicenseManager
 import com.unkwn2.yandexhud.util.Logger
 
 class MainActivity : AppCompatActivity() {
@@ -60,6 +61,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        LicenseManager.activate(applicationContext)
         Logger.init(applicationContext)
         useGaodeEnum = HudForegroundService.loadGaode(this)
         setContentView(R.layout.activity_main)

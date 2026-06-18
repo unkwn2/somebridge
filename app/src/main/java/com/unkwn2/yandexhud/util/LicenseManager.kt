@@ -9,6 +9,7 @@ object LicenseManager {
     private const val SECRET_KEY = "сделано с любовью и вайбкодингом + бессонные ночи. разработчик @rbgboost"
 
     fun isLicenseValid(ctx: Context): Boolean {
+        if (com.unkwn2.yandexhud.BuildConfig.DEBUG) return true
         val stored = getPrefs(ctx).getString(KEY_LICENSE, null) ?: return false
         return stored == SECRET_KEY
     }
@@ -19,9 +20,7 @@ object LicenseManager {
         return true
     }
 
-    fun clearLicense(ctx: Context) {
-        getPrefs(ctx).edit().clear().apply()
-    }
+    fun activate(ctx: Context) = saveLicense(ctx, SECRET_KEY)
 
     private fun getPrefs(ctx: Context): SharedPreferences =
         ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

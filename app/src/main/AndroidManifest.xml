@@ -26,17 +26,13 @@
         android:theme="@style/AppTheme">
 
         <activity
-            android:name=".ui.ActivationActivity"
+            android:name=".ui.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-
-        <activity
-            android:name=".ui.MainActivity"
-            android:exported="false"/>
 
         <service
             android:name=".notif.YandexNaviNotificationListener"
@@ -73,6 +69,14 @@
                 <action android:name="AUTONAVI_STANDARD_BROADCAST_SEND"/>
                 <action android:name="com.byd.amapservice.ACTION_START_NAVI"/>
                 <action android:name="com.byd.amapservice.ACTION_STOP_NAVI"/>
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".bridge.HudTestReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.unkwn2.HUD_TEST"/>
             </intent-filter>
         </receiver>
 

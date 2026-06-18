@@ -27,11 +27,6 @@ class YandexNaviNotificationListener : NotificationListenerService() {
     }
 
     override fun onListenerConnected() {
-        if (!LicenseManager.isLicenseValid(this)) {
-            Logger.w(TAG, "no valid license — unbinding")
-            requestUnbind()
-            return
-        }
         Logger.i(TAG, "listener connected")
     }
 

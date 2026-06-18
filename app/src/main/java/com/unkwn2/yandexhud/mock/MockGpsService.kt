@@ -10,14 +10,18 @@ import com.unkwn2.yandexhud.util.Logger
 object MockGpsService {
     private const val TAG = "MOCKGPS"
 
-    private const val DEFAULT_LAT = 22.5431
-    private const val DEFAULT_LON = 114.0579
+    private const val DEFAULT_LAT = 39.9042
+    private const val DEFAULT_LON = 116.4074
 
     @Volatile private var running = false
     @Volatile private var thread: Thread? = null
+    @Volatile var currentLat = DEFAULT_LAT
+    @Volatile var currentLon = DEFAULT_LON
 
     fun start(ctx: Context, lat: Double = DEFAULT_LAT, lon: Double = DEFAULT_LON) {
         if (running) return
+        currentLat = lat
+        currentLon = lon
         running = true
         val t = Thread {
             Logger.i(TAG, "started lat=$lat lon=$lon")
@@ -41,25 +45,28 @@ object MockGpsService {
                 running = false; return@Thread
             }
 
+            var myLat = lat
             var counter = 0
             while (running) {
-                val angle = (counter * 0.01) % (2 * Math.PI)
                 val loc = Location(LocationManager.GPS_PROVIDER).apply {
-                    latitude = lat + 0.001 * Math.sin(angle)
-                    longitude = lon + 0.001 * Math.cos(angle)
+                    latitude = myLat
+                    longitude = lon
                     accuracy = 5f
-                    bearing = 45f
-                    speed = 10f
+                    altitude = 50.0
+                    bearing = 0f
+                    speed = 15f
                     time = System.currentTimeMillis()
                     elapsedRealtimeNanos = android.os.SystemClock.elapsedRealtimeNanos()
                     extras = Bundle().apply { putInt("satellites", 12) }
                 }
                 try {
                     lm.setTestProviderLocation(LocationManager.GPS_PROVIDER, loc)
-                    if (counter % 50 == 0) Logger.i(TAG, "mock lat=${loc.latitude} lon=${loc.longitude}")
+                    if (counter % 10 == 0) Logger.i(TAG, "mock lat=${loc.latitude} lon=${loc.longitude}")
                 } catch (t: Throwable) {
                     Logger.e(TAG, "setTestProviderLocation: ${t.message}")
                 }
+                myLat += 0.00013
+                currentLat = myLat
                 counter++
                 try { Thread.sleep(1000) } catch (_: InterruptedException) { break }
             }
