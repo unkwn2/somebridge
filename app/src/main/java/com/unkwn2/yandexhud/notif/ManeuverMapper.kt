@@ -72,7 +72,7 @@ object ManeuverMapper {
     private val WORD_BOUNDARY_PHRASES = linkedMapOf(
         "левый" to M_LEFT,
         "правый" to M_RIGHT,
-        "съезд" to M_EXIT_RIGHT,
+        "съезд" to M_UNKNOWN,
         "паром" to M_FERRY,
         "кольцо" to M_ROUNDABOUT_ENTER,
         "круговое" to M_ROUNDABOUT_ENTER,

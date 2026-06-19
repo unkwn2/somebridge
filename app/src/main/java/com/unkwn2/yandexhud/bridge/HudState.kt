@@ -57,5 +57,10 @@ object HudState {
         update { it.copy(testLatchUntilMs = System.currentTimeMillis() + durationMs) }
     }
 
-    fun clearManeuver() = update { it.copy(maneuverGaode = 0, maneuverGaodeMs = 0L) }
+    fun clearManeuver() = update {
+        it.copy(active = false, maneuver = ManeuverMapper.M_STRAIGHT,
+            maneuverGaode = 0, maneuverGaodeMs = 0L,
+            distanceMeters = 0, road = "", arriveText = "",
+            lastUpdateMs = System.currentTimeMillis())
+    }
 }

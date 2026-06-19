@@ -62,7 +62,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
 
                     val a11yFresh = s.maneuverGaode > 0 && (System.currentTimeMillis() - s.maneuverGaodeMs) < 5000
                     val maneuverVal = if (a11yFresh) s.maneuverGaode
-                        else if (useGaodeEnum) toGaodeEnum(s.maneuver) else s.maneuver
+                        else if (useGaodeEnum) toGaodeEnum(s.maneuver) else toGaodeEnum(s.maneuver)
                     val statusIconVal = 2
                     val arriveText = if (maneuverVal == 48) s.arriveText.ifEmpty { "Прибытие" } else ""
 

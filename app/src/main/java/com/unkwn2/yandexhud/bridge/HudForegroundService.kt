@@ -53,6 +53,8 @@ class HudForegroundService : Service() {
             }
         }
         fun stop(ctx: Context) {
+            val i = instance
+            if (i != null) i.intentionalStop = true
             ctx.stopService(Intent(ctx, HudForegroundService::class.java))
         }
 
@@ -69,6 +71,7 @@ class HudForegroundService : Service() {
     private var _bridge: SomeIpBridge? = null
     private var _loopRunner: LoopRunner? = null
     @Volatile private var _bound = false
+    @Volatile private var intentionalStop = false
 
     override fun onCreate() {
         super.onCreate()
@@ -105,6 +108,7 @@ class HudForegroundService : Service() {
         if (intent?.getBooleanExtra("RESTART", false) == true) {
             Logger.i(TAG, "restarted after death")
             restartAttempt = 0
+            intentionalStop = false
         }
         return START_STICKY
     }
@@ -123,8 +127,12 @@ class HudForegroundService : Service() {
         instance = null
         stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
-        Logger.i(TAG, "destroyed — scheduling restart in 2s")
-        scheduleRestart(2000)
+        if (intentionalStop) {
+            Logger.i(TAG, "destroyed — intentional stop, no restart")
+        } else {
+            Logger.i(TAG, "destroyed — scheduling restart in 2s")
+            scheduleRestart(2000)
+        }
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
