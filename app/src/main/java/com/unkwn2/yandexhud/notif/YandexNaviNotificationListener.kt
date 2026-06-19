@@ -6,6 +6,7 @@ import android.service.notification.StatusBarNotification
 import com.unkwn2.yandexhud.bridge.HudForegroundService
 import com.unkwn2.yandexhud.bridge.HudState
 import com.unkwn2.yandexhud.util.Logger
+import com.unkwn2.yandexhud.util.ResCache
 
 class YandexNaviNotificationListener : NotificationListenerService() {
     companion object {
@@ -140,8 +141,7 @@ class YandexNaviNotificationListener : NotificationListenerService() {
     private fun resolveIconName(pkg: String, resId: Int): String {
         if (resId == 0) return ""
         return try {
-            val ctx = createPackageContext(pkg, 0)
-            ctx.resources.getResourceEntryName(resId)
+            ResCache.get(this, pkg)?.getResourceEntryName(resId) ?: ""
         } catch (_: Throwable) { "" }
     }
 

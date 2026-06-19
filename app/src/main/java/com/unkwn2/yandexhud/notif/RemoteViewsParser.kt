@@ -15,6 +15,7 @@ import android.widget.ImageView
 import android.widget.RemoteViews
 import android.widget.TextView
 import com.unkwn2.yandexhud.util.Logger
+import com.unkwn2.yandexhud.util.ResCache
 import java.io.ByteArrayOutputStream
 
 data class RvNaviInfo(
@@ -172,7 +173,7 @@ object RemoteViewsParser {
         val parent = FrameLayout(ctx)
         val view = rv.apply(ctx, parent)
 
-        val res = try { ctx.createPackageContext(pkg, 0).resources } catch (_: Throwable) { null }
+        val res = ResCache.get(ctx, pkg)
         fun nameOf(id: Int): String {
             if (id == View.NO_ID || res == null) return ""
             return try { res.getResourceEntryName(id).lowercase() } catch (_: Throwable) { "" }

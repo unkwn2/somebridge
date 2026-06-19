@@ -3,6 +3,7 @@ package com.unkwn2.yandexhud.notif
 import android.content.Context
 import android.util.Log
 import android.widget.RemoteViews
+import com.unkwn2.yandexhud.util.ResCache
 
 object RemoteViewsActionExtractor {
     private const val TAG = "RvActionExtract"
@@ -18,9 +19,7 @@ object RemoteViewsActionExtractor {
 
     fun extractActions(ctx: Context, rv: RemoteViews, sourcePackage: String): List<RvAction> {
         return try {
-            val srcRes = try {
-                ctx.createPackageContext(sourcePackage, Context.CONTEXT_IGNORE_SECURITY).resources
-            } catch (_: Throwable) { null }
+            val srcRes = ResCache.get(ctx, sourcePackage, Context.CONTEXT_IGNORE_SECURITY)
 
             val actionsField = RemoteViews::class.java.getDeclaredField("mActions").apply { isAccessible = true }
             @Suppress("UNCHECKED_CAST")
