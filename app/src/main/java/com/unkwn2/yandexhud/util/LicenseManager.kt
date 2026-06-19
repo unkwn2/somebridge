@@ -9,7 +9,6 @@ object LicenseManager {
     private const val SECRET_KEY = "сделано с любовью и вайбкодингом + бессонные ночи. разработчик @rbgboost"
 
     fun isLicenseValid(ctx: Context): Boolean {
-        if (com.unkwn2.yandexhud.BuildConfig.DEBUG) return true
         val stored = getPrefs(ctx).getString(KEY_LICENSE, null) ?: return false
         return stored == SECRET_KEY
     }

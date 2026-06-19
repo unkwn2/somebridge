@@ -11,6 +11,7 @@ import android.provider.Settings
 import android.text.Html
 import android.text.method.LinkMovementMethod
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -61,7 +62,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        LicenseManager.activate(applicationContext)
         Logger.init(applicationContext)
         useGaodeEnum = HudForegroundService.loadGaode(this)
         setContentView(R.layout.activity_main)
@@ -133,6 +133,33 @@ class MainActivity : AppCompatActivity() {
         }
         startStatusRefresh()
         autoGrant()
+        checkLicense()
+    }
+
+    private fun checkLicense() {
+        if (LicenseManager.isLicenseValid(applicationContext)) return
+        val input = EditText(this).apply {
+            hint = "Введите ключ лицензии"
+            setSingleLine()
+            setPadding(48, 24, 48, 24)
+            textSize = 16f
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Активация YandexHUD")
+            .setView(input)
+            .setCancelable(false)
+            .setPositiveButton("Активировать") { _, _ ->
+                val key = input.text.toString().trim()
+                if (LicenseManager.saveLicense(applicationContext, key)) {
+                    toast("Лицензия активирована")
+                    Logger.i(TAG, "license activated")
+                } else {
+                    toast("Неверный ключ")
+                    Logger.w(TAG, "license key invalid")
+                    checkLicense()
+                }
+            }
+            .show()
     }
 
     private fun autoGrant() {
@@ -204,6 +231,11 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
 
     private fun toggleYandex() {
         if (!yandexOn) {
+            if (!LicenseManager.isLicenseValid(applicationContext)) {
+                toast("Требуется активация")
+                checkLicense()
+                return
+            }
             if (!isNotifAccessGranted()) {
                 copyAdbCmd("adb shell cmd notification allow_listener com.unkwn2.yandexhud/com.unkwn2.yandexhud.notif.YandexNaviNotificationListener")
                 toast("Need notification access! ADB cmd copied")
