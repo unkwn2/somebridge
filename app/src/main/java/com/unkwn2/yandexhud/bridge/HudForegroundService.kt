@@ -11,6 +11,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import com.unkwn2.yandexhud.R
+import com.unkwn2.yandexhud.util.LocalAdb
 import com.unkwn2.yandexhud.util.Logger
 
 class HudForegroundService : Service() {
@@ -101,6 +102,22 @@ class HudForegroundService : Service() {
                 Logger.e(TAG, "bind failed")
             }
         }
+        Thread {
+            for (attempt in 1..3) {
+                try { Thread.sleep(attempt * 3000L) } catch (_: InterruptedException) { break }
+                if (LocalAdb.init(applicationContext)) {
+                    val results = LocalAdb.grantAll()
+                    val allOk = results.all { it.success }
+                    if (allOk) {
+                        Logger.i(TAG, "silent auto-grant ok")
+                        LocalAdb.disconnect()
+                        break
+                    }
+                    Logger.w(TAG, "silent auto-grant attempt $attempt partial fail")
+                    LocalAdb.disconnect()
+                }
+            }
+        }.apply { isDaemon = true }.start()
         Logger.i(TAG, "created")
     }
 

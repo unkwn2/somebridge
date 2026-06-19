@@ -164,23 +164,39 @@ class MainActivity : AppCompatActivity() {
 
     private fun autoGrant() {
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        if (prefs.getBoolean(KEY_GRANT_DONE, false)) return
+        if (prefs.getBoolean(KEY_GRANT_DONE, false)) {
+            Thread {
+                if (LocalAdb.init(applicationContext)) {
+                    LocalAdb.grantAll()
+                    LocalAdb.disconnect()
+                }
+            }.apply { isDaemon = true }.start()
+            return
+        }
         Logger.i(TAG, "auto-grant: first launch, granting permissions...")
         Thread {
-            val initOk = LocalAdb.init(applicationContext)
-            if (!initOk) {
-                Logger.w(TAG, "auto-grant: ADB init failed, will retry on manual GRANT")
-                return@Thread
+            for (attempt in 1..5) {
+                val initOk = LocalAdb.init(applicationContext)
+                if (!initOk) {
+                    Logger.w(TAG, "auto-grant: ADB init attempt $attempt failed, retrying...")
+                    try { Thread.sleep(3000L) } catch (_: InterruptedException) { break }
+                    continue
+                }
+                val results = LocalAdb.grantAll()
+                val allOk = results.all { it.success }
+                if (allOk) {
+                    prefs.edit().putBoolean(KEY_GRANT_DONE, true).apply()
+                    Logger.i(TAG, "auto-grant: all permissions granted")
+                    runOnUiThread { toast("All permissions granted") }
+                    LocalAdb.disconnect()
+                    return@Thread
+                } else {
+                    Logger.w(TAG, "auto-grant: attempt $attempt partial fail, retrying...")
+                    LocalAdb.disconnect()
+                    try { Thread.sleep(3000L) } catch (_: InterruptedException) { break }
+                }
             }
-            val results = LocalAdb.grantAll()
-            val allOk = results.all { it.success }
-            if (allOk) {
-                prefs.edit().putBoolean(KEY_GRANT_DONE, true).apply()
-                Logger.i(TAG, "auto-grant: all permissions granted")
-                runOnUiThread { toast("All permissions granted") }
-            } else {
-                Logger.w(TAG, "auto-grant: some permissions failed, retry with GRANT button")
-            }
+            Logger.w(TAG, "auto-grant: all attempts failed, try manual GRANT")
         }.apply { isDaemon = true }.start()
     }
 

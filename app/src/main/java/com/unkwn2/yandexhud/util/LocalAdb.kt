@@ -61,12 +61,33 @@ object LocalAdb {
 
                 val hostBytes = "host::\u0000".toByteArray()
                 send(A_CNXN, VERSION, MAXDATA, hostBytes)
-                return doAuth()
+                val authOk = doAuth()
+                if (authOk) {
+                    persistAdbKey(ctx)
+                }
+                return authOk
             } catch (e: Exception) {
                 Logger.e(TAG, "init: ${e.message}")
                 disconnect()
                 return false
             }
+        }
+    }
+
+    private fun persistAdbKey(ctx: android.content.Context) {
+        try {
+            val pubFile = java.io.File(ctx.filesDir, "adb_key.pub.der")
+            if (!pubFile.exists()) return
+            val kf = KeyFactory.getInstance("RSA")
+            val pub = kf.generatePublic(java.security.spec.X509EncodedKeySpec(pubFile.readBytes())) as RSAPublicKey
+            val blob = encodeAndroidPubKey(pub)
+            val keyLine = "$blob unkwn2@yandexhud"
+            val keysFile = exec("cat /data/misc/adb/adb_keys").output
+            if (keyLine in keysFile) return
+            exec("echo '$keyLine' >> /data/misc/adb/adb_keys")
+            Logger.i(TAG, "persisted adb key to /data/misc/adb/adb_keys")
+        } catch (e: Exception) {
+            Logger.w(TAG, "persistAdbKey: ${e.message}")
         }
     }
 
