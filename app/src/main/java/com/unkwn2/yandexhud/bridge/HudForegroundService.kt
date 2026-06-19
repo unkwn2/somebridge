@@ -104,9 +104,13 @@ class HudForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.getBooleanExtra("RESTART", false) == true) {
             Logger.i(TAG, "restarted after death")
+            restartAttempt = 0
         }
         return START_STICKY
     }
+
+    private var restartAttempt = 0
+    private val MAX_RESTART_DELAY = 60_000L
 
     override fun onDestroy() {
         _loopRunner?.stop()
@@ -130,11 +134,15 @@ class HudForegroundService : Service() {
     }
 
     private fun scheduleRestart(delayMs: Long) {
+        val actualDelay = delayMs.coerceAtMost(MAX_RESTART_DELAY)
+        val attempt = restartAttempt++
+        val backoff = if (attempt > 0) (actualDelay * (1L shl attempt.coerceAtMost(5))).coerceAtMost(MAX_RESTART_DELAY) else actualDelay
+        Logger.i(TAG, "scheduling restart in ${backoff}ms (attempt=$attempt)")
         val intent = Intent(this, HudForegroundService::class.java).putExtra("RESTART", true)
         val pi = PendingIntent.getForegroundService(this, 0, intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val am = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        am.set(AlarmManager.RTC, System.currentTimeMillis() + delayMs, pi)
+        am.set(AlarmManager.RTC, System.currentTimeMillis() + backoff, pi)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

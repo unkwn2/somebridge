@@ -44,26 +44,18 @@ object ManeuverMapper {
         "поверните налево" to M_LEFT,
         "поворот налево" to M_LEFT,
         "налево" to M_LEFT,
-        "левый" to M_LEFT,
         "левее" to M_SLIGHT_LEFT,
         "правее" to M_SLIGHT_RIGHT,
         "поверните направо" to M_RIGHT,
         "поворот направо" to M_RIGHT,
         "направо" to M_RIGHT,
-        "правый" to M_RIGHT,
         "въезжайте на кольцо" to M_ROUNDABOUT_ENTER,
         "войдите в кольцо" to M_ROUNDABOUT_ENTER,
-        "круговое" to M_ROUNDABOUT_ENTER,
-        "кольцо" to M_ROUNDABOUT_ENTER,
         "съезжайте с кольца" to M_ROUNDABOUT_EXIT,
         "выезжайте из кольца" to M_ROUNDABOUT_EXIT,
-        "съезд" to M_EXIT_RIGHT,
+        "съезд с кольца" to M_ROUNDABOUT_EXIT,
+        "выезд с кольца" to M_ROUNDABOUT_EXIT,
         "въезд на паром" to M_FERRY,
-        "паром" to M_FERRY,
-        "тоннель" to M_TUNNEL,
-        "туннель" to M_TUNNEL,
-        "платный" to M_TOLL,
-        "пошлина" to M_TOLL,
         "вы прибыли" to M_ARRIVE,
         "маршрут завершён" to M_ARRIVE,
         "до конца маршрута" to M_ARRIVE,
@@ -76,6 +68,32 @@ object ManeuverMapper {
         "продолжить" to M_STRAIGHT,
         "двигайтесь прямо" to M_STRAIGHT
     )
+
+    private val WORD_BOUNDARY_PHRASES = linkedMapOf(
+        "левый" to M_LEFT,
+        "правый" to M_RIGHT,
+        "съезд" to M_EXIT_RIGHT,
+        "паром" to M_FERRY,
+        "кольцо" to M_ROUNDABOUT_ENTER,
+        "круговое" to M_ROUNDABOUT_ENTER,
+        "туннель" to M_TUNNEL,
+        "тоннель" to M_TUNNEL,
+        "платный" to M_TOLL,
+        "пошлина" to M_TOLL
+    )
+
+    fun fromRussianText(text: String): Int {
+        val lower = text.lowercase().trim()
+            .replace('\u00A0', ' ')
+            .replace(Regex("\\s+"), " ")
+        for ((phrase, m) in RU_PHRASES) {
+            if (phrase in lower) return m
+        }
+        for ((phrase, m) in WORD_BOUNDARY_PHRASES) {
+            if (Regex("""(?:^|\s|[\p{Punct}])${Regex.escape(phrase)}(?:$|\s|[\p{Punct}])""").containsMatchIn(lower)) return m
+        }
+        return M_UNKNOWN
+    }
 
     private val EN_ICON_NAMES = mapOf(
         "notification_straight_sdl" to M_STRAIGHT,
@@ -125,16 +143,6 @@ object ManeuverMapper {
         "navigation_fork_right" to M_FORK_RIGHT
     )
 
-    fun fromRussianText(text: String): Int {
-        val lower = text.lowercase().trim()
-            .replace('\u00A0', ' ')        // normalize non-breaking space
-            .replace(Regex("\\s+"), " ")   // collapse multiple spaces
-        for ((phrase, m) in RU_PHRASES) {
-            if (phrase in lower) return m
-        }
-        return M_UNKNOWN
-    }
-
     fun fromIconName(name: String): Int {
         if (name.isEmpty()) return M_UNKNOWN
         val lower = name.lowercase().removeSuffix(".xml")
@@ -167,8 +175,6 @@ object ManeuverMapper {
         }
     }
 
-    // --- Детерминированные таблицы для RemoteViewsActionExtractor ---
-    // primaryIconTinted -> setImageResource(name): манёвр Яндекса
     private val YANDEX_MANEUVER_RES = mapOf(
         "notification_straight_sdl" to M_STRAIGHT,
         "notification_left_sdl" to M_LEFT,
@@ -189,7 +195,6 @@ object ManeuverMapper {
         "notification_ferry_sdl" to M_FERRY,
     )
 
-    // primaryIcon -> setImageResource(name): тип дорожного события
     private val YANDEX_ROAD_ALERT_RES = mapOf(
         "road_alerts_camera_32" to "camera",
         "road_alerts_accident_32" to "accident",
@@ -208,7 +213,6 @@ object ManeuverMapper {
         else -> null
     }
 
-    /** Служебные строки descriptionView, которые не должны быть дорогой */
     private val SERVICE_PHRASES = setOf(
         "камера контроля скорости", "направо", "налево",
         "почти на месте", "кольцевое движение"
@@ -241,8 +245,8 @@ object ManeuverMapper {
 
     fun toGaode(m: Int): Int = when (m) {
         M_LEFT -> 1; M_RIGHT -> 2
-        M_SLIGHT_LEFT -> 3; M_SLIGHT_RIGHT -> 4   // 3, не 5 — текстуры 0x5 нет в прошивке
-        M_FORK_LEFT -> 3; M_FORK_RIGHT -> 4        // FORK_LEFT тоже 3 (текстуры 0x5 нет)
+        M_SLIGHT_LEFT -> 3; M_SLIGHT_RIGHT -> 4
+        M_FORK_LEFT -> 3; M_FORK_RIGHT -> 4
         M_HARD_LEFT -> 7; M_HARD_RIGHT -> 8
         M_EXIT_LEFT -> 7; M_EXIT_RIGHT -> 8
         M_UTURN_LEFT -> 9; M_UTURN_RIGHT -> 10
@@ -252,7 +256,6 @@ object ManeuverMapper {
         else -> 0
     }
 
-    // GAODE-коды напрямую для A11y contentDescription (f28)
     private const val GAODE_STRAIGHT = 11
     private const val GAODE_LEFT = 1
     private const val GAODE_RIGHT = 2
@@ -270,7 +273,7 @@ object ManeuverMapper {
     private val ROUNDABOUT_EXIT = Regex("""(\d+)[-‑]й\s+съезд""")
 
     fun fromA11yDescription(text: String?): Int {
-        if (text == null || text.isBlank()) return 0   // 0 = unknown, not STRAIGHT
+        if (text == null || text.isBlank()) return 0
         if (text == ">>>") return GAODE_STRAIGHT
         val lower = text.lowercase().trim()
 
@@ -282,7 +285,7 @@ object ManeuverMapper {
         }
 
         return when {
-            "въезд на паром" in lower -> 46  // GAODE: FERRY
+            "въезд на паром" in lower -> 46
             "кольцевое" in lower || "круговое" in lower -> GAODE_ROUNDABOUT_ENTER
             "выезд с кольца" in lower || "съезд с кольца" in lower -> GAODE_ROUNDABOUT_EXIT_BASE
             "промежуточная точка" in lower -> GAODE_WAYPOINT
