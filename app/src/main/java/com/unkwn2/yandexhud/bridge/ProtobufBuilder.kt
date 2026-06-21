@@ -113,7 +113,7 @@ object ProtobufBuilder {
     }
 
     private fun buildGuideLine(lat: Double, lon: Double, maneuver: Int): String {
-        val g = if (maneuver in 1..13 || maneuver == 48) maneuver else ManeuverMapper.toGaode(maneuver)
+        val g = ManeuverMapper.toGaode(maneuver).let { if (it != 0) it else maneuver }
         val sb = StringBuilder("[")
         val step = 0.0002
         val turnStart = 5

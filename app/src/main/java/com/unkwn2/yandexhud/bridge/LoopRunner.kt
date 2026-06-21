@@ -27,7 +27,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                 if (HudForegroundService.DEBUG_ARROW_SCAN && s.arrowScanActive) {
                     wasActive = true
                     val payload = ProtobufBuilder.build(
-                        counter = counter++,
+                        counter++,
                         maneuver = 0,
                         distance = 0,
                         road = "",
@@ -62,7 +62,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
 
                     val laneLayout = if (s.testLanes) "1,2,2,1" else ""
                     val payload = ProtobufBuilder.build(
-                        counter = counter++,
+                        counter++,
                         maneuver = maneuverVal,
                         distance = s.distanceMeters,
                         road = s.road,
@@ -79,14 +79,12 @@ class LoopRunner(private val bridge: SomeIpBridge) {
 
                     if (counter % 30 == 0) {
                         val enumLabel = if (useGaodeEnum) "GAODE" else "v33"
-                        val packLabel = if (s.usePacked) "pk" else "np"
-                        val scanLabel = if (HudForegroundService.DEBUG_ARROW_SCAN && HudForegroundService.iconFieldNum > 0) " SCAN=f${HudForegroundService.iconFieldNum}=$maneuverVal NOF28" else ""
-                        Logger.i(TAG, "tick #$counter rc=$rc m=$maneuverVal($enumLabel) $packLabel d=${s.distanceMeters} road='${s.road}' iconIdx=$statusIconVal lanes=${if (s.testLanes) laneLayout else "-"}$scanLabel")
+                        Logger.i(TAG, "tick #$counter rc=$rc m=$maneuverVal($enumLabel) d=${s.distanceMeters} road='${s.road}' iconIdx=$statusIconVal lanes=${if (s.testLanes) laneLayout else "-"}")
                     }
                 } else {
                     if (wasActive) {
                         val clearPayload = ProtobufBuilder.build(
-                            counter = counter++, maneuver = 0,
+                            counter++, maneuver = 0,
                             distance = 0, road = "", lat = 0.0, lon = 0.0, etaString = "",
                             statusIcon = 1, iconPng = null, testLanes = false, laneLayout = ""
                         )

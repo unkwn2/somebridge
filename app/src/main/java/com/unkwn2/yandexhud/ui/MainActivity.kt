@@ -6,9 +6,11 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Bundle
 import android.provider.Settings
 import android.text.Html
+import android.text.InputType
 import android.text.method.LinkMovementMethod
 import android.widget.Button
 import android.widget.EditText
@@ -18,6 +20,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationManagerCompat
+import com.unkwn2.yandexhud.BuildConfig
 import com.unkwn2.yandexhud.bridge.HudForegroundService
 import com.unkwn2.yandexhud.bridge.HudState
 import com.unkwn2.yandexhud.bridge.SomeIpBridge
@@ -28,6 +31,7 @@ import com.unkwn2.yandexhud.notif.YandexA11yService
 import com.unkwn2.yandexhud.util.LocalAdb
 import com.unkwn2.yandexhud.util.LicenseManager
 import com.unkwn2.yandexhud.util.Logger
+import java.security.MessageDigest
 
 class MainActivity : AppCompatActivity() {
     companion object {
@@ -63,6 +67,76 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         Logger.init(applicationContext)
         useGaodeEnum = HudForegroundService.loadGaode(this)
+
+        if (BuildConfig.DEBUG) {
+            initUI()
+        } else {
+            checkPasswordAndInit()
+        }
+    }
+
+    // ── Password lock (release only) ───────────────────────────────────────────
+
+    private fun checkPasswordAndInit() {
+        val prefs = getSharedPreferences("app_lock", MODE_PRIVATE)
+        val hash = prefs.getString("password_hash", null)
+        if (hash == null) {
+            showSetPasswordDialog(prefs)
+        } else {
+            showEnterPasswordDialog(prefs, hash)
+        }
+    }
+
+    private fun showSetPasswordDialog(prefs: SharedPreferences) {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Set Password")
+            .setMessage("First launch — create an app password")
+            .setView(input)
+            .setCancelable(false)
+            .setPositiveButton("Set") { _, _ ->
+                val pwd = input.text.toString()
+                if (pwd.length < 4) {
+                    toast("Password must be at least 4 characters")
+                    showSetPasswordDialog(prefs)
+                    return@setPositiveButton
+                }
+                prefs.edit().putString("password_hash", sha256(pwd)).apply()
+                toast("Password set")
+                initUI()
+            }
+            .show()
+    }
+
+    private fun showEnterPasswordDialog(prefs: SharedPreferences, hash: String) {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Enter Password")
+            .setMessage("App is locked")
+            .setView(input)
+            .setCancelable(false)
+            .setPositiveButton("OK") { _, _ ->
+                val pwd = input.text.toString()
+                if (sha256(pwd) == hash) {
+                    toast("Access granted")
+                    initUI()
+                } else {
+                    toast("Wrong password")
+                    showEnterPasswordDialog(prefs, hash)
+                }
+            }
+            .show()
+    }
+
+    private fun sha256(s: String): String = MessageDigest.getInstance("SHA-256")
+        .digest(s.toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(it) }
+
+    private fun initUI() {
         setContentView(R.layout.activity_main)
 
         statusBar = findViewById(R.id.statusBar)
@@ -238,7 +312,7 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
 
     private fun toggleMockGps() {
         if (!mockOn) {
-            toast("Mock GPS: Shenzhen 22.54, 114.06")
+            toast("Mock GPS: Beijing 39.90, 116.41")
             copyAdbCmd("adb shell appops set com.unkwn2.yandexhud android:mock_location allow")
             MockGpsService.start(this)
             mockOn = true

@@ -47,11 +47,12 @@ object MockGpsService {
             }
 
             var myLat = lat
+            var myLon = lon
             var counter = 0
             while (running) {
                 val loc = Location(LocationManager.GPS_PROVIDER).apply {
                     latitude = myLat
-                    longitude = lon
+                    longitude = myLon
                     accuracy = 5f
                     altitude = 50.0
                     bearing = 0f
@@ -63,12 +64,14 @@ object MockGpsService {
                 try {
                     lm.setTestProviderLocation(LocationManager.GPS_PROVIDER, loc)
                     if (counter % 10 == 0) Logger.i(TAG, "mock lat=${loc.latitude} lon=${loc.longitude}")
-                    HudState.update { it.copy(lat = currentLat, lon = currentLon, lastUpdateMs = System.currentTimeMillis()) }
+                    HudState.update { it.copy(lat = myLat, lon = myLon, lastUpdateMs = System.currentTimeMillis()) }
                 } catch (t: Throwable) {
                     Logger.e(TAG, "setTestProviderLocation: ${t.message}")
                 }
                 myLat += 0.00013
+                myLon += 0.00013
                 currentLat = myLat
+                currentLon = myLon
                 counter++
                 try { Thread.sleep(1000) } catch (_: InterruptedException) { break }
             }
