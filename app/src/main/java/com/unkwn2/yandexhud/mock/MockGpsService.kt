@@ -5,6 +5,7 @@ import android.location.Criteria
 import android.location.Location
 import android.location.LocationManager
 import android.os.Bundle
+import com.unkwn2.yandexhud.bridge.HudState
 import com.unkwn2.yandexhud.util.Logger
 
 object MockGpsService {
@@ -62,6 +63,7 @@ object MockGpsService {
                 try {
                     lm.setTestProviderLocation(LocationManager.GPS_PROVIDER, loc)
                     if (counter % 10 == 0) Logger.i(TAG, "mock lat=${loc.latitude} lon=${loc.longitude}")
+                    HudState.update { it.copy(lat = currentLat, lon = currentLon, lastUpdateMs = System.currentTimeMillis()) }
                 } catch (t: Throwable) {
                     Logger.e(TAG, "setTestProviderLocation: ${t.message}")
                 }

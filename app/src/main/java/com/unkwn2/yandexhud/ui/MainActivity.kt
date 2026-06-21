@@ -372,7 +372,7 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
             val clearPayload = ProtobufBuilder.build(
                 counter = 0, maneuver = 0, distance = 0, road = "",
                 lat = 0.0, lon = 0.0, etaString = "",
-                statusIcon = 1, suppressF28 = true
+                statusIcon = 1
             )
             HudForegroundService.bridge?.fireEvent(SomeIpBridge.TOPIC_NAVI, clearPayload)
             toast("Arrow scan stopped")

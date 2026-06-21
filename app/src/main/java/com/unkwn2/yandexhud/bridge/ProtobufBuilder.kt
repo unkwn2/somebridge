@@ -15,18 +15,9 @@ object ProtobufBuilder {
         totalDistMeters: Int = 0,
         totalTimeSeconds: Int = 0,
         statusIcon: Int = 0,
-        speedLimit: Int = 0,
-        arriveText: String = "",
-        testLanes: Boolean = false,
-        usePacked: Boolean = true,
-        laneLayout: String = "",
-        iconFieldNum: Int = 0,
-        maneuverIcon: Int = 0,
         iconPng: ByteArray? = null,
-        nextManeuverFieldNum: Int = 0,
-        nextManeuverValue: Int = 0,
-        suppressF28: Boolean = false,
-        simpleNaviIndex: Int = -1
+        testLanes: Boolean = false,
+        laneLayout: String = ""
     ): ByteArray {
         val inner = ByteArrayOutputStream()
 
@@ -36,11 +27,13 @@ object ProtobufBuilder {
         if (testLanes && laneLayout.isNotEmpty()) {
             writeVarintField(inner, 5, laneLayout.split(",").size.toLong())
         }
+        // TODO f6: validate against sniffer on real LEFT/RIGHT/roundabout turns
         writeVarintField(inner, 6, maneuverToF6(maneuver).toLong())
         if (iconPng != null) writeBytesField(inner, 7, iconPng)
         if (distance > 0) writeVarintField(inner, 9, distance.toLong())
         writeStringField(inner, 10, road)
         writeVarintField(inner, 11, 50L)
+        // TODO f12: validate against sniffer on real turns
         val f12Val = deriveF12(distance, counter)
         if (f12Val > 0) writeVarintField(inner, 12, f12Val.toLong())
         writeVarintField(inner, 16, statusIcon.toLong())
@@ -50,6 +43,7 @@ object ProtobufBuilder {
             writeDoubleField(inner, 19, lon)
             writeDoubleField(inner, 20, lat)
         }
+        // TODO f21: validate against sniffer on real turns
         val f21Val = deriveF21(distance, counter)
         if (f21Val > 0) writeVarintField(inner, 21, f21Val.toLong())
         writeVarintField(inner, 22, 50L)
@@ -87,6 +81,7 @@ object ProtobufBuilder {
         return outer.toByteArray()
     }
 
+    // TODO f6: validate against sniffer on real LEFT/RIGHT/roundabout turns
     private fun maneuverToF6(m: Int): Int = when (m) {
         1, 2 -> 3
         3, 4 -> 4
@@ -103,12 +98,14 @@ object ProtobufBuilder {
         else -> 7
     }
 
+    // TODO f12: validate against sniffer on real turns
     private fun deriveF12(distance: Int, counter: Int): Int {
         if (distance <= 0) return 45
         val base = (distance / 10).coerceIn(5, 200)
         return base + (counter % 3)
     }
 
+    // TODO f21: validate against sniffer on real turns
     private fun deriveF21(distance: Int, counter: Int): Int {
         if (distance <= 0) return 41
         val base = (distance / 12).coerceIn(5, 200)
@@ -137,7 +134,7 @@ object ProtobufBuilder {
                 else -> lon
             }
             if (i > 0) sb.append(",")
-            sb.append(String.format("[%.7f,%.7f]", iLon, iLat))
+            sb.append(String.format("[%.7f,%.7f,0]", iLon, iLat))
         }
         sb.append("]")
         return sb.toString()
@@ -153,7 +150,7 @@ object ProtobufBuilder {
     private fun writeF31Const(o: ByteArrayOutputStream) {
         val buf = ByteArrayOutputStream()
         writeFixed64Field(buf, 6, 4123383220256257585L)
-        writeFixed64Field(buf, 6, 3833746581617914937L)
+        writeFixed64Field(buf, 7, 3833746581617914937L)
         writeBytesField(o, 31, buf.toByteArray())
     }
 

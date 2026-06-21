@@ -34,14 +34,9 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         lat = 0.0, lon = 0.0,
                         etaString = "",
                         statusIcon = 2,
-                        simpleNaviIndex = s.arrowScanIndex,
-                        suppressF28 = true,
-                        iconFieldNum = 0,
-                        maneuverIcon = 0,
                         iconPng = null,
                         testLanes = false,
-                        laneLayout = "",
-                        usePacked = s.usePacked
+                        laneLayout = ""
                     )
                     val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
                     if (counter % 5 == 0) {
@@ -64,9 +59,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                     val maneuverVal = if (a11yFresh) s.maneuverGaode
                         else if (useGaodeEnum) toGaodeEnum(s.maneuver) else s.maneuver
                     val statusIconVal = 2
-                    val arriveText = if (maneuverVal == 48) s.arriveText.ifEmpty { "Прибытие" } else ""
 
-                    // HudRoadInfoNotifyStruct protobuf — все поля
                     val laneLayout = if (s.testLanes) "1,2,2,1" else ""
                     val payload = ProtobufBuilder.build(
                         counter = counter++,
@@ -78,17 +71,9 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         totalDistMeters = s.totalDistMeters,
                         totalTimeSeconds = s.totalTimeSeconds,
                         statusIcon = statusIconVal,
-                        speedLimit = s.speedLimit,
-                        arriveText = arriveText,
-                        testLanes = s.testLanes,
-                        usePacked = s.usePacked,
-                        laneLayout = laneLayout,
-                        iconFieldNum = if (HudForegroundService.DEBUG_ARROW_SCAN) HudForegroundService.iconFieldNum else 0,
-                        maneuverIcon = if (HudForegroundService.DEBUG_ARROW_SCAN && HudForegroundService.iconFieldNum > 0) maneuverVal else 0,
                         iconPng = if (HudForegroundService.sendPngIcon) s.iconPng else null,
-                        nextManeuverFieldNum = if (HudForegroundService.DEBUG_ARROW_SCAN) HudForegroundService.nextManeuverFieldNum else 0,
-                        nextManeuverValue = if (HudForegroundService.DEBUG_ARROW_SCAN && HudForegroundService.nextManeuverFieldNum > 0) toGaodeEnum(s.nextNextManeuver) else 0,
-                        suppressF28 = HudForegroundService.DEBUG_ARROW_SCAN && HudForegroundService.iconFieldNum > 0
+                        testLanes = s.testLanes,
+                        laneLayout = laneLayout
                     )
                     val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
 
@@ -100,10 +85,11 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                     }
                 } else {
                     if (wasActive) {
-                        val clearPayload = ProtobufBuilder.build(counter = counter++, maneuver = 0,
+                        val clearPayload = ProtobufBuilder.build(
+                            counter = counter++, maneuver = 0,
                             distance = 0, road = "", lat = 0.0, lon = 0.0, etaString = "",
-                            statusIcon = 1, iconPng = null, testLanes = false, laneLayout = "",
-                            usePacked = s.usePacked)
+                            statusIcon = 1, iconPng = null, testLanes = false, laneLayout = ""
+                        )
                         bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, clearPayload)
                         wasActive = false
                         Logger.i(TAG, "sent HUD clear frame (statusIcon=1)")
