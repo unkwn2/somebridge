@@ -27,13 +27,13 @@ object ProtobufBuilder {
         if (testLanes && laneLayout.isNotEmpty()) {
             writeVarintField(inner, 5, laneLayout.split(",").size.toLong())
         }
-        writeVarintField(inner, 6, maneuverToF6(maneuver).toLong())
-        if (iconPngLarge != null) writeBytesField(inner, 7, iconPngLarge)
+        val f6val = maneuverToF6(maneuver)
+        writeVarintField(inner, 6, f6val.toLong())
+        if (iconPngLarge != null && f6val == 7) writeBytesField(inner, 7, iconPngLarge)
         if (iconPngSmall != null) writeBytesField(inner, 8, iconPngSmall)
         if (distance > 0) writeVarintField(inner, 9, distance.toLong())
         writeStringField(inner, 10, road)
-        writeVarintField(inner, 11, 50L)
-        // TODO f12: validate against sniffer on real turns
+        writeVarintField(inner, 11, 30L)
         val f12Val = deriveF12(distance, counter)
         if (f12Val > 0) writeVarintField(inner, 12, f12Val.toLong())
         writeVarintField(inner, 16, statusIcon.toLong())
@@ -43,24 +43,24 @@ object ProtobufBuilder {
             writeDoubleField(inner, 19, lon)
             writeDoubleField(inner, 20, lat)
         }
-        // TODO f21: validate against sniffer on real turns
         val f21Val = deriveF21(distance, counter)
         if (f21Val > 0) writeVarintField(inner, 21, f21Val.toLong())
         writeVarintField(inner, 22, 50L)
         writeVarintField(inner, 23, 17L)
         writeStringField(inner, 24, "[]")
-        if (lat != 0.0 || lon != 0.0) writeF25Const(inner)
+        if (lat != 0.0 || lon != 0.0) writeStringField(inner, 25, "$lon,$lat")
         writeStringField(inner, 26, etaString)
-        writeVarintField(inner, 28, maneuver.toLong())
+        writeVarintField(inner, 28, maneuverToF28(maneuver).toLong())
         if (testLanes && laneLayout.isNotEmpty()) writeStringField(inner, 29, laneLayout)
         if (lat != 0.0 || lon != 0.0) {
             writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver))
             writeF31Const(inner)
         }
-        // if (totalDistMeters > 0 && distance > 0) {
-        //     val progress = 1.0 - distance.toDouble() / totalDistMeters.toDouble()
-        //     writeDoubleField(inner, 33, progress.coerceIn(0.0, 1.0))
-        // }
+        if (totalDistMeters > 0 && distance > 0) {
+            val progress = 1.0 - distance.toDouble() / totalDistMeters.toDouble()
+            val bits = java.lang.Double.doubleToRawLongBits(progress.coerceIn(0.0, 1.0))
+            writeVarintField(inner, 33, bits)
+        }
 
         val innerBytes = inner.toByteArray()
         val outer = ByteArrayOutputStream()
@@ -81,21 +81,19 @@ object ProtobufBuilder {
         return outer.toByteArray()
     }
 
-    // TODO f6: validate against sniffer on real LEFT/RIGHT/roundabout turns
-    private fun maneuverToF6(m: Int): Int = when (m) {
-        1, 2 -> 3
-        3, 4 -> 4
-        7, 8 -> 5
-        9, 10 -> 6
+    private fun maneuverToF6(gaode: Int): Int = when (gaode) {
+        0 -> 255
         11 -> 7
-        13 -> 8
-        24 -> 10
-        45 -> 11
-        46 -> 12
-        47 -> 13
-        48 -> 14
-        49 -> 15
-        else -> 7
+        48 -> 8
+        else -> 9
+    }
+
+    private fun maneuverToF28(gaode: Int): Int = when (gaode) {
+        0, 11 -> 1
+        1, 2, 3, 4, 7, 8, 9, 10 -> 9
+        13, 24 -> 20
+        48 -> 48
+        else -> 1
     }
 
     // TODO f12: validate against sniffer on real turns
@@ -140,17 +138,10 @@ object ProtobufBuilder {
         return sb.toString()
     }
 
-    private fun writeF25Const(o: ByteArrayOutputStream) {
-        val buf = ByteArrayOutputStream()
-        writeFixed64Field(buf, 6, 4122825789335811633L)
-        writeFixed64Field(buf, 7, 3689911756189480243L)
-        writeBytesField(o, 25, buf.toByteArray())
-    }
-
     private fun writeF31Const(o: ByteArrayOutputStream) {
         val buf = ByteArrayOutputStream()
-        writeFixed64Field(buf, 6, 4123383220256257585L)
-        writeFixed64Field(buf, 7, 3833746581617914937L)
+        writeVarintField(buf, 6, 4123383220256257585L)
+        writeVarintField(buf, 6, 3833746581617914937L)
         writeBytesField(o, 31, buf.toByteArray())
     }
 
@@ -168,11 +159,6 @@ object ProtobufBuilder {
         writeVarint(o, ((tag shl 3) or 1).toLong())
         val bits = java.lang.Double.doubleToLongBits(v)
         for (k in 0..7) o.write(((bits ushr (k * 8)) and 0xff).toInt())
-    }
-
-    private fun writeFixed64Field(o: ByteArrayOutputStream, tag: Int, v: Long) {
-        writeVarint(o, ((tag shl 3) or 1).toLong())
-        for (k in 0..7) o.write(((v ushr (k * 8)) and 0xff).toInt())
     }
 
     private fun writeVarintField(o: ByteArrayOutputStream, tag: Int, v: Long) {

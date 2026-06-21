@@ -10,7 +10,7 @@ object NaviIconLoader {
     private val miss = java.util.Collections.newSetFromMap(
         java.util.concurrent.ConcurrentHashMap<Int, Boolean>())
 
-    fun init(ctx: Context) { appContext = ctx }
+    fun init(ctx: Context) { appContext = ctx.applicationContext }
 
     fun loadLarge(code: Int): ByteArray? {
         cache[code]?.let { return it }
