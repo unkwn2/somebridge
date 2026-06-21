@@ -34,7 +34,8 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         lat = 0.0, lon = 0.0,
                         etaString = "",
                         statusIcon = 2,
-                        iconPng = null,
+                        iconPngLarge = null,
+                        iconPngSmall = null,
                         testLanes = false,
                         laneLayout = ""
                     )
@@ -57,7 +58,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
 
                     val a11yFresh = s.maneuverGaode > 0 && (System.currentTimeMillis() - s.maneuverGaodeMs) < 5000
                     val maneuverVal = if (a11yFresh) s.maneuverGaode
-                        else if (useGaodeEnum) toGaodeEnum(s.maneuver) else s.maneuver
+                        else toGaodeEnum(s.maneuver)
                     val statusIconVal = 2
 
                     val laneLayout = if (s.testLanes) "1,2,2,1" else ""
@@ -83,15 +84,14 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                     val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
 
                     if (counter % 30 == 0) {
-                        val enumLabel = if (useGaodeEnum) "GAODE" else "v33"
-                        Logger.i(TAG, "tick #$counter rc=$rc m=$maneuverVal($enumLabel) d=${s.distanceMeters} road='${s.road}' iconIdx=$statusIconVal lanes=${if (s.testLanes) laneLayout else "-"}")
+                        Logger.i(TAG, "tick #$counter rc=$rc m=$maneuverVal(GAODE) d=${s.distanceMeters} road='${s.road}' iconIdx=$statusIconVal lanes=${if (s.testLanes) laneLayout else "-"}")
                     }
                 } else {
                     if (wasActive) {
                         val clearPayload = ProtobufBuilder.build(
                             counter++, maneuver = 0,
                             distance = 0, road = "", lat = 0.0, lon = 0.0, etaString = "",
-                            statusIcon = 1, iconPng = null, testLanes = false, laneLayout = ""
+                            statusIcon = 1, iconPngLarge = null, iconPngSmall = null, testLanes = false, laneLayout = ""
                         )
                         bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, clearPayload)
                         wasActive = false

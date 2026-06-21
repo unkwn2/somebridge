@@ -14,7 +14,7 @@ object NaviIconLoader {
         val name = "navi/0x${gaodeCode.toString(16)}.png"
         return try {
             ctx.assets.open(name).readBytes().also {
-                Logger.d(TAG, "loaded $name (${it.size}B)")
+                Logger.i(TAG, "loaded $name (${it.size}B)")
             }
         } catch (_: Exception) { null }
     }
@@ -24,7 +24,7 @@ object NaviIconLoader {
         val ctx = appContext ?: return null
         return try {
             ctx.assets.open(name).readBytes().also {
-                Logger.d(TAG, "loaded $name (${it.size}B)")
+                Logger.i(TAG, "loaded $name (${it.size}B)")
             }
         } catch (_: Exception) { null }
     }
