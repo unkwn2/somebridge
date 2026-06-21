@@ -248,7 +248,6 @@ class YandexA11yService : AccessibilityService() {
         if (isRoundaboutDesc && exitNode != null && exitNode.text.isNotEmpty()) {
             val exitNum = exitNode.text.trim().toIntOrNull()
             if (exitNum != null && exitNum in 1..10) {
-                HudState.update { it.copy(arriveText = "$exitNum-й съезд") }
                 return 24
             }
             val fullDesc = "$desc ${exitNode.text}-й съезд"

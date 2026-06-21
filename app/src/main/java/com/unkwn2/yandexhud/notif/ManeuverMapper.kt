@@ -293,7 +293,8 @@ object ManeuverMapper {
             "плавный поворот направо" in lower || "плавно направо" in lower || "держитесь правее" in lower -> GAODE_SLIGHT_RIGHT
             "резкий поворот налево" in lower || "резко налево" in lower -> GAODE_HARD_LEFT
             "резкий поворот направо" in lower || "резко направо" in lower -> GAODE_HARD_RIGHT
-            "разворот" in lower || "развернитесь" in lower -> GAODE_UTURN
+            "разворот" in lower || "развернитесь" in lower ->
+                if ("направо" in lower) 10 else GAODE_UTURN
             "поверните налево" in lower || "поворот налево" in lower || "налево" in lower -> GAODE_LEFT
             "поверните направо" in lower || "поворот направо" in lower || "направо" in lower -> GAODE_RIGHT
             "прямо" in lower || "продолжайте" in lower || "двигайтесь" in lower -> GAODE_STRAIGHT

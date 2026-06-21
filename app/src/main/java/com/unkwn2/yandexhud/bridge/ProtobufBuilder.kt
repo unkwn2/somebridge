@@ -57,10 +57,10 @@ object ProtobufBuilder {
             writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver))
             writeF31Const(inner)
         }
-        if (totalDistMeters > 0 && distance > 0) {
-            val progress = 1.0 - distance.toDouble() / totalDistMeters.toDouble()
-            writeDoubleField(inner, 33, progress.coerceIn(0.0, 1.0))
-        }
+        // if (totalDistMeters > 0 && distance > 0) {
+        //     val progress = 1.0 - distance.toDouble() / totalDistMeters.toDouble()
+        //     writeDoubleField(inner, 33, progress.coerceIn(0.0, 1.0))
+        // }
 
         val innerBytes = inner.toByteArray()
         val outer = ByteArrayOutputStream()

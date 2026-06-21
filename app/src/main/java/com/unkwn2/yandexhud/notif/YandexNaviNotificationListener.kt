@@ -66,12 +66,12 @@ class YandexNaviNotificationListener : NotificationListenerService() {
                     road = if (rv.road.isNotEmpty()) rv.road else prev.road,
                     etaSeconds = if (etaSeconds > 0) etaSeconds else prev.etaSeconds,
                     totalDistMeters = if (rv.totalDistM > 0) rv.totalDistM else prev.totalDistMeters,
-                    totalTimeSeconds = if (etaSeconds > 0) etaSeconds else prev.totalTimeSeconds,
-                    iconPng = rv.maneuverPng,
+                    totalTimeSeconds = prev.totalTimeSeconds,
+                    iconPng = rv.maneuverPng ?: prev.iconPng,
                     trafficLightColor = if (rv.trafficLightColor.isNotEmpty()) rv.trafficLightColor else prev.trafficLightColor,
                     trafficLightSeconds = if (rv.trafficLightSeconds > 0) rv.trafficLightSeconds else prev.trafficLightSeconds,
                     cameraAlert = if (rv.cameraAlert.isNotEmpty()) rv.cameraAlert else prev.cameraAlert,
-                    maneuverGaode = if (gaodeStale) 0 else prev.maneuverGaode,
+                    maneuverGaode = prev.maneuverGaode,
                     maneuverGaodeMs = if (gaodeStale) 0L else prev.maneuverGaodeMs,
                     lastUpdateMs = System.currentTimeMillis()
                 )
@@ -115,7 +115,6 @@ class YandexNaviNotificationListener : NotificationListenerService() {
             }
             val mergeDist = if (distanceMeters > 0) distanceMeters else prev.distanceMeters
             val mergeRoad = if (road.isNotEmpty() && road != "Навигатор запущен") road else prev.road
-            val mergeTotalTime = if (etaSeconds > 0) etaSeconds else prev.totalTimeSeconds
             val roadChanged = mergeRoad.isNotEmpty() && prev.road != mergeRoad
             val maneuverChanged = notifManeuverKnown && prev.maneuver != maneuver
             val gaodeStale = roadChanged || maneuverChanged
@@ -125,8 +124,8 @@ class YandexNaviNotificationListener : NotificationListenerService() {
                 distanceMeters = mergeDist,
                 road = mergeRoad,
                 etaSeconds = mergeEta,
-                totalTimeSeconds = mergeTotalTime,
-                maneuverGaode = if (gaodeStale) 0 else prev.maneuverGaode,
+                totalTimeSeconds = prev.totalTimeSeconds,
+                maneuverGaode = prev.maneuverGaode,
                 maneuverGaodeMs = if (gaodeStale) 0L else prev.maneuverGaodeMs,
                 lastUpdateMs = System.currentTimeMillis()
             )

@@ -46,10 +46,7 @@ class HudForegroundService : Service() {
             try {
                 ctx.startForegroundService(Intent(ctx, HudForegroundService::class.java))
             } catch (_: Throwable) {
-                val pi = PendingIntent.getForegroundService(ctx, 0, Intent(ctx, HudForegroundService::class.java),
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-                val am = ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-                am.set(AlarmManager.RTC, System.currentTimeMillis() + 100, pi)
+                Logger.w(TAG, "startForegroundService blocked; retry on next foreground")
             }
         }
         fun stop(ctx: Context) {
@@ -147,11 +144,13 @@ class HudForegroundService : Service() {
         val attempt = restartAttempt++
         val backoff = if (attempt > 0) (actualDelay * (1L shl attempt.coerceAtMost(5))).coerceAtMost(MAX_RESTART_DELAY) else actualDelay
         Logger.i(TAG, "scheduling restart in ${backoff}ms (attempt=$attempt)")
-        val intent = Intent(this, HudForegroundService::class.java).putExtra("RESTART", true)
-        val pi = PendingIntent.getForegroundService(this, 0, intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val am = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        am.set(AlarmManager.RTC, System.currentTimeMillis() + backoff, pi)
+        try {
+            val intent = Intent(this, HudForegroundService::class.java).putExtra("RESTART", true)
+            val pi = PendingIntent.getForegroundService(this, 0, intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+            val am = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            am.set(AlarmManager.RTC, System.currentTimeMillis() + backoff, pi)
+        } catch (t: Throwable) { Logger.w(TAG, "FGS restart blocked: ${t.message}") }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

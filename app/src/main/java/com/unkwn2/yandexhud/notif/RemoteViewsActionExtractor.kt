@@ -30,6 +30,7 @@ object RemoteViewsActionExtractor {
                 val a = readAction(action, srcRes) ?: continue
                 out.add(a)
             }
+            Log.d(TAG, "mActions OK (${out.size} actions)")
             out
         } catch (t: Throwable) {
             Log.d(TAG, "mActions reflection unavailable: ${t.javaClass.simpleName}")
