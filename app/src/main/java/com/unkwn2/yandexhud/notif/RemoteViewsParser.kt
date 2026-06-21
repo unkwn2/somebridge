@@ -120,7 +120,8 @@ object RemoteViewsParser {
                 }
                 "descriptionview" -> {
                     if (a.op == RemoteViewsActionExtractor.Op.TEXT && a.value.isNotEmpty()
-                        && a.value != "setText" && !ManeuverMapper.isServicePhrase(a.value)) {
+                        && a.value != "setText" && !ManeuverMapper.isServicePhrase(a.value)
+                        && !TIME_HHMM.containsMatchIn(a.value)) {
                         road = a.value
                     }
                 }
@@ -230,7 +231,8 @@ object RemoteViewsParser {
                 instruction = descVal
             } else {
                 val m = ManeuverMapper.fromRussianText(descVal)
-                if (m != ManeuverMapper.M_UNKNOWN) instruction = descVal else road = descVal
+                if (m != ManeuverMapper.M_UNKNOWN) instruction = descVal
+                else if (!TIME_HHMM.containsMatchIn(descVal)) road = descVal
             }
         }
 
