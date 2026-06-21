@@ -1,6 +1,5 @@
 package com.unkwn2.yandexhud.bridge
 
-import com.unkwn2.yandexhud.notif.ManeuverMapper
 import java.io.ByteArrayOutputStream
 
 object ProtobufBuilder {
