@@ -15,7 +15,8 @@ object ProtobufBuilder {
         totalDistMeters: Int = 0,
         totalTimeSeconds: Int = 0,
         statusIcon: Int = 0,
-        iconPng: ByteArray? = null,
+        iconPngLarge: ByteArray? = null,
+        iconPngSmall: ByteArray? = null,
         testLanes: Boolean = false,
         laneLayout: String = ""
     ): ByteArray {
@@ -27,9 +28,9 @@ object ProtobufBuilder {
         if (testLanes && laneLayout.isNotEmpty()) {
             writeVarintField(inner, 5, laneLayout.split(",").size.toLong())
         }
-        // TODO f6: validate against sniffer on real LEFT/RIGHT/roundabout turns
         writeVarintField(inner, 6, maneuverToF6(maneuver).toLong())
-        if (iconPng != null) writeBytesField(inner, 7, iconPng)
+        if (iconPngLarge != null) writeBytesField(inner, 7, iconPngLarge)
+        if (iconPngSmall != null) writeBytesField(inner, 8, iconPngSmall)
         if (distance > 0) writeVarintField(inner, 9, distance.toLong())
         writeStringField(inner, 10, road)
         writeVarintField(inner, 11, 50L)

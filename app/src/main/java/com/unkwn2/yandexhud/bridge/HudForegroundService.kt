@@ -76,6 +76,7 @@ class HudForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        NaviIconLoader.init(this)
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val ch = NotificationChannel(CH_ID, getString(R.string.hud_fg_channel), NotificationManager.IMPORTANCE_LOW)
         ch.description = getString(R.string.hud_fg_notif_text)

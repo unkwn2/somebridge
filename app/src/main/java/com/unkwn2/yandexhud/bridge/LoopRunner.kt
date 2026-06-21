@@ -61,6 +61,10 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                     val statusIconVal = 2
 
                     val laneLayout = if (s.testLanes) "1,2,2,1" else ""
+                    val pngLarge = if (HudForegroundService.sendPngIcon)
+                        NaviIconLoader.loadLarge(maneuverVal) ?: s.iconPng else null
+                    val pngSmall = if (HudForegroundService.sendPngIcon)
+                        NaviIconLoader.loadSmall(maneuverVal) ?: pngLarge else null
                     val payload = ProtobufBuilder.build(
                         counter++,
                         maneuver = maneuverVal,
@@ -71,7 +75,8 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         totalDistMeters = s.totalDistMeters,
                         totalTimeSeconds = s.totalTimeSeconds,
                         statusIcon = statusIconVal,
-                        iconPng = if (HudForegroundService.sendPngIcon) s.iconPng else null,
+                        iconPngLarge = pngLarge,
+                        iconPngSmall = pngSmall,
                         testLanes = s.testLanes,
                         laneLayout = laneLayout
                     )
