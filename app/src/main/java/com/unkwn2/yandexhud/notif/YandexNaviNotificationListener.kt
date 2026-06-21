@@ -56,6 +56,9 @@ class YandexNaviNotificationListener : NotificationListenerService() {
             Logger.i(TAG, "posted rv m=$maneuver(${ManeuverMapper.maneuverName(maneuver)}) d=${rv.distToManeuverM}m road='${rv.road}' eta=${etaSeconds}s tl=${rv.trafficLightColor}${if (rv.trafficLightSeconds > 0) " ${rv.trafficLightSeconds}s" else ""} cam='${rv.cameraAlert}' png=${if (rv.maneuverPng != null) "${rv.maneuverPng.size}B" else "none"}")
             removePostedMs = 0L
             HudState.update { prev ->
+                val roadChanged = rv.road.isNotEmpty() && prev.road != rv.road
+                val maneuverChanged = maneuver != ManeuverMapper.M_UNKNOWN && prev.maneuver != maneuver
+                val gaodeStale = roadChanged || maneuverChanged
                 prev.copy(
                     active = true,
                     maneuver = if (maneuver != ManeuverMapper.M_UNKNOWN) maneuver else prev.maneuver,
@@ -68,6 +71,8 @@ class YandexNaviNotificationListener : NotificationListenerService() {
                     trafficLightColor = if (rv.trafficLightColor.isNotEmpty()) rv.trafficLightColor else prev.trafficLightColor,
                     trafficLightSeconds = if (rv.trafficLightSeconds > 0) rv.trafficLightSeconds else prev.trafficLightSeconds,
                     cameraAlert = if (rv.cameraAlert.isNotEmpty()) rv.cameraAlert else prev.cameraAlert,
+                    maneuverGaode = if (gaodeStale) 0 else prev.maneuverGaode,
+                    maneuverGaodeMs = if (gaodeStale) 0L else prev.maneuverGaodeMs,
                     lastUpdateMs = System.currentTimeMillis()
                 )
             }
@@ -111,6 +116,9 @@ class YandexNaviNotificationListener : NotificationListenerService() {
             val mergeDist = if (distanceMeters > 0) distanceMeters else prev.distanceMeters
             val mergeRoad = if (road.isNotEmpty() && road != "Навигатор запущен") road else prev.road
             val mergeTotalTime = if (etaSeconds > 0) etaSeconds else prev.totalTimeSeconds
+            val roadChanged = mergeRoad.isNotEmpty() && prev.road != mergeRoad
+            val maneuverChanged = notifManeuverKnown && prev.maneuver != maneuver
+            val gaodeStale = roadChanged || maneuverChanged
             prev.copy(
                 active = true,
                 maneuver = mergeManeuver,
@@ -118,6 +126,8 @@ class YandexNaviNotificationListener : NotificationListenerService() {
                 road = mergeRoad,
                 etaSeconds = mergeEta,
                 totalTimeSeconds = mergeTotalTime,
+                maneuverGaode = if (gaodeStale) 0 else prev.maneuverGaode,
+                maneuverGaodeMs = if (gaodeStale) 0L else prev.maneuverGaodeMs,
                 lastUpdateMs = System.currentTimeMillis()
             )
         }
@@ -131,7 +141,7 @@ class YandexNaviNotificationListener : NotificationListenerService() {
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             if (removePostedMs != 0L && System.currentTimeMillis() - removePostedMs >= REMOVE_DEBOUNCE_MS - 100) {
                 Logger.i(TAG, "removed after debounce — deactivating HUD")
-                HudState.update { it.copy(active = false, lastUpdateMs = System.currentTimeMillis()) }
+                HudState.deactivate()
                 removePostedMs = 0L
             }
         }, REMOVE_DEBOUNCE_MS)

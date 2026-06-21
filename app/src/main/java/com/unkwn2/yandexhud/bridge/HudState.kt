@@ -21,24 +21,29 @@ object HudState {
         val testLanes: Boolean = false,
         val nextNextManeuver: Int = 0,
         val usePacked: Boolean = true,
-        val iconPng: ByteArray? = null,      // PNG иконки манёвра из RemoteViews → f8
-        val trafficLightColor: String = "",   // "red"/"green"/"yellow" из RemoteViews
-        val trafficLightSeconds: Int = 0,     // секунды до смены светофора
-        val cameraAlert: String = "",          // "camera"/"accident"/"roadworks"/"other"
-        val maneuverGaode: Int = 0,             // GAODE-код манёвра из A11y contentDescription (0 = не установлен)
-        val maneuverGaodeMs: Long = 0L,         // когда был установлен maneuverGaode (ms)
-        val arrowScanActive: Boolean = false,   // режим перебора стрелок ICON_SIMPLE_NAVI
-        val arrowScanIndex: Int = 0             // текущий индекс текстуры 0..47
+        val iconPng: ByteArray? = null,
+        val trafficLightColor: String = "",
+        val trafficLightSeconds: Int = 0,
+        val cameraAlert: String = "",
+        val maneuverGaode: Int = 0,
+        val maneuverGaodeMs: Long = 0L,
+        val arrowScanActive: Boolean = false,
+        val arrowScanIndex: Int = 0
     )
 
     @Volatile private var current = Snapshot()
     private val listeners = CopyOnWriteArrayList<(Snapshot) -> Unit>()
 
+    private const val ACTIVE_TIMEOUT_MS = 30_000L
+
     fun snapshot(): Snapshot {
         val s = current
-        if (s.active && !isTestLatched() && System.currentTimeMillis() - s.lastUpdateMs > 8_000) {
-            update { it.copy(active = false) }
-            return current
+        if (s.active && !isTestLatched()) {
+            val age = System.currentTimeMillis() - s.lastUpdateMs
+            if (age > ACTIVE_TIMEOUT_MS) {
+                update { it.copy(active = false) }
+                return current
+            }
         }
         return s
     }
@@ -57,10 +62,20 @@ object HudState {
         update { it.copy(testLatchUntilMs = System.currentTimeMillis() + durationMs) }
     }
 
-    fun clearManeuver() = update {
+    fun softClearManeuver() = update {
+        it.copy(
+            maneuver = ManeuverMapper.M_UNKNOWN,
+            maneuverGaode = 0, maneuverGaodeMs = 0L,
+            distanceMeters = 0, road = "", arriveText = "",
+            lastUpdateMs = System.currentTimeMillis())
+    }
+
+    fun deactivate() = update {
         it.copy(active = false, maneuver = ManeuverMapper.M_UNKNOWN,
             maneuverGaode = 0, maneuverGaodeMs = 0L,
             distanceMeters = 0, road = "", arriveText = "",
             lastUpdateMs = System.currentTimeMillis())
     }
+
+    fun clearManeuver() = deactivate()
 }

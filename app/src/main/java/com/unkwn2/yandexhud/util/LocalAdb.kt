@@ -82,10 +82,10 @@ object LocalAdb {
             val pub = kf.generatePublic(java.security.spec.X509EncodedKeySpec(pubFile.readBytes())) as RSAPublicKey
             val blob = encodeAndroidPubKey(pub)
             val keyLine = "$blob unkwn2@yandexhud"
-            val keysFile = exec("cat /data/misc/adb/adb_keys").output
+            val keysFile = exec("cat /data/misc/adb/adb_keys 2>/dev/null").output
             if (keyLine in keysFile) return
-            exec("echo '$keyLine' >> /data/misc/adb/adb_keys")
-            Logger.i(TAG, "persisted adb key to /data/misc/adb/adb_keys")
+            val r = exec("echo '$keyLine' >> /data/misc/adb/adb_keys 2>/dev/null")
+            if (r.success) Logger.i(TAG, "persisted adb key") else Logger.w(TAG, "persistAdbKey: echo failed")
         } catch (e: Exception) {
             Logger.w(TAG, "persistAdbKey: ${e.message}")
         }

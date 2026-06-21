@@ -22,53 +22,55 @@ object ProtobufBuilder {
         laneLayout: String = "",
         iconFieldNum: Int = 0,
         maneuverIcon: Int = 0,
-        iconPng: ByteArray? = null,         // f8 PNG иконки манёвра (экспериментально)
-        nextManeuverFieldNum: Int = 0,      // номер поля для nextNextManeuver (экспериментально)
-        nextManeuverValue: Int = 0,         // GAODE-код следующего-следующего манёвра
-        suppressF28: Boolean = false,       // подавить f28 (режим скана полей)
-        simpleNaviIndex: Int = -1           // f27 texture index для ICON_SIMPLE_NAVI (0..47, -1 = не слать)
+        iconPng: ByteArray? = null,
+        nextManeuverFieldNum: Int = 0,
+        nextManeuverValue: Int = 0,
+        suppressF28: Boolean = false,
+        simpleNaviIndex: Int = -1
     ): ByteArray {
         val inner = ByteArrayOutputStream()
 
-        // HudRoadInfoNotifyStruct — все поля из таблицы
-        writeVarintField(inner, 2, counter.toLong())              // f2  counter (живость кадра)
-        if (iconPng != null) writeBytesField(inner, 8, iconPng)  // f8  PNG иконки (если есть)
-        writeVarintField(inner, 9, distance.toLong())            // f9  distance2Intersection
-        writeStringField(inner, 10, road)                         // f10 nextRoadName
-        writeVarintField(inner, 16, statusIcon.toLong())           // f16 navigatingStatus: 2=draw, 1=clear
-        writeStringField(inner, 26, etaString)                    // f26 ETA "HH:MM"
-        // TODO verify on glass — эти поля не найдены в git history, гипотеза из дизасма
-        if (totalDistMeters > 0)  writeVarintField(inner, 22, totalDistMeters.toLong())
-        if (totalTimeSeconds > 0) writeVarintField(inner, 23, totalTimeSeconds.toLong())
-        if (speedLimit > 0)       writeVarintField(inner, 24, speedLimit.toLong())
-        if (!arriveText.isNullOrEmpty() && !(HudForegroundService.DEBUG_ARROW_SCAN && simpleNaviIndex in 0..47))
-            writeStringField(inner, 27, arriveText)
-        if (!suppressF28) {
-            writeVarintField(inner, 28, maneuver.toLong())
-        }
-        if (HudForegroundService.DEBUG_ARROW_SCAN && simpleNaviIndex in 0..47) {
-            writeVarintField(inner, 27, simpleNaviIndex.toLong())
-        }
-        if (HudForegroundService.DEBUG_ARROW_SCAN && iconFieldNum > 0 && maneuverIcon > 0) {
-            writeVarintField(inner, iconFieldNum, maneuverIcon.toLong())
-        }
+        writeVarintField(inner, 2, 2L)
+        if (totalDistMeters > 0) writeVarintField(inner, 3, totalDistMeters.toLong())
+        if (totalTimeSeconds > 0) writeVarintField(inner, 4, totalTimeSeconds.toLong())
         if (testLanes && laneLayout.isNotEmpty()) {
-            writeVarintField(inner, 5, laneLayout.split(",").size.toLong())  // f5 lane count
-            writeStringField(inner, 29, laneLayout)               // f29 lane layout "back,front|"
+            writeVarintField(inner, 5, laneLayout.split(",").size.toLong())
         }
-        if (HudForegroundService.DEBUG_ARROW_SCAN && nextManeuverFieldNum > 0 && nextManeuverValue > 0) {
-            writeVarintField(inner, nextManeuverFieldNum, nextManeuverValue.toLong())
-        }
+        writeVarintField(inner, 6, maneuverToF6(maneuver).toLong())
+        if (iconPng != null) writeBytesField(inner, 7, iconPng)
+        if (distance > 0) writeVarintField(inner, 9, distance.toLong())
+        writeStringField(inner, 10, road)
+        writeVarintField(inner, 11, 50L)
+        val f12Val = deriveF12(distance, counter)
+        if (f12Val > 0) writeVarintField(inner, 12, f12Val.toLong())
+        writeVarintField(inner, 16, statusIcon.toLong())
+        writeVarintField(inner, 17, 1L)
+        if (distance > 0) writeVarintField(inner, 18, distance.toLong())
         if (lat != 0.0 || lon != 0.0) {
-            writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver)) // f30 guideLine
-            writeStringField(inner, 31, "$lon,$lat,0")               // f31 guidePoint
-            writeDoubleField(inner, 19, lon)                          // f19 longitude (вспом.)
-            writeDoubleField(inner, 20, lat)                          // f20 latitude (вспом.)
+            writeDoubleField(inner, 19, lon)
+            writeDoubleField(inner, 20, lat)
         }
-        val innerBytes = inner.toByteArray()
+        val f21Val = deriveF21(distance, counter)
+        if (f21Val > 0) writeVarintField(inner, 21, f21Val.toLong())
+        writeVarintField(inner, 22, 50L)
+        writeVarintField(inner, 23, 17L)
+        writeStringField(inner, 24, "[]")
+        if (lat != 0.0 || lon != 0.0) writeF25Const(inner)
+        writeStringField(inner, 26, etaString)
+        writeVarintField(inner, 28, maneuver.toLong())
+        if (testLanes && laneLayout.isNotEmpty()) writeStringField(inner, 29, laneLayout)
+        if (lat != 0.0 || lon != 0.0) {
+            writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver))
+            writeF31Const(inner)
+        }
+        if (totalDistMeters > 0 && distance > 0) {
+            val progress = 1.0 - distance.toDouble() / totalDistMeters.toDouble()
+            writeDoubleField(inner, 33, progress.coerceIn(0.0, 1.0))
+        }
 
+        val innerBytes = inner.toByteArray()
         val outer = ByteArrayOutputStream()
-        writeVarint(outer, 0x3A) // tag 7 (field 7, wire type 2) — соответствует стоковому Amap кадру
+        outer.write(0x0A)
         writeVarint(outer, innerBytes.size.toLong())
         outer.write(innerBytes)
         return outer.toByteArray()
@@ -78,12 +80,39 @@ object ProtobufBuilder {
         val inner = ByteArrayOutputStream()
         writeRepeated(inner, 1, maneuvers, usePacked)
         val innerBytes = inner.toByteArray()
-
         val outer = ByteArrayOutputStream()
-        writeVarint(outer, 0x3A) // tag 7
+        outer.write(0x0A)
         writeVarint(outer, innerBytes.size.toLong())
         outer.write(innerBytes)
         return outer.toByteArray()
+    }
+
+    private fun maneuverToF6(m: Int): Int = when (m) {
+        1, 2 -> 3
+        3, 4 -> 4
+        7, 8 -> 5
+        9, 10 -> 6
+        11 -> 7
+        13 -> 8
+        24 -> 10
+        45 -> 11
+        46 -> 12
+        47 -> 13
+        48 -> 14
+        49 -> 15
+        else -> 7
+    }
+
+    private fun deriveF12(distance: Int, counter: Int): Int {
+        if (distance <= 0) return 45
+        val base = (distance / 10).coerceIn(5, 200)
+        return base + (counter % 3)
+    }
+
+    private fun deriveF21(distance: Int, counter: Int): Int {
+        if (distance <= 0) return 41
+        val base = (distance / 12).coerceIn(5, 200)
+        return base + (counter % 3)
     }
 
     private fun buildGuideLine(lat: Double, lon: Double, maneuver: Int): String {
@@ -108,10 +137,24 @@ object ProtobufBuilder {
                 else -> lon
             }
             if (i > 0) sb.append(",")
-            sb.append(String.format("[%.6f,%.6f,0]", iLon, iLat))
+            sb.append(String.format("[%.7f,%.7f]", iLon, iLat))
         }
         sb.append("]")
         return sb.toString()
+    }
+
+    private fun writeF25Const(o: ByteArrayOutputStream) {
+        val buf = ByteArrayOutputStream()
+        writeFixed64Field(buf, 6, 4122825789335811633L)
+        writeFixed64Field(buf, 7, 3689911756189480243L)
+        writeBytesField(o, 25, buf.toByteArray())
+    }
+
+    private fun writeF31Const(o: ByteArrayOutputStream) {
+        val buf = ByteArrayOutputStream()
+        writeFixed64Field(buf, 6, 4123383220256257585L)
+        writeFixed64Field(buf, 6, 3833746581617914937L)
+        writeBytesField(o, 31, buf.toByteArray())
     }
 
     private fun writeRepeated(o: ByteArrayOutputStream, tag: Int, values: IntArray, packed: Boolean) {
@@ -128,6 +171,11 @@ object ProtobufBuilder {
         writeVarint(o, ((tag shl 3) or 1).toLong())
         val bits = java.lang.Double.doubleToLongBits(v)
         for (k in 0..7) o.write(((bits ushr (k * 8)) and 0xff).toInt())
+    }
+
+    private fun writeFixed64Field(o: ByteArrayOutputStream, tag: Int, v: Long) {
+        writeVarint(o, ((tag shl 3) or 1).toLong())
+        for (k in 0..7) o.write(((v ushr (k * 8)) and 0xff).toInt())
     }
 
     private fun writeVarintField(o: ByteArrayOutputStream, tag: Int, v: Long) {
