@@ -68,7 +68,7 @@ object ProtobufBuilder {
         val innerBytes = inner.toByteArray()
 
         val outer = ByteArrayOutputStream()
-        outer.write(0x0A)
+        writeVarint(outer, 0x3A) // tag 7 (field 7, wire type 2) — соответствует стоковому Amap кадру
         writeVarint(outer, innerBytes.size.toLong())
         outer.write(innerBytes)
         return outer.toByteArray()
@@ -80,7 +80,7 @@ object ProtobufBuilder {
         val innerBytes = inner.toByteArray()
 
         val outer = ByteArrayOutputStream()
-        outer.write(0x0A)
+        writeVarint(outer, 0x3A) // tag 7
         writeVarint(outer, innerBytes.size.toLong())
         outer.write(innerBytes)
         return outer.toByteArray()

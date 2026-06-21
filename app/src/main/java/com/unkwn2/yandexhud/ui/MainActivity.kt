@@ -33,7 +33,6 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "UI"
         private const val PREFS = "yandexhud_prefs"
-        private const val KEY_GRANT_DONE = "grant_done"
     }
     private lateinit var statusBar: TextView
     private lateinit var logText: TextView
@@ -132,7 +131,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
         startStatusRefresh()
-        autoGrant()
         checkLicense()
     }
 
@@ -160,44 +158,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             .show()
-    }
-
-    private fun autoGrant() {
-        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        if (prefs.getBoolean(KEY_GRANT_DONE, false)) {
-            Thread {
-                if (LocalAdb.init(applicationContext)) {
-                    LocalAdb.grantAll()
-                    LocalAdb.disconnect()
-                }
-            }.apply { isDaemon = true }.start()
-            return
-        }
-        Logger.i(TAG, "auto-grant: first launch, granting permissions...")
-        Thread {
-            for (attempt in 1..5) {
-                val initOk = LocalAdb.init(applicationContext)
-                if (!initOk) {
-                    Logger.w(TAG, "auto-grant: ADB init attempt $attempt failed, retrying...")
-                    try { Thread.sleep(3000L) } catch (_: InterruptedException) { break }
-                    continue
-                }
-                val results = LocalAdb.grantAll()
-                val allOk = results.all { it.success }
-                if (allOk) {
-                    prefs.edit().putBoolean(KEY_GRANT_DONE, true).apply()
-                    Logger.i(TAG, "auto-grant: all permissions granted")
-                    runOnUiThread { toast("All permissions granted") }
-                    LocalAdb.disconnect()
-                    return@Thread
-                } else {
-                    Logger.w(TAG, "auto-grant: attempt $attempt partial fail, retrying...")
-                    LocalAdb.disconnect()
-                    try { Thread.sleep(3000L) } catch (_: InterruptedException) { break }
-                }
-            }
-            Logger.w(TAG, "auto-grant: all attempts failed, try manual GRANT")
-        }.apply { isDaemon = true }.start()
     }
 
     private fun toggleMenu() {
@@ -498,7 +458,7 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
             val msg = sb.toString().trim()
             if (allOk) {
                 getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                    .edit().putBoolean(KEY_GRANT_DONE, true).apply()
+                    .edit().putBoolean("grant_done", true).apply()
             }
             runOnUiThread { toast(msg) }
             Logger.i(TAG, "=== GRANT done: $msg ===")

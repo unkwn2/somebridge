@@ -58,7 +58,7 @@ object HudState {
     }
 
     fun clearManeuver() = update {
-        it.copy(active = false, maneuver = ManeuverMapper.M_STRAIGHT,
+        it.copy(active = false, maneuver = ManeuverMapper.M_UNKNOWN,
             maneuverGaode = 0, maneuverGaodeMs = 0L,
             distanceMeters = 0, road = "", arriveText = "",
             lastUpdateMs = System.currentTimeMillis())

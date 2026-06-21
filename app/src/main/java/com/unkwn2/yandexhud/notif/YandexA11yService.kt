@@ -160,8 +160,6 @@ class YandexA11yService : AccessibilityService() {
                         lastUpdateMs = System.currentTimeMillis()
                     )
                 }
-            } else {
-                HudState.clearManeuver()
             }
         } catch (t: Throwable) {
             Logger.e(TAG, "parse error: ${t.message}")
