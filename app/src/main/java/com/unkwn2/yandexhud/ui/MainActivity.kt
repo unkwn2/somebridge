@@ -37,7 +37,6 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "UI"
         private const val PREFS = "yandexhud_prefs"
-        private const val KEY_GRANT_DONE = "grant_done"
     }
     private lateinit var statusBar: TextView
     private lateinit var logText: TextView
@@ -207,7 +206,7 @@ class MainActivity : AppCompatActivity() {
         }
         startStatusRefresh()
         checkLicense()
-        autoGrant()
+        ensurePermissions()
     }
 
     private fun checkLicense() {
@@ -532,33 +531,14 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
                 if (!r.success) allOk = false
             }
             val msg = sb.toString().trim()
-            if (allOk) {
-                getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                    .edit().putBoolean(KEY_GRANT_DONE, true).apply()
-            }
             runOnUiThread { toast(msg) }
             Logger.i(TAG, "=== GRANT done: $msg ===")
         }.apply { isDaemon = true }.start()
     }
 
-    private fun autoGrant() {
-        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        if (prefs.getBoolean(KEY_GRANT_DONE, false)) return
-        Logger.i(TAG, "auto-grant: first launch, granting permissions...")
+    private fun ensurePermissions() {
         Thread {
-            val initOk = LocalAdb.init(applicationContext)
-            if (!initOk) {
-                Logger.w(TAG, "auto-grant: ADB init failed, will retry on manual GRANT")
-                return@Thread
-            }
-            val results = LocalAdb.grantAll()
-            if (results.all { it.success }) {
-                prefs.edit().putBoolean(KEY_GRANT_DONE, true).apply()
-                Logger.i(TAG, "auto-grant: all permissions granted")
-                runOnUiThread { toast("All permissions granted") }
-            } else {
-                Logger.w(TAG, "auto-grant: some permissions failed, retry with GRANT button")
-            }
+            LocalAdb.ensurePermissions(applicationContext)
         }.apply { isDaemon = true }.start()
     }
 

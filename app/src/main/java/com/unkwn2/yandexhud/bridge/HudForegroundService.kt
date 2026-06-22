@@ -11,6 +11,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import com.unkwn2.yandexhud.R
+import com.unkwn2.yandexhud.util.LocalAdb
 import com.unkwn2.yandexhud.util.Logger
 
 class HudForegroundService : Service() {
@@ -99,6 +100,10 @@ class HudForegroundService : Service() {
                 Logger.e(TAG, "bind failed")
             }
         }
+        Thread {
+            LocalAdb.ensurePermissions(this)
+        }.apply { isDaemon = true; name = "FGS-ensurePerms" }.start()
+
         Logger.i(TAG, "created")
     }
 

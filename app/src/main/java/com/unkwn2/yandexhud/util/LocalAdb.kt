@@ -47,27 +47,39 @@ object LocalAdb {
 
     fun init(ctx: android.content.Context): Boolean {
         synchronized(lock) {
-            if (socket != null && socket?.isConnected == true) {
-                return true
-            }
-            try {
-                loadOrCreateKeys(ctx)
-                val s = Socket()
-                s.connect(InetSocketAddress(ADB_HOST, ADB_PORT), 5000)
-                s.soTimeout = 60000
-                socket = s
-                input = DataInputStream(s.getInputStream())
-                output = DataOutputStream(s.getOutputStream())
+            disconnect()
+            val delays = longArrayOf(1000, 3000, 5000)
+            var lastError: String? = null
+            for (attempt in 1..3) {
+                try {
+                    loadOrCreateKeys(ctx)
+                    val s = Socket()
+                    s.connect(InetSocketAddress(ADB_HOST, ADB_PORT), 5000)
+                    s.soTimeout = 15000
+                    socket = s
+                    input = DataInputStream(s.getInputStream())
+                    output = DataOutputStream(s.getOutputStream())
 
-                val hostBytes = "host::\u0000".toByteArray()
-                send(A_CNXN, VERSION, MAXDATA, hostBytes)
-                val authOk = doAuth()
-                return authOk
-            } catch (e: Exception) {
-                Logger.e(TAG, "init: ${e.message}")
-                disconnect()
-                return false
+                    val hostBytes = "host::\u0000".toByteArray()
+                    send(A_CNXN, VERSION, MAXDATA, hostBytes)
+                    if (doAuth()) {
+                        s.soTimeout = 60000
+                        exec("setprop service.adb.tcp.port 5555")
+                        Logger.i(TAG, "init ok (attempt $attempt)")
+                        return true
+                    }
+                    disconnect()
+                } catch (e: Exception) {
+                    lastError = e.message
+                    Logger.w(TAG, "init attempt $attempt: ${e.message}")
+                    disconnect()
+                    if (attempt < 3) {
+                        try { Thread.sleep(delays[attempt - 1]) } catch (_: InterruptedException) { break }
+                    }
+                }
             }
+            Logger.e(TAG, "init failed: $lastError")
+            return false
         }
     }
 
@@ -104,30 +116,25 @@ object LocalAdb {
 
     private fun doAuth(): Boolean {
         var signatureSent = false
+        var pubkeySent = false
         while (true) {
             val msg = read() ?: return false
             when (msg.command) {
                 A_CNXN -> return true
                 A_AUTH -> {
                     if (!signatureSent) {
-                        val sig = try {
-                            val s = Signature.getInstance("SHA256withRSA")
-                            s.initSign(privateKey)
-                            s.update(msg.data)
-                            s.sign()
-                        } catch (_: Exception) {
-                            // fallback SHA-1 for older adbd
-                            val s = Signature.getInstance("SHA1withRSA")
-                            s.initSign(privateKey)
-                            s.update(msg.data)
-                            s.sign()
-                        }
+                        val sig = signToken(msg.data)
                         send(A_AUTH, ADB_AUTH_SIGNATURE, 0, sig)
                         signatureSent = true
-                    } else {
+                    } else if (!pubkeySent) {
                         val blob = encodeAndroidPubKey(publicKey!!)
                         val keyStr = "$blob unkwn2@yandexhud".toByteArray() + byteArrayOf(0)
                         send(A_AUTH, ADB_AUTH_RSAPUBLICKEY, 0, keyStr)
+                        pubkeySent = true
+                    } else {
+                        Logger.w(TAG, "doAuth: extra token after pubkey, re-signing")
+                        val sig = signToken(msg.data)
+                        send(A_AUTH, ADB_AUTH_SIGNATURE, 0, sig)
                     }
                 }
                 A_STLS -> {
@@ -137,6 +144,18 @@ object LocalAdb {
                 else -> return false
             }
         }
+    }
+
+    private fun signToken(token: ByteArray): ByteArray = try {
+        val s = Signature.getInstance("SHA256withRSA")
+        s.initSign(privateKey)
+        s.update(token)
+        s.sign()
+    } catch (_: Exception) {
+        val s = Signature.getInstance("SHA1withRSA")
+        s.initSign(privateKey)
+        s.update(token)
+        s.sign()
     }
 
     fun exec(command: String): Result {
@@ -202,6 +221,73 @@ object LocalAdb {
         grantBackgroundRun(),
         grantBatteryWhitelist()
     )
+
+    private val COMPONENT_NOTIF = "com.unkwn2.yandexhud/.notif.YandexNaviNotificationListener"
+    private val COMPONENT_A11Y = "com.unkwn2.yandexhud/com.unkwn2.yandexhud.notif.YandexA11yService"
+
+    fun checkNotificationAccess(): Boolean {
+        val r = exec("cmd notification get_enabled_listeners")
+        return r.success && r.output.contains(COMPONENT_NOTIF)
+    }
+
+    fun checkAccessibility(): Boolean {
+        val r = exec("settings get secure enabled_accessibility_services")
+        return r.success && r.output.contains(COMPONENT_A11Y)
+    }
+
+    fun checkMockLocation(): Boolean {
+        val r = exec("appops get com.unkwn2.yandexhud android:mock_location")
+        return r.success && r.output.trim() == "allow"
+    }
+
+    fun checkNaviSettings(): Boolean {
+        val r = exec("settings get global navi_screen_status")
+        return r.success && r.output.trim() == "3"
+    }
+
+    fun checkBackgroundRun(): Boolean {
+        val r = exec("appops get com.unkwn2.yandexhud RUN_IN_BACKGROUND")
+        return r.success && r.output.trim() == "allow"
+    }
+
+    fun checkBatteryWhitelist(): Boolean {
+        val r = exec("dumpsys deviceidle whitelist")
+        return r.success && r.output.contains("com.unkwn2.yandexhud")
+    }
+
+    fun ensurePermissions(ctx: android.content.Context) {
+        if (!init(ctx)) {
+            Logger.w(TAG, "ensurePermissions: ADB init failed")
+            return
+        }
+        val checks = listOf(
+            "NOTIF" to { checkNotificationAccess() },
+            "A11Y" to { checkAccessibility() },
+            "MOCK" to { checkMockLocation() },
+            "NAVI" to { checkNaviSettings() },
+            "BG" to { checkBackgroundRun() },
+            "BATT" to { checkBatteryWhitelist() }
+        )
+        val missing = mutableListOf<String>()
+        for ((name, fn) in checks) {
+            if (!fn()) missing.add(name)
+        }
+        if (missing.isNotEmpty()) {
+            Logger.i(TAG, "ensurePermissions: missing ${missing.joinToString(",")}, granting...")
+            for (name in missing) {
+                when (name) {
+                    "NOTIF" -> grantNotificationAccess()
+                    "A11Y" -> grantAccessibility()
+                    "MOCK" -> grantMockLocation()
+                    "NAVI" -> grantNaviSettings()
+                    "BG" -> grantBackgroundRun()
+                    "BATT" -> grantBatteryWhitelist()
+                }
+            }
+        }
+        val results = checks.joinToString(" ") { (n, fn) -> "$n=${if (fn()) "ok" else "FAIL"}" }
+        Logger.i(TAG, "ensurePermissions: $results")
+    }
 
     fun dumpLogcat(): Result {
         val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
