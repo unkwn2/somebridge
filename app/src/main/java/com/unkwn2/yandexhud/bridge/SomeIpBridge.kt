@@ -186,6 +186,7 @@ class SomeIpBridge(private val ctx: Context) {
             data.writeInt(1)
             data.writeLong(topic)
             data.writeLong(0L)
+            data.writeInt(payload.size)
             data.writeByteArray(payload)
             b.transact(TX_FIRE_EVENT, data, reply, 0)
             reply.readException()
