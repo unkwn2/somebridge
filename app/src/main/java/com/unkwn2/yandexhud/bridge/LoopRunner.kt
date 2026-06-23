@@ -135,7 +135,8 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                     val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
 
                     if (counter % 10 == 0) {
-                        Logger.i(TAG, "tick #$counter rc=$rc mode=$modeLabel m=$maneuverVal(GAODE) d=${s.distanceMeters} road='${s.road}' iconIdx=$statusIconVal lanes=${if (s.testLanes) laneLayout else "-"}")
+                        val pngB = pngSmall?.size ?: 0
+                        Logger.i(TAG, "tick #$counter rc=$rc mode=$modeLabel m=$maneuverVal(GAODE) d=${s.distanceMeters} road='${s.road}' iconIdx=$statusIconVal lanes=${if (s.testLanes) laneLayout else "-"} bytes=${payload.size} png=${pngB}B")
                     }
                 } else {
                     if (wasActive) {
