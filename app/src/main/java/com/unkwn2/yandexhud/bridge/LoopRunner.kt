@@ -12,6 +12,26 @@ class LoopRunner(private val bridge: SomeIpBridge) {
     @Volatile private var worker: Thread? = null
     private val startLock = Any()
 
+    // ── NEW постадийный перебор ──────────────────────────────────────────
+    @Volatile private var newStage = ProtobufBuilder.STAGE_MIN
+    @Volatile private var newStageMs = 0L
+    private val STAGE_PERIOD_MS = 5000L
+
+    /** Сброс перебора на начало (при переключении в NEW). */
+    fun resetNewStage() { newStage = ProtobufBuilder.STAGE_MIN; newStageMs = 0L }
+    fun stageLabel(): String = ProtobufBuilder.stageName(newStage)
+    val currentStage: Int get() = newStage
+
+    private fun advanceStageIfDue() {
+        val now = System.currentTimeMillis()
+        if (newStageMs == 0L) { newStageMs = now; return }
+        if (now - newStageMs >= STAGE_PERIOD_MS) {
+            newStage = if (newStage >= ProtobufBuilder.STAGE_MAX) ProtobufBuilder.STAGE_MIN else newStage + 1
+            newStageMs = now
+            Logger.i(TAG, "=== NEW stage -> ${ProtobufBuilder.stageName(newStage)} ===")
+        }
+    }
+
     fun start(periodMs: Long = 300L) {
         synchronized(startLock) {
             if (running) return
@@ -21,7 +41,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
         }
         worker?.let { try { it.join(500) } catch (_: InterruptedException) {} }
         val t = Thread {
-            Logger.i(TAG, "started @ ${periodMs}ms gaode=$useGaodeEnum")
+            Logger.i(TAG, "started @ ${periodMs}ms gaode=$useGaodeEnum builder=${if (HudForegroundService.builderOld) "OLD" else "NEW"}")
             while (running) {
                 val s = HudState.snapshot()
                 if (HudForegroundService.DEBUG_ARROW_SCAN && s.arrowScanActive) {
@@ -66,25 +86,56 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         NaviIconLoader.loadLarge(maneuverVal) ?: s.iconPng else null
                     val pngSmall = if (HudForegroundService.sendPngIcon)
                         NaviIconLoader.loadSmall(maneuverVal) ?: pngLarge else null
-                    val payload = ProtobufBuilder.build(
-                        counter++,
-                        maneuver = maneuverVal,
-                        distance = s.distanceMeters,
-                        road = s.road,
-                        lat = s.lat, lon = s.lon,
-                        etaString = etaStr,
-                        totalDistMeters = s.totalDistMeters,
-                        totalTimeSeconds = s.totalTimeSeconds,
-                        statusIcon = statusIconVal,
-                        iconPngLarge = pngLarge,
-                        iconPngSmall = pngSmall,
-                        testLanes = s.testLanes,
-                        laneLayout = laneLayout
-                    )
+
+                    val payload: ByteArray
+                    val modeLabel: String
+                    if (HudForegroundService.builderOld) {
+                        // ── OLD: рабочий метод от 18 июня ──
+                        val arriveTxt = if (maneuverVal == 48) s.arriveText.ifEmpty { "Прибытие" } else ""
+                        payload = ProtobufBuilder.buildOld(
+                            counter = counter++,
+                            maneuver = maneuverVal,
+                            distance = s.distanceMeters,
+                            road = s.road,
+                            lat = s.lat, lon = s.lon,
+                            etaString = etaStr,
+                            totalDistMeters = s.totalDistMeters,
+                            totalTimeSeconds = s.totalTimeSeconds,
+                            statusIcon = statusIconVal,
+                            speedLimit = s.speedLimit,
+                            arriveText = arriveTxt,
+                            testLanes = s.testLanes,
+                            laneLayout = laneLayout,
+                            iconPng = pngSmall
+                        )
+                        modeLabel = "OLD"
+                    } else {
+                        // ── NEW: постадийный перебор (+1 стадия каждые 5с) ──
+                        advanceStageIfDue()
+                        val stage = newStage
+                        payload = ProtobufBuilder.buildNew(
+                            stage = stage,
+                            counter = counter++,
+                            maneuver = maneuverVal,
+                            distance = s.distanceMeters,
+                            road = s.road,
+                            lat = s.lat, lon = s.lon,
+                            etaString = etaStr,
+                            totalDistMeters = s.totalDistMeters,
+                            totalTimeSeconds = s.totalTimeSeconds,
+                            statusIcon = statusIconVal,
+                            speedLimit = s.speedLimit,
+                            iconPngLarge = pngLarge,
+                            iconPngSmall = pngSmall,
+                            testLanes = s.testLanes,
+                            laneLayout = laneLayout
+                        )
+                        modeLabel = "NEW:${ProtobufBuilder.stageName(stage)}"
+                    }
                     val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
 
-                    if (counter % 30 == 0) {
-                        Logger.i(TAG, "tick #$counter rc=$rc m=$maneuverVal(GAODE) d=${s.distanceMeters} road='${s.road}' iconIdx=$statusIconVal lanes=${if (s.testLanes) laneLayout else "-"}")
+                    if (counter % 10 == 0) {
+                        Logger.i(TAG, "tick #$counter rc=$rc mode=$modeLabel m=$maneuverVal(GAODE) d=${s.distanceMeters} road='${s.road}' iconIdx=$statusIconVal lanes=${if (s.testLanes) laneLayout else "-"}")
                     }
                 } else {
                     if (wasActive) {

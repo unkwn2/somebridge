@@ -50,6 +50,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnTestNextNext: Button
     private lateinit var btnTogglePacked: Button
     private lateinit var btnHudMode: Button
+    private lateinit var btnBuilderOld: Button
+    private lateinit var btnBuilderNew: Button
     private lateinit var btnGrant: Button
     private lateinit var btnIconScan: Button
     private lateinit var btnPngIcon: Button
@@ -67,6 +69,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         Logger.init(applicationContext)
         useGaodeEnum = HudForegroundService.loadGaode(this)
+        HudForegroundService.builderOld = HudForegroundService.loadBuilderMode(this)
 
         if (BuildConfig.DEBUG) {
             initUI()
@@ -151,6 +154,8 @@ class MainActivity : AppCompatActivity() {
         btnTestNextNext = findViewById(R.id.btnTestNextNext)
         btnTogglePacked = findViewById(R.id.btnTogglePacked)
         btnHudMode = findViewById(R.id.btnHudMode)
+        btnBuilderOld = findViewById(R.id.btnBuilderOld)
+        btnBuilderNew = findViewById(R.id.btnBuilderNew)
         btnGrant = findViewById(R.id.btnGrant)
         btnIconScan = findViewById(R.id.btnIconScan)
         btnPngIcon = findViewById(R.id.btnPngIcon)
@@ -168,6 +173,9 @@ class MainActivity : AppCompatActivity() {
         btnTogglePacked.setOnClickListener { togglePacked() }
         btnHudMode.setOnClickListener { toggleHudMode() }
         btnHudMode.text = if (useGaodeEnum) "GAODE" else "v33"
+        btnBuilderOld.setOnClickListener { setBuilderOld(true) }
+        btnBuilderNew.setOnClickListener { setBuilderOld(false) }
+        updateBuilderButtons()
         btnGrant.setOnClickListener { grantPermissions() }
         btnIconScan.setOnClickListener { cycleIconField() }
         btnPngIcon.setOnClickListener { cyclePngIcon() }
@@ -455,6 +463,24 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
         }
     }
 
+    private fun setBuilderOld(old: Boolean) {
+        HudForegroundService.builderOld = old
+        HudForegroundService.saveBuilderMode(this, old)
+        HudForegroundService.loopRunner?.resetNewStage()
+        updateBuilderButtons()
+        toast(if (old) "Builder: OLD (рабочий метод)" else "Builder: NEW (перебор полей, +1 каждые 5с)")
+        Logger.i("UI", "builderOld=$old")
+        updateStatusBar()
+    }
+
+    private fun updateBuilderButtons() {
+        val old = HudForegroundService.builderOld
+        runOnUiThread {
+            btnBuilderOld.text = if (old) "● OLD" else "OLD"
+            btnBuilderNew.text = if (!old) "● NEW" else "NEW"
+        }
+    }
+
     private fun toGaodeDisplay(m: Int): Int = ManeuverMapper.toGaode(m)
 
     private var iconScanIdx = -1
@@ -557,9 +583,11 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
         val packLabel = if (s.usePacked) "pk" else "np"
         val lanesLabel = if (s.testLanes) "L" else ""
         val nnLabel = if (s.nextNextManeuver > 0) "N${s.nextNextManeuver}" else ""
+        val builderLabel = if (HudForegroundService.builderOld) "OLD"
+            else "NEW:${HudForegroundService.loopRunner?.stageLabel() ?: "?"}"
 
         runOnUiThread {
-            statusBar.text = "Y:$yStatus FGS:$fgsReady | $navStatus | $packLabel${lanesLabel}${nnLabel} | A11y:$a11yStatus"
+            statusBar.text = "Y:$yStatus FGS:$fgsReady | $navStatus | $builderLabel | $packLabel${lanesLabel}${nnLabel} | A11y:$a11yStatus"
         }
     }
 

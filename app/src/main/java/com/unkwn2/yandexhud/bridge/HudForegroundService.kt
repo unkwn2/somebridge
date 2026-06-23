@@ -22,8 +22,12 @@ class HudForegroundService : Service() {
         private const val NOTIF_ID = 1
         private const val PREFS = "yandexhud_prefs"
         private const val KEY_GAODE = "useGaodeEnum"
+        private const val KEY_BUILDER = "builder_old"
 
         const val DEBUG_ARROW_SCAN = false      // перебор стрелок f27 (только для отладки)
+
+        // Режим сборщика протобафа: true = OLD (рабочий метод 18 июня), false = NEW (постадийный перебор)
+        @Volatile var builderOld: Boolean = true
 
         @Volatile var instance: HudForegroundService? = null
         val bridge: SomeIpBridge? get() = instance?._bridge
@@ -64,6 +68,15 @@ class HudForegroundService : Service() {
 
         fun loadGaode(ctx: Context): Boolean =
             ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_GAODE, true)
+
+        fun saveBuilderMode(ctx: Context, old: Boolean) {
+            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putBoolean(KEY_BUILDER, old)
+                .apply()
+        }
+
+        fun loadBuilderMode(ctx: Context): Boolean =
+            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_BUILDER, true)
     }
 
     private var _bridge: SomeIpBridge? = null
@@ -74,6 +87,7 @@ class HudForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        builderOld = loadBuilderMode(this)
         NaviIconLoader.init(this)
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val ch = NotificationChannel(CH_ID, getString(R.string.hud_fg_channel), NotificationManager.IMPORTANCE_LOW)
