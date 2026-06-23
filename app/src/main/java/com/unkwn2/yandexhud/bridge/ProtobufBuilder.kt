@@ -185,8 +185,8 @@ object ProtobufBuilder {
         // f33 — прогресс маршрута
         if (useF33 && totalDistMeters > 0 && distance > 0) {
             val progress = 1.0 - distance.toDouble() / totalDistMeters.toDouble()
-            val bits = java.lang.Double.doubleToRawLongBits(progress.coerceIn(0.0, 1.0))
-            writeVarintField(inner, 33, bits)
+            // f33 — double (fixed64, wire type 1), как в эталоне. НЕ varint!
+            writeDoubleField(inner, 33, progress.coerceIn(0.0, 1.0))
         }
 
         return wrap(inner)
