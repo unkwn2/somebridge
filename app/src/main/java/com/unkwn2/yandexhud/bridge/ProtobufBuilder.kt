@@ -7,34 +7,39 @@ import java.io.ByteArrayOutputStream
  * Сборщик HudRoadInfoNotifyStruct.
  *
  * Два режима:
- *  - buildOld(...)  — РАБОЧИЙ метод от 18 июня (b18d422). Стрелки на стекле работают.
- *                     Используется кнопкой OLD как контрольный эталон.
- *  - buildNew(stage) — НОВЫЙ метод с ПОСТАДИЙНЫМ перебором. Стартует с рабочего
- *                     базиса (stage 0 ≈ OLD) и на каждой стадии добавляет одну
- *                     группу "новых" полей, которые мы увидели из эталонных кадров amap.
- *                     LoopRunner переключает стадию каждые 5 секунд. Когда стрелка
- *                     пропадает на стекле — поле этой стадии и есть блокер.
+ *  - buildOld(...)  — РАБОЧИЙ метод от 18 июня (b18d422). НЕ ТРОГАТЬ — контрольная кнопка OLD.
+ *  - buildNew(stage) — НОВЫЙ метод. Формат эталона (нативный AMap/GAODE-поток на topic
+ *                     0x4010a00018001) теперь ВЫВЕРЕН по логу 23.06 + фото. Стадии оставлены
+ *                     для совместимости, но значения полей приведены к эталону.
+ *                     LoopRunner шлёт стабильно stage=STAGE_MAX (полный корректный кадр).
+ *
+ * Ключевые выверенные факты (лог 3268 кадров + фото с таймингом):
+ *  - f28 (манёвр): 3=ЛЕВО, 2=ПРАВО, 1=ПРЯМО, 5=ШОССЕ/съезд, 9=РАЗВОРОТ.
+ *    (НЕ generic-GAODE! У GAODE лево=1 — это и был баг: левые повороты уезжали как «прямо».)
+ *  - f29 (полосы): "S,H|" на полосу, слева направо; f5 = число полос (= число записей).
+ *    S=фигура (0 прямо,1/2 влево,3/4 вправо); H=255 полоса погашена, иначе направление (0/1/3).
+ *  - f19/f20/f33 — double (fixed64, wire type 1), НЕ varint.
+ *  - f22=50, f24="[]", f25=submessage-константа — присутствуют в 100% кадров эталона.
  */
 object ProtobufBuilder {
 
-    // ── Стадии перебора NEW ───────────────────────────────────────────────
-    // Порядок — по убыванию подозрительности (из разбора эталона vs июньского кода).
+    // ── Стадии NEW ────────────────────────────────────────────────────────
     const val STAGE_MIN = 0
     const val STAGE_MAX = 6
 
     fun stageName(stage: Int): String = when (stage) {
-        0 -> "0:OLD-base"        // рабочий базис (как 18 июня)
-        1 -> "1:+f6cat"          // + f6 категория манёвра (+f7 большая PNG)
-        2 -> "2:f31submsg+f25"   // f31 строка-точка -> submessage-константы, точка уходит в f25
-        3 -> "3:+f33progress"    // + f33 прогресс маршрута
-        4 -> "4:f2const"         // f2 живой счётчик -> константа 2
-        5 -> "5:f28mapped"       // f28 сырой gaode -> маппинг в категорию
-        6 -> "6:full-NEW"        // остальное: f3/f4,f11,f12,f17,f18,f21,f22=50,f23=17,f24=[],f30 %.7f
+        0 -> "0:OLD-base"
+        1 -> "1:+f6"
+        2 -> "2:(rezerv)"
+        3 -> "3:+f33"
+        4 -> "4:f2=2"
+        5 -> "5:f28=эталон"
+        6 -> "6:full-эталон"
         else -> "?$stage"
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // OLD — рабочий метод от 18 июня (стрелки работают). Не трогать.
+    // OLD — рабочий метод от 18 июня (стрелки работают). НЕ ТРОГАТЬ.
     // ─────────────────────────────────────────────────────────────────────
     fun buildOld(
         counter: Int,
@@ -59,7 +64,7 @@ object ProtobufBuilder {
         writeVarintField(inner, 9, distance.toLong())              // f9  distance2Intersection
         writeStringField(inner, 10, road)                          // f10 nextRoadName
         writeVarintField(inner, 16, statusIcon.toLong())           // f16 navigatingStatus: 2=draw, 1=clear
-        writeStringField(inner, 26, etaString)                     // f26 ETA "HH:MM"
+        writeStringField(inner, 26, etaString)                     // f26 ETA \"HH:MM\"
         if (totalDistMeters > 0)  writeVarintField(inner, 22, totalDistMeters.toLong())
         if (totalTimeSeconds > 0) writeVarintField(inner, 23, totalTimeSeconds.toLong())
         if (speedLimit > 0)       writeVarintField(inner, 24, speedLimit.toLong())
@@ -79,7 +84,7 @@ object ProtobufBuilder {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // NEW — постадийный перебор. stage 0 ≈ OLD, stage 6 = полный текущий NEW.
+    // NEW — выверенный по эталону кадр. stage 0 ≈ OLD, stage 6 = полный эталон.
     // ─────────────────────────────────────────────────────────────────────
     fun buildNew(
         stage: Int,
@@ -93,6 +98,7 @@ object ProtobufBuilder {
         totalTimeSeconds: Int = 0,
         statusIcon: Int = 0,
         speedLimit: Int = 0,
+        cameraDistance: Int = 0,       // дистанция до камеры/POI (f18), независима от f9
         arriveText: String = "",
         iconPngLarge: ByteArray? = null,
         iconPngSmall: ByteArray? = null,
@@ -100,7 +106,6 @@ object ProtobufBuilder {
         laneLayout: String = ""
     ): ByteArray {
         val useF6     = stage >= 1
-        val f31Submsg = stage >= 2
         val useF33    = stage >= 3
         val f2Const   = stage >= 4
         val f28Mapped = stage >= 5
@@ -108,91 +113,83 @@ object ProtobufBuilder {
 
         val inner = ByteArrayOutputStream()
 
-        // f2 — счётчик живости (OLD) или константа 2 (NEW)
+        // f2 — константа 2 (эталон) / счётчик (ранние стадии)
         writeVarintField(inner, 2, if (f2Const) 2L else counter.toLong())
 
-        // f3/f4 — тотал переехал сюда из f22/f23 (только полный NEW)
+        // f3/f4 — остаток до цели: дистанция (м) и время (с)
         if (full) {
             if (totalDistMeters > 0)  writeVarintField(inner, 3, totalDistMeters.toLong())
             if (totalTimeSeconds > 0) writeVarintField(inner, 4, totalTimeSeconds.toLong())
         }
 
-        // f5 — счётчик полос
+        // f5 — число полос (= число записей \"S,H|\" в f29)
         if (testLanes && laneLayout.isNotEmpty())
-            writeVarintField(inner, 5, laneLayout.split(",").size.toLong())
+            writeVarintField(inner, 5, laneCount(laneLayout).toLong())
 
-        // f6 — категория манёвра (NEW); f7 — большая PNG когда f6==7
-        val f6val = maneuverToF6(maneuver)
+        // f6 — render-class манёвра; f7 — большая схема перекрёстка (только если реально есть картинка)
+        val f6val = gaodeToF6(maneuver)
         if (useF6) {
             writeVarintField(inner, 6, f6val.toLong())
             if (iconPngLarge != null && f6val == 7) writeBytesField(inner, 7, iconPngLarge)
         }
 
-        // f8 — маленькая PNG-стрелка (есть и в OLD)
+        // f8 — PNG-стрелка манёвра (как в OLD; в 100% кадров эталона)
         if (iconPngSmall != null) writeBytesField(inner, 8, iconPngSmall)
 
         if (distance > 0) writeVarintField(inner, 9, distance.toLong())
         writeStringField(inner, 10, road)
 
-        if (full) writeVarintField(inner, 11, 30L)
-        if (full) { val v = deriveF12(distance, counter); if (v > 0) writeVarintField(inner, 12, v.toLong()) }
-
         writeVarintField(inner, 16, statusIcon.toLong())
 
-        if (full) writeVarintField(inner, 17, 1L)
-        if (full && distance > 0) writeVarintField(inner, 18, distance.toLong())
+        // f17 — флаг блока камеры/POI (=1), f18 — дистанция до камеры в метрах.
+        // ПОДТВЕРЖДЕНО логом: f18 НЕЗАВИСИМА от f9 (свой отсчёт, 2015/3268 кадров).
+        // Шлём ТОЛЬКО при реальных данных от Яндекса (cameraDistance > 0) — иначе будет фантомная камера.
+        if (cameraDistance > 0) {
+            writeVarintField(inner, 17, 1L)
+            writeVarintField(inner, 18, cameraDistance.toLong())
+        }
 
         if (lat != 0.0 || lon != 0.0) {
-            writeDoubleField(inner, 19, lon)
-            writeDoubleField(inner, 20, lat)
+            writeDoubleField(inner, 19, lon)   // double, НЕ varint
+            writeDoubleField(inner, 20, lat)   // double, НЕ varint
         }
 
-        if (full) { val v = deriveF21(distance, counter); if (v > 0) writeVarintField(inner, 21, v.toLong()) }
-
-        // f22/f23 — OLD: тотал; полный NEW: константы 50/17
+        // f22=50, f24=\"[]\" — константы эталона
         if (full) {
             writeVarintField(inner, 22, 50L)
-            writeVarintField(inner, 23, 17L)
-        } else {
-            if (totalDistMeters > 0)  writeVarintField(inner, 22, totalDistMeters.toLong())
-            if (totalTimeSeconds > 0) writeVarintField(inner, 23, totalTimeSeconds.toLong())
+            writeStringField(inner, 24, "[]")
+        } else if (speedLimit > 0) {
+            writeVarintField(inner, 24, speedLimit.toLong())
         }
 
-        // f24 — OLD: speedLimit varint; полный NEW: "[]" строка
-        if (full) writeStringField(inner, 24, "[]")
-        else if (speedLimit > 0) writeVarintField(inner, 24, speedLimit.toLong())
-
-        // f25 — точка-строка появляется, когда f31 стал submessage (точка переехала из f31)
-        if (f31Submsg && (lat != 0.0 || lon != 0.0)) writeStringField(inner, 25, "$lon,$lat")
+        // f25 — submessage-константа эталона (штамп), 100% кадров
+        if (full) writeF25Const(inner)
 
         writeStringField(inner, 26, etaString)
 
-        // f27 — arriveText, пока не полный NEW (в NEW его убрали)
         if (!full && arriveText.isNotEmpty()) writeStringField(inner, 27, arriveText)
 
-        // f28 — OLD: сырой gaode; NEW: маппинг в категорию
-        writeVarintField(inner, 28, if (f28Mapped) maneuverToF28(maneuver).toLong() else maneuver.toLong())
+        // f28 — манёвр в КОДАХ ЭТАЛОНА (3=лево,2=право,1=прямо,9=разворот,5=шоссе)
+        writeVarintField(inner, 28, if (f28Mapped) gaodeToF28(maneuver).toLong() else maneuver.toLong())
 
         if (testLanes && laneLayout.isNotEmpty()) writeStringField(inner, 29, laneLayout)
 
         if (lat != 0.0 || lon != 0.0) {
-            // f30 — точность %.6f (OLD) или %.7f (полный NEW)
             writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver, if (full) 7 else 6))
-            // f31 — OLD строка-точка ИЛИ submessage-константы (NEW)
-            if (f31Submsg) writeF31Const(inner) else writeStringField(inner, 31, "$lon,$lat,0")
+            // f31 — строка-точка \"lon,lat,0\" (как в OLD и в 56% кадров эталона; msg-форма НЕ константа)
+            writeStringField(inner, 31, "$lon,$lat,0")
         }
 
-        // f33 — прогресс маршрута
+        // f33 — прогресс маршрута (double)
         if (useF33 && totalDistMeters > 0 && distance > 0) {
             val progress = 1.0 - distance.toDouble() / totalDistMeters.toDouble()
-            // f33 — double (fixed64, wire type 1), как в эталоне. НЕ varint!
             writeDoubleField(inner, 33, progress.coerceIn(0.0, 1.0))
         }
 
         return wrap(inner)
     }
 
-    // Совместимость со старыми вызовами (arrowScan, clear-кадры): полный NEW.
+    // Совместимость со старыми вызовами (arrowScan, clear-кадры): полный эталон.
     fun build(
         counter: Int,
         maneuver: Int,
@@ -234,31 +231,48 @@ object ProtobufBuilder {
 
     // ── helpers ───────────────────────────────────────────────────────────
 
-    private fun maneuverToF6(gaode: Int): Int = when (gaode) {
-        0 -> 255
-        11 -> 7
-        48 -> 8
-        else -> 9
+    /**
+     * GAODE-код -> код манёвра f28 ЭТАЛОНА.
+     * Эталон (подтверждено фото 23.06): 3=ЛЕВО, 2=ПРАВО, 1=ПРЯМО, 9=РАЗВОРОТ, 5=шоссе/съезд.
+     * GAODE: 1=лево 2=право 3=плавно-лево 4=плавно-право 7=резко-лево 8=резко-право
+     *        9/10=разворот 11=прямо 13/24=кольцо 48=прибытие.
+     */
+    fun gaodeToF28(gaode: Int): Int = when (gaode) {
+        1, 3, 7 -> 3        // лево / плавно влево / резко влево
+        2, 4, 8 -> 2        // право / плавно вправо / резко вправо
+        11 -> 1             // прямо (эталон: 1=ПРЯМО, подтверждено Nameless-Road тестом)
+        9, 10 -> 9          // разворот (эталон: 9=РАЗВОРОТ). TODO: выверить эмпирически по логу gaode_in->f28_out
+        // 5 = шоссе/съезд на магистраль: отдельного gaode нет, выставляется вручную на трассе
+        else -> 1           // кольцо/прибытие(M_ARRIVE=12->gaode48)/неизв. -> прямо. Защита от «протечки» сырого кода в f28
     }
 
-    private fun maneuverToF28(gaode: Int): Int = when (gaode) {
-        0, 11 -> 1
-        1, 2, 3, 4, 7, 8, 9, 10 -> 9
-        13, 24 -> 20
-        48 -> 48
-        else -> 1
+    /** GAODE-код -> f6 render-class эталона (через f28): 6=шоссе, 7=поворот+схема(лево), 8=право/прямо, 9=разворот. */
+    private fun gaodeToF6(gaode: Int): Int = f28ToF6(gaodeToF28(gaode))
+
+    private fun f28ToF6(f28: Int): Int = when (f28) {
+        3 -> 7   // лево -> поворот со схемой перекрёстка
+        5 -> 6   // шоссе/съезд
+        9 -> 9   // разворот
+        else -> 8 // право / прямо / обычный
     }
 
-    private fun deriveF12(distance: Int, counter: Int): Int {
-        if (distance <= 0) return 45
-        val base = (distance / 10).coerceIn(5, 200)
-        return base + (counter % 3)
-    }
+    private fun laneCount(layout: String): Int = layout.split("|").count { it.isNotEmpty() }
 
-    private fun deriveF21(distance: Int, counter: Int): Int {
-        if (distance <= 0) return 41
-        val base = (distance / 12).coerceIn(5, 200)
-        return base + (counter % 3)
+    /** f28 эталона -> фигура полосы: 1=влево, 3=вправо, 0=прямо. */
+    private fun f28ToLaneDir(f28: Int): Int = when (f28) { 3 -> 1; 2 -> 3; else -> 0 }
+
+    /**
+     * Сборка строки полос f29 в формате эталона \"S,H|\".
+     * Рекомендуемая полоса: \"dir,dir\"; остальные: \"0,255\" (погашены).
+     * numLanes = f5. Реальные полосы из Яндекса пока недоступны — это корректный формат под будущие данные.
+     */
+    fun buildLanes(f28: Int, numLanes: Int, recommendedIdx: Int): String {
+        val dir = f28ToLaneDir(f28)
+        val sb = StringBuilder()
+        for (i in 0 until numLanes) {
+            if (i == recommendedIdx) sb.append("$dir,$dir|") else sb.append("0,255|")
+        }
+        return sb.toString()
     }
 
     private fun buildGuideLine(lat: Double, lon: Double, maneuver: Int, decimals: Int): String {
@@ -290,11 +304,12 @@ object ProtobufBuilder {
         return sb.toString()
     }
 
-    private fun writeF31Const(o: ByteArrayOutputStream) {
+    /** f25 — выверенная submessage-константа эталона (одинакова во всех 3268 кадрах). */
+    private fun writeF25Const(o: ByteArrayOutputStream) {
         val buf = ByteArrayOutputStream()
-        writeVarintField(buf, 6, 4123383220256257585L)
-        writeVarintField(buf, 6, 3833746581617914937L)
-        writeBytesField(o, 31, buf.toByteArray())
+        writeVarintField(buf, 6, 3833748802098837041L)
+        writeVarintField(buf, 6, 926168631L)
+        writeBytesField(o, 25, buf.toByteArray())
     }
 
     private fun wrap(inner: ByteArrayOutputStream): ByteArray {

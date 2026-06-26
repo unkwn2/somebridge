@@ -56,6 +56,9 @@ class SomeIpBridge(private val ctx: Context) {
                             data.readByteArray(pl)
                             Logger.i(TAG, "CB event topic=0x${topic.toString(16)} ts=$ts len=$len")
                             Logger.i(TAG, "CB payload ${pl.size}B: ${ProtobufParser.format(pl)}")
+                            // Сырой кадр целиком в hex — для протокольного декодирования:
+                            //   echo '<hex>' | xxd -r -p | protoc --decode_raw
+                            Logger.i(TAG, "CB RAWHEX ${pl.size}B: " + pl.joinToString("") { "%02x".format(it) })
                         }
                     }
                     reply?.writeNoException()

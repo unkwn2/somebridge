@@ -71,6 +71,10 @@ class YandexNaviNotificationListener : NotificationListenerService() {
                     trafficLightColor = if (rv.trafficLightColor.isNotEmpty()) rv.trafficLightColor else prev.trafficLightColor,
                     trafficLightSeconds = if (rv.trafficLightSeconds > 0) rv.trafficLightSeconds else prev.trafficLightSeconds,
                     cameraAlert = if (rv.cameraAlert.isNotEmpty()) rv.cameraAlert else prev.cameraAlert,
+                    // f18: дистанция до камеры. Пока тянем число из текста алерта (если есть); 0 = нет камеры.
+                    // TODO(камера): извлекать дистанцию из RemoteViews Яндекса (отдельный vid) — сюда же.
+                    cameraDistanceMeters = if (rv.cameraAlert.isEmpty()) 0
+                        else Regex("\\d+").find(rv.cameraAlert)?.value?.toIntOrNull() ?: prev.cameraDistanceMeters,
                     maneuverGaode = prev.maneuverGaode,
                     maneuverGaodeMs = if (gaodeStale) 0L else prev.maneuverGaodeMs,
                     lastUpdateMs = System.currentTimeMillis()

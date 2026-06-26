@@ -25,6 +25,7 @@ object HudState {
         val trafficLightColor: String = "",
         val trafficLightSeconds: Int = 0,
         val cameraAlert: String = "",
+        val cameraDistanceMeters: Int = 0,   // дистанция до камеры/POI от Яндекса (f18). 0 = нет камеры
         val maneuverGaode: Int = 0,
         val maneuverGaodeMs: Long = 0L,
         val arrowScanActive: Boolean = false,

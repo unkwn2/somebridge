@@ -9,28 +9,14 @@ class LoopRunner(private val bridge: SomeIpBridge) {
     @Volatile private var counter = 0
     @Volatile var useGaodeEnum: Boolean = true
     @Volatile private var wasActive = false
+    @Volatile private var lastLoggedManeuver = Int.MIN_VALUE
     @Volatile private var worker: Thread? = null
     private val startLock = Any()
 
-    // ── NEW постадийный перебор ──────────────────────────────────────────
-    @Volatile private var newStage = ProtobufBuilder.STAGE_MIN
-    @Volatile private var newStageMs = 0L
-    private val STAGE_PERIOD_MS = 5000L
+    private val fixedStage = ProtobufBuilder.STAGE_MAX
 
-    /** Сброс перебора на начало (при переключении в NEW). */
-    fun resetNewStage() { newStage = ProtobufBuilder.STAGE_MIN; newStageMs = 0L }
-    fun stageLabel(): String = ProtobufBuilder.stageName(newStage)
-    val currentStage: Int get() = newStage
-
-    private fun advanceStageIfDue() {
-        val now = System.currentTimeMillis()
-        if (newStageMs == 0L) { newStageMs = now; return }
-        if (now - newStageMs >= STAGE_PERIOD_MS) {
-            newStage = if (newStage >= ProtobufBuilder.STAGE_MAX) ProtobufBuilder.STAGE_MIN else newStage + 1
-            newStageMs = now
-            Logger.i(TAG, "=== NEW stage -> ${ProtobufBuilder.stageName(newStage)} ===")
-        }
-    }
+    fun resetNewStage() {}
+    fun stageLabel(): String = ProtobufBuilder.stageName(fixedStage)
 
     fun start(periodMs: Long = 300L) {
         synchronized(startLock) {
@@ -81,7 +67,21 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         else toGaodeEnum(s.maneuver)
                     val statusIconVal = 2
 
-                    val laneLayout = if (s.testLanes) "1,2,2,1" else ""
+                    // ДИАГНОСТИКА: связка вход GAODE -> выход f28 (для эмпирической выверки gaodeToF28).
+                    // Логируем при КАЖДОЙ смене манёвра, чтобы поймать какой gaode даёт какой f28.
+                    val f28out = ProtobufBuilder.gaodeToF28(maneuverVal)
+                    if (maneuverVal != lastLoggedManeuver) {
+                        lastLoggedManeuver = maneuverVal
+                        Logger.i(TAG, "MANEUVER gaode_in=$maneuverVal(${ManeuverMapper.maneuverName(s.maneuver)}) a11yFresh=$a11yFresh sGaode=${s.maneuverGaode} -> f28_out=$f28out road='${s.road}' d=${s.distanceMeters}")
+                    }
+
+                    // Полосы в ПРАВИЛЬНОМ формате "S,H|" (см. конспект). Демо: 3 полосы, активна по направлению манёвра.
+                    val laneLayout = if (s.testLanes)
+                        ProtobufBuilder.buildLanes(
+                            ProtobufBuilder.gaodeToF28(maneuverVal),
+                            3,
+                            when (ProtobufBuilder.gaodeToF28(maneuverVal)) { 3 -> 0; 2 -> 2; else -> 1 }
+                        ) else ""
                     val pngLarge = if (HudForegroundService.sendPngIcon)
                         NaviIconLoader.loadLarge(maneuverVal) ?: s.iconPng else null
                     val pngSmall = if (HudForegroundService.sendPngIcon)
@@ -110,9 +110,8 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         )
                         modeLabel = "OLD"
                     } else {
-                        // ── NEW: постадийный перебор (+1 стадия каждые 5с) ──
-                        advanceStageIfDue()
-                        val stage = newStage
+                        // ── NEW: формат эталона известен — шлём ПОЛНЫЙ корректный кадр ──
+                        val stage = fixedStage
                         payload = ProtobufBuilder.buildNew(
                             stage = stage,
                             counter = counter++,
@@ -125,12 +124,13 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                             totalTimeSeconds = s.totalTimeSeconds,
                             statusIcon = statusIconVal,
                             speedLimit = s.speedLimit,
+                            cameraDistance = s.cameraDistanceMeters,
                             iconPngLarge = pngLarge,
                             iconPngSmall = pngSmall,
                             testLanes = s.testLanes,
                             laneLayout = laneLayout
                         )
-                        modeLabel = "NEW:${ProtobufBuilder.stageName(stage)}"
+                        modeLabel = "NEW:${stageLabel()}"
                     }
                     val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
 
@@ -140,10 +140,12 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                     }
                 } else {
                     if (wasActive) {
-                        val clearPayload = ProtobufBuilder.build(
-                            counter++, maneuver = 0,
+                        val clearPayload = ProtobufBuilder.buildOld(
+                            counter = counter++, maneuver = 0,
                             distance = 0, road = "", lat = 0.0, lon = 0.0, etaString = "",
-                            statusIcon = 1, iconPngLarge = null, iconPngSmall = null, testLanes = false, laneLayout = ""
+                            totalDistMeters = 0, totalTimeSeconds = 0,
+                            statusIcon = 1, speedLimit = 0, arriveText = "",
+                            testLanes = false, laneLayout = "", iconPng = null
                         )
                         bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, clearPayload)
                         wasActive = false

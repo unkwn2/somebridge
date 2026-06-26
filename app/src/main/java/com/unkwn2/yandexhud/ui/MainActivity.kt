@@ -452,10 +452,12 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
         } else {
             HudState.update { it.copy(arrowScanActive = false) }
             runOnUiThread { btnArrowScan.text = "ARROW SCAN" }
-            val clearPayload = ProtobufBuilder.build(
+            val clearPayload = ProtobufBuilder.buildOld(
                 counter = 0, maneuver = 0, distance = 0, road = "",
                 lat = 0.0, lon = 0.0, etaString = "",
-                statusIcon = 1
+                totalDistMeters = 0, totalTimeSeconds = 0,
+                statusIcon = 1, speedLimit = 0, arriveText = "",
+                testLanes = false, laneLayout = "", iconPng = null
             )
             HudForegroundService.bridge?.fireEvent(SomeIpBridge.TOPIC_NAVI, clearPayload)
             toast("Arrow scan stopped")

@@ -8,7 +8,11 @@ object ProtobufParser {
 
     data class Field(val tag: Int, val wire: Int, val value: Any) {
         override fun toString(): String = when (value) {
-            is Long -> "f$tag(varint)=$value"
+            is Long -> when (wire) {
+                1 -> "f$tag(double)=${java.lang.Double.longBitsToDouble(value)}"     // fixed64 -> double (f19/f20/f33)
+                5 -> "f$tag(float)=${java.lang.Float.intBitsToFloat(value.toInt())}" // fixed32 -> float
+                else -> "f$tag(varint)=$value"
+            }
             is ByteArray -> {
                 when {
                     isPng(value) -> "f$tag(PNG icon, ${value.size}B)"
