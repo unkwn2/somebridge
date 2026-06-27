@@ -82,10 +82,16 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                             3,
                             when (ProtobufBuilder.gaodeToF28(maneuverVal)) { 3 -> 0; 2 -> 2; else -> 1 }
                         ) else ""
-                    val pngLarge = if (HudForegroundService.sendPngIcon)
+                    val pngLarge = if (HudForegroundService.sendPngIcon && maneuverVal != 0)
                         NaviIconLoader.loadLarge(maneuverVal) ?: s.iconPng else null
-                    val pngSmall = if (HudForegroundService.sendPngIcon)
+                    val pngSmall = if (HudForegroundService.sendPngIcon && maneuverVal != 0)
                         NaviIconLoader.loadSmall(maneuverVal) ?: pngLarge else null
+
+                    // Камера: при cameraAlert используем значок камеры вместо стрелки манёвра
+                    val isCameraActive = s.cameraAlert.isNotEmpty()
+                    val effectivePngSmall = if (isCameraActive) s.cameraIconPng ?: pngSmall else pngSmall
+                    val effectivePngLarge = if (isCameraActive) null else pngLarge
+                    val effectiveCameraDist = if (isCameraActive) s.cameraDistanceMeters else 0
 
                     val payload: ByteArray
                     val modeLabel: String
@@ -94,7 +100,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         val arriveTxt = if (maneuverVal == 48) s.arriveText.ifEmpty { "Прибытие" } else ""
                         payload = ProtobufBuilder.buildOld(
                             counter = counter++,
-                            maneuver = maneuverVal,
+                            maneuver = if (isCameraActive) 0 else maneuverVal,
                             distance = s.distanceMeters,
                             road = s.road,
                             lat = s.lat, lon = s.lon,
@@ -106,16 +112,16 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                             arriveText = arriveTxt,
                             testLanes = s.testLanes,
                             laneLayout = laneLayout,
-                            iconPng = pngSmall
+                            iconPng = effectivePngSmall
                         )
                         modeLabel = "OLD"
                     } else {
                         // ── NEW: формат эталона известен — шлём ПОЛНЫЙ корректный кадр ──
                         val stage = fixedStage
-                        payload = ProtobufBuilder.buildNew(
+                        payload = ProtobufBuilder.buildNewSafe(
                             stage = stage,
                             counter = counter++,
-                            maneuver = maneuverVal,
+                            maneuver = if (isCameraActive) 0 else maneuverVal,
                             distance = s.distanceMeters,
                             road = s.road,
                             lat = s.lat, lon = s.lon,
@@ -124,9 +130,9 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                             totalTimeSeconds = s.totalTimeSeconds,
                             statusIcon = statusIconVal,
                             speedLimit = s.speedLimit,
-                            cameraDistance = s.cameraDistanceMeters,
-                            iconPngLarge = pngLarge,
-                            iconPngSmall = pngSmall,
+                            cameraDistance = effectiveCameraDist,
+                            iconPngLarge = effectivePngLarge,
+                            iconPngSmall = effectivePngSmall,
                             testLanes = s.testLanes,
                             laneLayout = laneLayout
                         )

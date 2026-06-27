@@ -260,33 +260,33 @@ object LocalAdb {
             Logger.w(TAG, "ensurePermissions: ADB init failed")
             return
         }
-        val checks = listOf(
-            "NOTIF" to { checkNotificationAccess() },
-            "A11Y" to { checkAccessibility() },
-            "MOCK" to { checkMockLocation() },
-            "NAVI" to { checkNaviSettings() },
-            "BG" to { checkBackgroundRun() },
-            "BATT" to { checkBatteryWhitelist() }
+
+        data class PermCheck(val name: String, val check: () -> Boolean, val grant: () -> Result)
+
+        val perms = listOf(
+            PermCheck("NOTIF", { checkNotificationAccess() }, { grantNotificationAccess() }),
+            PermCheck("A11Y", { checkAccessibility() }, { grantAccessibility() }),
+            PermCheck("MOCK", { checkMockLocation() }, { grantMockLocation() }),
+            PermCheck("NAVI", { checkNaviSettings() }, { grantNaviSettings() }),
+            PermCheck("BG", { checkBackgroundRun() }, { grantBackgroundRun() }),
+            PermCheck("BATT", { checkBatteryWhitelist() }, { grantBatteryWhitelist() })
         )
-        val missing = mutableListOf<String>()
-        for ((name, fn) in checks) {
-            if (!fn()) missing.add(name)
-        }
-        if (missing.isNotEmpty()) {
-            Logger.i(TAG, "ensurePermissions: missing ${missing.joinToString(",")}, granting...")
-            for (name in missing) {
-                when (name) {
-                    "NOTIF" -> grantNotificationAccess()
-                    "A11Y" -> grantAccessibility()
-                    "MOCK" -> grantMockLocation()
-                    "NAVI" -> grantNaviSettings()
-                    "BG" -> grantBackgroundRun()
-                    "BATT" -> grantBatteryWhitelist()
-                }
+
+        for (attempt in 1..3) {
+            val missing = perms.filter { !it.check() }
+            if (missing.isEmpty()) break
+            Logger.i(TAG, "ensurePermissions attempt=$attempt: missing ${missing.joinToString(",") { it.name }}")
+            for (p in missing) {
+                val r = p.grant()
+                Logger.i(TAG, "  GRANT ${p.name}: success=${r.success} out='${r.output.take(80)}' err='${r.error}'")
+            }
+            if (attempt < 3) {
+                try { Thread.sleep(1000L * attempt) } catch (_: InterruptedException) { break }
             }
         }
-        val results = checks.joinToString(" ") { (n, fn) -> "$n=${if (fn()) "ok" else "FAIL"}" }
-        Logger.i(TAG, "ensurePermissions: $results")
+
+        val results = perms.joinToString(" ") { "${it.name}=${if (it.check()) "ok" else "FAIL"}" }
+        Logger.i(TAG, "ensurePermissions final: $results")
     }
 
     fun dumpLogcat(): Result {

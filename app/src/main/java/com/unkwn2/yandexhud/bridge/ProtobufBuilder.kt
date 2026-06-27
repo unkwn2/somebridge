@@ -27,6 +27,9 @@ object ProtobufBuilder {
     const val STAGE_MIN = 0
     const val STAGE_MAX = 6
 
+    // ── SIZEGUARD ─────────────────────────────────────────────────────────
+    const val MAX_PAYLOAD_BYTES = 3400
+
     fun stageName(stage: Int): String = when (stage) {
         0 -> "0:OLD-base"
         1 -> "1:+f6"
@@ -103,7 +106,9 @@ object ProtobufBuilder {
         iconPngLarge: ByteArray? = null,
         iconPngSmall: ByteArray? = null,
         testLanes: Boolean = false,
-        laneLayout: String = ""
+        laneLayout: String = "",
+        includeF7: Boolean = true,     // SIZEGUARD: можно отключить
+        includeF8: Boolean = true      // SIZEGUARD: можно отключить
     ): ByteArray {
         val useF6     = stage >= 1
         val useF33    = stage >= 3
@@ -130,11 +135,11 @@ object ProtobufBuilder {
         val f6val = gaodeToF6(maneuver)
         if (useF6) {
             writeVarintField(inner, 6, f6val.toLong())
-            if (iconPngLarge != null && f6val == 7) writeBytesField(inner, 7, iconPngLarge)
+            if (includeF7 && iconPngLarge != null && f6val == 7) writeBytesField(inner, 7, iconPngLarge)
         }
 
         // f8 — PNG-стрелка манёвра (как в OLD; в 100% кадров эталона)
-        if (iconPngSmall != null) writeBytesField(inner, 8, iconPngSmall)
+        if (includeF8 && iconPngSmall != null) writeBytesField(inner, 8, iconPngSmall)
 
         if (distance > 0) writeVarintField(inner, 9, distance.toLong())
         writeStringField(inner, 10, road)
@@ -227,6 +232,42 @@ object ProtobufBuilder {
         val inner = ByteArrayOutputStream()
         writeRepeated(inner, 1, maneuvers, usePacked)
         return wrap(inner)
+    }
+
+    /**
+     * SIZEGUARD: собирает NEW-кадр и гарантирует payload <= MAX_PAYLOAD_BYTES.
+     * Если кадр слишком большой — пересобирает без f7, потом без f8.
+     * Логирует каждое срабатывание.
+     */
+    fun buildNewSafe(
+        stage: Int, counter: Int, maneuver: Int, distance: Int, road: String,
+        lat: Double, lon: Double, etaString: String,
+        totalDistMeters: Int = 0, totalTimeSeconds: Int = 0,
+        statusIcon: Int = 0, speedLimit: Int = 0, cameraDistance: Int = 0,
+        arriveText: String = "",
+        iconPngLarge: ByteArray? = null, iconPngSmall: ByteArray? = null,
+        testLanes: Boolean = false, laneLayout: String = ""
+    ): ByteArray {
+        // Попытка 1: полный кадр
+        var payload = buildNew(stage, counter, maneuver, distance, road, lat, lon, etaString,
+            totalDistMeters, totalTimeSeconds, statusIcon, speedLimit, cameraDistance,
+            arriveText, iconPngLarge, iconPngSmall, testLanes, laneLayout)
+        if (payload.size <= MAX_PAYLOAD_BYTES) return payload
+        Logger.w("SIZEGUARD", "payload ${payload.size}B > ${MAX_PAYLOAD_BYTES}B, dropping f7")
+
+        // Попытка 2: без f7 (большая схема перекрёстка)
+        payload = buildNew(stage, counter, maneuver, distance, road, lat, lon, etaString,
+            totalDistMeters, totalTimeSeconds, statusIcon, speedLimit, cameraDistance,
+            arriveText, iconPngLarge, iconPngSmall, testLanes, laneLayout, includeF7 = false)
+        if (payload.size <= MAX_PAYLOAD_BYTES) return payload
+        Logger.w("SIZEGUARD", "payload ${payload.size}B > ${MAX_PAYLOAD_BYTES}B, dropping f8")
+
+        // Попытка 3: без f7 и без f8
+        payload = buildNew(stage, counter, maneuver, distance, road, lat, lon, etaString,
+            totalDistMeters, totalTimeSeconds, statusIcon, speedLimit, cameraDistance,
+            arriveText, null, null, testLanes, laneLayout, includeF7 = false, includeF8 = false)
+        Logger.w("SIZEGUARD", "final payload ${payload.size}B (no f7, no f8)")
+        return payload
     }
 
     // ── helpers ───────────────────────────────────────────────────────────

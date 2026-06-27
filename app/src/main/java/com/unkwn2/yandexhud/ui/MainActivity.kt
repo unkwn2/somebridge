@@ -1,6 +1,7 @@
 package com.unkwn2.yandexhud.ui
 
 import com.unkwn2.yandexhud.R
+import com.unkwn2.yandexhud.bridge.NaviIconLoader
 import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -197,6 +198,7 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.btnMenu).setOnClickListener { toggleMenu() }
         findViewById<Button>(R.id.btnDonation).setOnClickListener { showDonationDialog() }
+        findViewById<Button>(R.id.btnSelftest).setOnClickListener { runSelftest() }
 
         Logger.observe { line ->
             runOnUiThread {
@@ -438,6 +440,59 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
         }
         HudState.setTestLatch(10000L)
         toast("TEST $name → HUD $gaodeVal (latch 10s)")
+    }
+
+    private fun runSelftest() {
+        if (!yandexOn) { toast("Start YANDEX NAVI first"); return }
+        val bridge = HudForegroundService.bridge
+        if (bridge == null) { toast("Bridge not ready"); return }
+
+        Thread {
+            Logger.i("SELFTEST", "=== HUD SELFTEST START ===")
+            val testCases = listOf(
+                "m=0(NONE)" to Triple(0, 0, "нет манёвра"),
+                "m=11(STRAIGHT)" to Triple(11, 500, "прямо"),
+                "m=1(LEFT)" to Triple(1, 300, "влево"),
+                "m=2(RIGHT)" to Triple(2, 400, "вправо"),
+                "m=9(UTURN)" to Triple(9, 200, "разворот"),
+                "m=5(HARD_RIGHT)" to Triple(5, 350, "шоссе"),
+                "CAMERA" to Triple(0, 490, "камера")
+            )
+
+            for ((label, triple) in testCases) {
+                val (gaode, dist, desc) = triple
+                val pngLarge = NaviIconLoader.loadLarge(gaode)
+                val pngSmall = NaviIconLoader.loadSmall(gaode) ?: pngLarge
+                val cameraDist = if (label == "CAMERA") 300 else 0
+
+                val payload = ProtobufBuilder.buildNewSafe(
+                    stage = ProtobufBuilder.STAGE_MAX,
+                    counter = 0, maneuver = gaode, distance = dist,
+                    road = "Selftest $desc", lat = 39.9, lon = 116.4,
+                    etaString = "12:00", totalDistMeters = 10000, totalTimeSeconds = 3600,
+                    statusIcon = 2, speedLimit = 0, cameraDistance = cameraDist,
+                    iconPngLarge = pngLarge, iconPngSmall = pngSmall
+                )
+                val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
+                val pngB = pngSmall?.size ?: 0
+                Logger.i("SELFTEST", "case=$label rc=$rc bytes=${payload.size} png=${pngB}B guard=${if (payload.size <= ProtobufBuilder.MAX_PAYLOAD_BYTES) "OK" else "OVER"}")
+            }
+
+            // SIZEGUARD test: oversized PNG
+            val hugePng = ByteArray(4000) { 0x89.toByte() }
+            val payloadHuge = ProtobufBuilder.buildNewSafe(
+                stage = ProtobufBuilder.STAGE_MAX,
+                counter = 0, maneuver = 11, distance = 500,
+                road = "Huge PNG test", lat = 39.9, lon = 116.4,
+                etaString = "12:00", totalDistMeters = 10000, totalTimeSeconds = 3600,
+                statusIcon = 2, iconPngLarge = hugePng, iconPngSmall = hugePng
+            )
+            val rcHuge = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payloadHuge)
+            Logger.i("SELFTEST", "case=SIZEGUARD_HUGE rc=$rcHuge bytes=${payloadHuge.size} guard=${if (payloadHuge.size <= ProtobufBuilder.MAX_PAYLOAD_BYTES) "OK" else "OVER"}")
+
+            Logger.i("SELFTEST", "=== HUD SELFTEST DONE ===")
+            runOnUiThread { toast("Selftest done — check logcat SELFTEST") }
+        }.apply { isDaemon = true; name = "SELFTEST" }.start()
     }
 
     private fun toggleArrowScan() {

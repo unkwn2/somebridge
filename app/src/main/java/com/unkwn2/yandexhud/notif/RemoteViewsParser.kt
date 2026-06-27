@@ -29,7 +29,9 @@ data class RvNaviInfo(
     val trafficLightColor: String = "",
     val trafficLightSeconds: Int = 0,
     val cameraAlert: String = "",
-    val maneuverEnum: Int? = null     // детерминированный манёвр из имени ресурса (null = не извлекался)
+    val cameraDistanceM: Int = 0,      // дистанция до камеры из titleview (число)
+    val cameraIconPng: ByteArray? = null, // PNG-значок камеры из primaryicon
+    val maneuverEnum: Int? = null
 )
 
 object RemoteViewsParser {
@@ -97,6 +99,8 @@ object RemoteViewsParser {
         var road: String? = null
         var distStr: String? = null
         var cameraAlert: String? = null
+        var cameraDistStr: String? = null
+        var cameraIconDrawable: android.graphics.drawable.Drawable? = null
         var trafficColor: String? = null
         var trafficSeconds: Int = 0
 
@@ -111,12 +115,22 @@ object RemoteViewsParser {
                 "primaryicon" -> {
                     if (a.op == RemoteViewsActionExtractor.Op.IMAGE_RES && a.value.isNotEmpty()) {
                         val alert = ManeuverMapper.roadAlertFromRes(a.value)
-                        if (alert.isNotEmpty()) cameraAlert = alert
+                        if (alert.isNotEmpty()) {
+                            cameraAlert = alert
+                            cameraDistStr = null // сброс — будем искать в titleview
+                        }
                     }
                 }
                 "titleview" -> {
                     if (a.op == RemoteViewsActionExtractor.Op.TEXT && a.value.isNotEmpty()
-                        && a.value != "setText") distStr = a.value
+                        && a.value != "setText") {
+                        distStr = a.value
+                        // если камера активна — titleview содержит расстояние до камеры
+                        if (cameraAlert != null) {
+                            val d = parseDistance(a.value)
+                            if (d != null && d > 0) cameraDistStr = a.value
+                        }
+                    }
                 }
                 "descriptionview" -> {
                     if (a.op == RemoteViewsActionExtractor.Op.TEXT && a.value.isNotEmpty()
@@ -137,12 +151,17 @@ object RemoteViewsParser {
             }
         }
 
+        // Извлечение PNG камеры из drawables (actions путь не даёт Drawable — берём из classify path)
+        // cameraIconPng заполняется в mergePreferActions или parseOnMain
+
         return RvNaviInfo(
             road = road ?: "",
             distToManeuverM = distStr?.let { parseDistance(it) } ?: 0,
             trafficLightColor = trafficColor ?: "",
             trafficLightSeconds = trafficSeconds,
             cameraAlert = cameraAlert ?: "",
+            cameraDistanceM = cameraDistStr?.let { parseDistance(it) } ?: 0,
+            cameraIconPng = null, // заполнится в mergePreferActions из render path
             maneuverEnum = maneuverEnum
         )
     }
@@ -164,6 +183,8 @@ object RemoteViewsParser {
             trafficLightColor = actions.trafficLightColor.ifEmpty { render.trafficLightColor },
             trafficLightSeconds = actions.trafficLightSeconds.takeIf { it > 0 } ?: render.trafficLightSeconds,
             cameraAlert = actions.cameraAlert.ifEmpty { render.cameraAlert },
+            cameraDistanceM = actions.cameraDistanceM.takeIf { it > 0 } ?: render.cameraDistanceM,
+            cameraIconPng = render.cameraIconPng ?: actions.cameraIconPng,
             maneuverEnum = actions.maneuverEnum ?: render.maneuverEnum
         )
     }
@@ -232,7 +253,7 @@ object RemoteViewsParser {
             } else {
                 val m = ManeuverMapper.fromRussianText(descVal)
                 if (m != ManeuverMapper.M_UNKNOWN) instruction = descVal
-                else if (!TIME_HHMM.containsMatchIn(descVal)) road = descVal
+                else if (!TIME_HHMM.containsMatchIn(descVal) && !isDurationText(descVal)) road = descVal
             }
         }
 
@@ -289,10 +310,17 @@ object RemoteViewsParser {
                 else kotlin.math.abs(w.toDouble() / h.toDouble() - 1.0)
             }?.drawable
 
+        // Камера: PNG из "primaryicon" + расстояние из titleview
+        val cameraIconDrawable = if (cameraAlert.isNotEmpty())
+            images.firstOrNull { it.name == "primaryicon" }?.drawable else null
+        val cameraDistM = if (cameraAlert.isNotEmpty())
+            distManeuver else 0 // titleview = расстояние до камеры когда камера активна
+
         return RvNaviInfo(
             instruction, road, distManeuver, distTotal, arrival, remaining,
             pngDrawable?.let { toPng(it) },
-            trafficLightColor, trafficLightSeconds, cameraAlert
+            trafficLightColor, trafficLightSeconds, cameraAlert,
+            cameraDistM, cameraIconDrawable?.let { toPng(it) }
         )
     }
 
@@ -336,6 +364,14 @@ object RemoteViewsParser {
         val h = m.groupValues[1].toIntOrNull() ?: 0
         val min = m.groupValues[2].toIntOrNull() ?: 0
         return h * 3600 + min * 60
+    }
+
+    /** Проверяет, является ли строка длительностью ("1 ч 40 мин", "30 мин", "1:30") */
+    private fun isDurationText(s: String): Boolean {
+        val trimmed = s.trim()
+        if (trimmed.contains("ч") || trimmed.contains("мин")) return true
+        if (TIME_HHMM.matches(trimmed)) return true
+        return false
     }
 
     private fun toPng(d: Drawable): ByteArray? = try {
