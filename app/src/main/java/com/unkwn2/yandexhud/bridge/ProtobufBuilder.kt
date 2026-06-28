@@ -1,6 +1,7 @@
 package com.unkwn2.yandexhud.bridge
 
 import com.unkwn2.yandexhud.notif.ManeuverMapper
+import com.unkwn2.yandexhud.util.Logger
 import java.io.ByteArrayOutputStream
 
 /**
