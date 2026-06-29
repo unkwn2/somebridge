@@ -236,7 +236,7 @@ object LocalAdb {
         grantBatteryWhitelist()
     )
 
-    private val COMPONENT_NOTIF = "com.unkwn2.yandexhud/.notif.YandexNaviNotificationListener"
+    private val COMPONENT_NOTIF = "com.unkwn2.yandexhud/com.unkwn2.yandexhud.notif.YandexNaviNotificationListener"
     private val COMPONENT_A11Y = "com.unkwn2.yandexhud/com.unkwn2.yandexhud.notif.YandexA11yService"
 
     fun checkNotificationAccess(): Boolean {
@@ -251,7 +251,7 @@ object LocalAdb {
 
     fun checkMockLocation(): Boolean {
         val r = exec("appops get com.unkwn2.yandexhud android:mock_location")
-        return r.success && r.output.trim() == "allow"
+        return r.success && r.output.contains("allow")
     }
 
     fun checkNaviSettings(): Boolean {
@@ -261,7 +261,7 @@ object LocalAdb {
 
     fun checkBackgroundRun(): Boolean {
         val r = exec("appops get com.unkwn2.yandexhud RUN_IN_BACKGROUND")
-        return r.success && r.output.trim() == "allow"
+        return r.success && r.output.contains("allow")
     }
 
     fun checkBatteryWhitelist(): Boolean {
