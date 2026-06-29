@@ -43,6 +43,7 @@ object LocalAdb {
     @Volatile private var input: DataInputStream? = null
     @Volatile private var output: DataOutputStream? = null
     @Volatile private var permsSatisfied = false
+    @Volatile private var localIdSeq = 1
 
     data class Result(val success: Boolean, val output: String = "", val error: String = "")
 
@@ -176,10 +177,16 @@ object LocalAdb {
         synchronized(lock) {
             if (output == null) return Result(false, error = "not connected")
             try {
-                send(A_OPEN, 1, 0, "shell:$command\u0000".toByteArray())
+                val localId = localIdSeq++
+                send(A_OPEN, localId, 0, "shell:$command\u0000".toByteArray())
                 val baos = ByteArrayOutputStream()
                 while (true) {
                     val msg = read() ?: break
+                    if (msg.arg1 != localId) {
+                        // Хвост прошлого стрима — ACK и пропуск
+                        if (msg.command == A_WRTE) send(A_OKAY, msg.arg1, msg.arg0, ByteArray(0))
+                        continue
+                    }
                     when (msg.command) {
                         A_OKAY -> {}
                         A_WRTE -> {
@@ -240,66 +247,91 @@ object LocalAdb {
     private val COMPONENT_A11Y = "com.unkwn2.yandexhud/com.unkwn2.yandexhud.notif.YandexA11yService"
 
     fun checkNotificationAccess(): Boolean {
-        val r = exec("cmd notification get_enabled_listeners")
+        val r = exec("settings get secure enabled_notification_listeners")
         return r.success && r.output.contains(COMPONENT_NOTIF)
     }
 
     fun checkAccessibility(): Boolean {
+        try { Thread.sleep(100) } catch (_: InterruptedException) {}
         val r = exec("settings get secure enabled_accessibility_services")
         return r.success && r.output.contains(COMPONENT_A11Y)
     }
 
     fun checkMockLocation(): Boolean {
+        try { Thread.sleep(100) } catch (_: InterruptedException) {}
         val r = exec("appops get com.unkwn2.yandexhud android:mock_location")
-        return r.success && r.output.contains("allow")
+        return r.success && !r.output.contains("deny")
     }
 
     fun checkNaviSettings(): Boolean {
+        try { Thread.sleep(100) } catch (_: InterruptedException) {}
         val r = exec("settings get global navi_screen_status")
         return r.success && r.output.trim() == "3"
     }
 
     fun checkBackgroundRun(): Boolean {
+        try { Thread.sleep(100) } catch (_: InterruptedException) {}
         val r = exec("appops get com.unkwn2.yandexhud RUN_IN_BACKGROUND")
         return r.success && r.output.contains("allow")
     }
 
     fun checkBatteryWhitelist(): Boolean {
+        try { Thread.sleep(100) } catch (_: InterruptedException) {}
         val r = exec("dumpsys deviceidle whitelist")
         return r.success && r.output.contains("com.unkwn2.yandexhud")
     }
 
-    /** Идемпотентно: чек → грант только недостающего. Повторные вызовы — бесплатны. */
+    /** Идемпотентно: чек → грант только недостающего. Гранты в ОДНОМ shell — без перемешивания выходов. */
     fun ensurePermissions(ctx: android.content.Context, force: Boolean = false): Boolean {
         synchronized(lock) {
             if (permsSatisfied && !force) return true
             if (!ensureConnected(ctx)) { Logger.w(TAG, "ensurePermissions: ADB connect failed"); return false }
 
-            data class PermCheck(val name: String, val check: () -> Boolean, val grant: () -> Result)
-            val perms = listOf(
-                PermCheck("NOTIF", { checkNotificationAccess() }, { grantNotificationAccess() }),
-                PermCheck("A11Y", { checkAccessibility() }, { grantAccessibility() }),
-                PermCheck("MOCK", { checkMockLocation() }, { grantMockLocation() }),
-                PermCheck("NAVI", { checkNaviSettings() }, { grantNaviSettings() }),
-                PermCheck("BG", { checkBackgroundRun() }, { grantBackgroundRun() }),
-                PermCheck("BATT", { checkBatteryWhitelist() }, { grantBatteryWhitelist() })
-            )
+            // 1. Проверяем что нужно
+            val needNotif = !checkNotificationAccess()
+            val needA11y = !checkAccessibility()
+            val needMock = !checkMockLocation()
+            val needNavi = !checkNaviSettings()
+            val needBg = !checkBackgroundRun()
+            val needBatt = !checkBatteryWhitelist()
 
-            for (attempt in 1..3) {
-                val missing = perms.filter { !it.check() }
-                if (missing.isEmpty()) break
-                Logger.i(TAG, "ensurePermissions attempt=$attempt missing=${missing.joinToString(",") { it.name }}")
-                for (p in missing) {
-                    val r = p.grant()
-                    Logger.i(TAG, "  GRANT ${p.name}: success=${r.success} out='${r.output.take(80)}' err='${r.error}'")
-                }
-                if (attempt < 3) {
-                    try { Thread.sleep(400L) } catch (_: InterruptedException) { break }
-                }
+            if (!needNotif && !needA11y && !needMock && !needNavi && !needBg && !needBatt) {
+                permsSatisfied = true
+                Logger.i(TAG, "ensurePermissions: all already granted")
+                return true
             }
 
-            permsSatisfied = perms.all { it.check() }
-            val results = perms.joinToString(" ") { "${it.name}=${if (it.check()) "ok" else "FAIL"}" }
+            // 2. Собираем ВСЕ гранты в одну shell-команду
+            val cmds = mutableListOf<String>()
+            if (needNotif) cmds.add("cmd notification allow_listener $COMPONENT_NOTIF")
+            if (needA11y) {
+                val cur = exec("settings get secure enabled_accessibility_services").output
+                val merged = when {
+                    cur.isEmpty() || cur == "null" -> COMPONENT_A11Y
+                    cur.contains(COMPONENT_A11Y) -> cur
+                    else -> "$cur:$COMPONENT_A11Y"
+                }
+                cmds.add("settings put secure enabled_accessibility_services \"$merged\"")
+                cmds.add("settings put secure accessibility_enabled 1")
+            }
+            if (needMock) cmds.add("appops set com.unkwn2.yandexhud android:mock_location allow")
+            if (needNavi) cmds.add("settings put global navi_screen_status 3")
+            if (needBg) cmds.add("appops set com.unkwn2.yandexhud RUN_IN_BACKGROUND allow")
+            if (needBatt) cmds.add("dumpsys deviceidle whitelist +com.unkwn2.yandexhud")
+
+            val batchCmd = cmds.joinToString(" ; ")
+            Logger.i(TAG, "ensurePermissions granting: ${cmds.size} cmds in one shell")
+            val r = exec(batchCmd)
+            Logger.i(TAG, "  batch result: success=${r.success} out='${r.output.take(120)}'")
+
+            // 3. Ждём системе устаканиться
+            try { Thread.sleep(500L) } catch (_: InterruptedException) {}
+
+            // 4. Перепроверяем
+            permsSatisfied = checkNotificationAccess() && checkAccessibility() &&
+                checkMockLocation() && checkNaviSettings() && checkBackgroundRun() && checkBatteryWhitelist()
+            val results = "NOTIF=${checkNotificationAccess()} A11Y=${checkAccessibility()} " +
+                "MOCK=${checkMockLocation()} NAVI=${checkNaviSettings()} BG=${checkBackgroundRun()} BATT=${checkBatteryWhitelist()}"
             Logger.i(TAG, "ensurePermissions final allOk=$permsSatisfied $results")
             return permsSatisfied
         }
