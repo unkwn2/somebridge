@@ -145,6 +145,8 @@ object ProtobufBuilder {
         if (distance > 0) writeVarintField(inner, 9, distance.toLong())
         writeStringField(inner, 10, road)
 
+        if (speedLimit > 0) writeVarintField(inner, 11, speedLimit.toLong())
+
         writeVarintField(inner, 16, statusIcon.toLong())
 
         // f17 — флаг блока камеры/POI (=1), f18 — дистанция до камеры в метрах.
@@ -164,8 +166,6 @@ object ProtobufBuilder {
         if (full) {
             writeVarintField(inner, 22, 50L)
             writeStringField(inner, 24, "[]")
-        } else if (speedLimit > 0) {
-            writeVarintField(inner, 24, speedLimit.toLong())
         }
 
         // f25 — submessage-константа эталона (штамп), 100% кадров
