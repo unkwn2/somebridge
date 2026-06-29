@@ -158,8 +158,8 @@ object ProtobufBuilder {
         }
 
         if (lat != 0.0 || lon != 0.0) {
-            writeDoubleField(inner, 19, lon)   // double, НЕ varint
-            writeDoubleField(inner, 20, lat)   // double, НЕ varint
+            writeDoubleAsVarintField(inner, 19, lon)
+            writeDoubleAsVarintField(inner, 20, lat)
         }
 
         // f22=50, f24=\"[]\" — константы эталона
@@ -188,7 +188,7 @@ object ProtobufBuilder {
         // f33 — прогресс маршрута (double)
         if (useF33 && totalDistMeters > 0 && distance > 0) {
             val progress = 1.0 - distance.toDouble() / totalDistMeters.toDouble()
-            writeDoubleField(inner, 33, progress.coerceIn(0.0, 1.0))
+            writeDoubleAsVarintField(inner, 33, progress.coerceIn(0.0, 1.0))
         }
 
         return wrap(inner)
@@ -385,6 +385,12 @@ object ProtobufBuilder {
         writeVarint(o, ((tag shl 3) or 1).toLong())
         val bits = java.lang.Double.doubleToLongBits(v)
         for (k in 0..7) o.write(((bits ushr (k * 8)) and 0xff).toInt())
+    }
+
+    /** double как varint (wire type 0) — как в эталоне yhud.log */
+    private fun writeDoubleAsVarintField(o: ByteArrayOutputStream, tag: Int, v: Double) {
+        writeVarint(o, (tag shl 3).toLong())
+        writeVarint(o, java.lang.Double.doubleToLongBits(v))
     }
 
     private fun writeVarintField(o: ByteArrayOutputStream, tag: Int, v: Long) {
