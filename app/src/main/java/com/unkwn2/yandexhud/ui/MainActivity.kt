@@ -297,19 +297,23 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
                 checkLicense()
                 return
             }
+            // Грантим через ADB если права не выданы
             if (!isNotifAccessGranted()) {
-                copyAdbCmd("adb shell cmd notification allow_listener com.unkwn2.yandexhud/com.unkwn2.yandexhud.notif.YandexNaviNotificationListener")
-                toast("Need notification access! ADB cmd copied")
-                try { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) } catch (_: Throwable) {}
+                Thread {
+                    val ok = LocalAdb.ensurePermissions(applicationContext, force = true)
+                    runOnUiThread {
+                        if (ok && isNotifAccessGranted()) {
+                            startYandex()
+                        } else {
+                            toast("Нужен доступ к уведомлениям — команда скопирована")
+                            copyAdbCmd("adb shell cmd notification allow_listener com.unkwn2.yandexhud/com.unkwn2.yandexhud.notif.YandexNaviNotificationListener")
+                            try { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) } catch (_: Throwable) {}
+                        }
+                    }
+                }.apply { isDaemon = true; name = "Yandex-grant" }.start()
                 return
             }
-            Logger.i("!YNDX", "=== YANDEX NAVI ON ===")
-            HudForegroundService.start(this)
-            yandexOn = true
-            runOnUiThread {
-                btnYandex.text = "STOP YANDEX"
-                updateStatusBar()
-            }
+            startYandex()
         } else {
             Logger.i("!YNDX", "=== YANDEX NAVI OFF ===")
             HudForegroundService.stop(this)
@@ -318,6 +322,16 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
                 btnYandex.text = "YANDEX NAVI"
                 updateStatusBar()
             }
+        }
+    }
+
+    private fun startYandex() {
+        Logger.i("!YNDX", "=== YANDEX NAVI ON ===")
+        HudForegroundService.start(this)
+        yandexOn = true
+        runOnUiThread {
+            btnYandex.text = "STOP YANDEX"
+            updateStatusBar()
         }
     }
 
@@ -571,11 +585,11 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
 
     private fun saveLog() {
         Thread {
-            Logger.i(TAG, "=== SAVE LOG: connecting ADB ===")
+            Logger.i(TAG, "=== SAVE LOG: ensureConnected ===")
             runOnUiThread { toast("Saving logs via ADB...") }
-            val ok = LocalAdb.init(applicationContext)
+            val ok = LocalAdb.ensureConnected(applicationContext)
             if (!ok) {
-                runOnUiThread { toast("ADB init failed") }
+                runOnUiThread { toast("ADB unavailable") }
                 return@Thread
             }
             val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
@@ -591,38 +605,17 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
         }.apply { isDaemon = true }.start()
     }
 
-    private fun grantPermissions() {
-        Thread {
-            Logger.i(TAG, "=== GRANT: connecting to local ADB ===")
-            runOnUiThread { toast("Connecting ADB...") }
-            val initOk = LocalAdb.init(applicationContext)
-            if (!initOk) {
-                Logger.e(TAG, "GRANT: ADB init failed")
-                runOnUiThread { toast("ADB init failed") }
-                return@Thread
-            }
-            Logger.i(TAG, "GRANT: ADB connected, granting permissions...")
-            runOnUiThread { toast("ADB OK, granting...") }
-            val results = LocalAdb.grantAll()
-            val labels = arrayOf("NOTIF", "A11Y", "MOCK", "NAVI_SET", "BG_RUN", "BATTRY")
-            val sb = StringBuilder()
-            var allOk = true
-            for ((i, r) in results.withIndex()) {
-                val label = labels.getOrElse(i) { "CMD#$i" }
-                Logger.i(TAG, "GRANT $label: success=${r.success} out='${r.output.take(80)}' err='${r.error}'")
-                sb.append("$label:${if (r.success) "OK" else "FAIL"} ")
-                if (!r.success) allOk = false
-            }
-            val msg = sb.toString().trim()
-            runOnUiThread { toast(msg) }
-            Logger.i(TAG, "=== GRANT done: $msg ===")
-        }.apply { isDaemon = true }.start()
-    }
+    private fun grantPermissions() = Thread {
+        Logger.i(TAG, "=== GRANT: ensurePermissions(force=true) ===")
+        runOnUiThread { toast("Выдача прав...") }
+        val ok = LocalAdb.ensurePermissions(applicationContext, force = true)
+        runOnUiThread { toast(if (ok) "Все права выданы ✓" else "ADB недоступен") }
+    }.apply { isDaemon = true; name = "GRANT" }.start()
 
     private fun ensurePermissions() {
         Thread {
             LocalAdb.ensurePermissions(applicationContext)
-        }.apply { isDaemon = true }.start()
+        }.apply { isDaemon = true; name = "ensurePerms" }.start()
     }
 
     private fun updateStatusBar() {

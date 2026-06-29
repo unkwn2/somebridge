@@ -42,8 +42,22 @@ object LocalAdb {
     @Volatile private var socket: Socket? = null
     @Volatile private var input: DataInputStream? = null
     @Volatile private var output: DataOutputStream? = null
+    @Volatile private var permsSatisfied = false
 
     data class Result(val success: Boolean, val output: String = "", val error: String = "")
+
+    /** Переиспользует живой сокет; полный init() — только если коннекта нет. */
+    fun ensureConnected(ctx: android.content.Context): Boolean {
+        synchronized(lock) {
+            val s = socket
+            if (s != null && s.isConnected && !s.isClosed && output != null) {
+                val r = exec("echo __ping__")
+                if (r.success && r.output.contains("__ping__")) return true
+                disconnect()
+            }
+            return init(ctx)
+        }
+    }
 
     fun init(ctx: android.content.Context): Boolean {
         synchronized(lock) {
@@ -255,38 +269,40 @@ object LocalAdb {
         return r.success && r.output.contains("com.unkwn2.yandexhud")
     }
 
-    fun ensurePermissions(ctx: android.content.Context) {
-        if (!init(ctx)) {
-            Logger.w(TAG, "ensurePermissions: ADB init failed")
-            return
-        }
+    /** Идемпотентно: чек → грант только недостающего. Повторные вызовы — бесплатны. */
+    fun ensurePermissions(ctx: android.content.Context, force: Boolean = false): Boolean {
+        synchronized(lock) {
+            if (permsSatisfied && !force) return true
+            if (!ensureConnected(ctx)) { Logger.w(TAG, "ensurePermissions: ADB connect failed"); return false }
 
-        data class PermCheck(val name: String, val check: () -> Boolean, val grant: () -> Result)
+            data class PermCheck(val name: String, val check: () -> Boolean, val grant: () -> Result)
+            val perms = listOf(
+                PermCheck("NOTIF", { checkNotificationAccess() }, { grantNotificationAccess() }),
+                PermCheck("A11Y", { checkAccessibility() }, { grantAccessibility() }),
+                PermCheck("MOCK", { checkMockLocation() }, { grantMockLocation() }),
+                PermCheck("NAVI", { checkNaviSettings() }, { grantNaviSettings() }),
+                PermCheck("BG", { checkBackgroundRun() }, { grantBackgroundRun() }),
+                PermCheck("BATT", { checkBatteryWhitelist() }, { grantBatteryWhitelist() })
+            )
 
-        val perms = listOf(
-            PermCheck("NOTIF", { checkNotificationAccess() }, { grantNotificationAccess() }),
-            PermCheck("A11Y", { checkAccessibility() }, { grantAccessibility() }),
-            PermCheck("MOCK", { checkMockLocation() }, { grantMockLocation() }),
-            PermCheck("NAVI", { checkNaviSettings() }, { grantNaviSettings() }),
-            PermCheck("BG", { checkBackgroundRun() }, { grantBackgroundRun() }),
-            PermCheck("BATT", { checkBatteryWhitelist() }, { grantBatteryWhitelist() })
-        )
-
-        for (attempt in 1..3) {
-            val missing = perms.filter { !it.check() }
-            if (missing.isEmpty()) break
-            Logger.i(TAG, "ensurePermissions attempt=$attempt: missing ${missing.joinToString(",") { it.name }}")
-            for (p in missing) {
-                val r = p.grant()
-                Logger.i(TAG, "  GRANT ${p.name}: success=${r.success} out='${r.output.take(80)}' err='${r.error}'")
+            for (attempt in 1..3) {
+                val missing = perms.filter { !it.check() }
+                if (missing.isEmpty()) break
+                Logger.i(TAG, "ensurePermissions attempt=$attempt missing=${missing.joinToString(",") { it.name }}")
+                for (p in missing) {
+                    val r = p.grant()
+                    Logger.i(TAG, "  GRANT ${p.name}: success=${r.success} out='${r.output.take(80)}' err='${r.error}'")
+                }
+                if (attempt < 3) {
+                    try { Thread.sleep(400L) } catch (_: InterruptedException) { break }
+                }
             }
-            if (attempt < 3) {
-                try { Thread.sleep(1000L * attempt) } catch (_: InterruptedException) { break }
-            }
-        }
 
-        val results = perms.joinToString(" ") { "${it.name}=${if (it.check()) "ok" else "FAIL"}" }
-        Logger.i(TAG, "ensurePermissions final: $results")
+            permsSatisfied = perms.all { it.check() }
+            val results = perms.joinToString(" ") { "${it.name}=${if (it.check()) "ok" else "FAIL"}" }
+            Logger.i(TAG, "ensurePermissions final allOk=$permsSatisfied $results")
+            return permsSatisfied
+        }
     }
 
     fun dumpLogcat(): Result {

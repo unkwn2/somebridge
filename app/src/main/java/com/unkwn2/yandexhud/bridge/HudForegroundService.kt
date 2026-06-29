@@ -114,10 +114,6 @@ class HudForegroundService : Service() {
                 Logger.e(TAG, "bind failed")
             }
         }
-        Thread {
-            LocalAdb.ensurePermissions(this)
-        }.apply { isDaemon = true; name = "FGS-ensurePerms" }.start()
-
         Logger.i(TAG, "created")
     }
 
