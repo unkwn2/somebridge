@@ -182,8 +182,7 @@ object ProtobufBuilder {
 
         if (lat != 0.0 || lon != 0.0) {
             writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver, if (full) 7 else 6))
-            // f31 — строка-точка \"lon,lat,0\" (как в OLD и в 56% кадров эталона; msg-форма НЕ константа)
-            writeStringField(inner, 31, "$lon,$lat,0")
+            if (full) writeF31Const(inner) else writeStringField(inner, 31, "$lon,$lat,0")
         }
 
         // f33 — прогресс маршрута (double)
@@ -352,6 +351,15 @@ object ProtobufBuilder {
         writeVarintField(buf, 6, 3833748802098837041L)
         writeVarintField(buf, 6, 926168631L)
         writeBytesField(o, 25, buf.toByteArray())
+    }
+
+    /** f31 — submessage-константа эталона (из рабочей v88, коммит 4d18b9a). */
+    private fun writeF31Const(o: ByteArrayOutputStream) {
+        val buf = ByteArrayOutputStream()
+        writeVarintField(buf, 6, 3977302105389938225L)
+        writeVarintField(buf, 6, 775500588L)
+        writeVarintField(buf, 7, 3544673996688732209L)
+        writeBytesField(o, 31, buf.toByteArray())
     }
 
     private fun wrap(inner: ByteArrayOutputStream): ByteArray {
