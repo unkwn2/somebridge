@@ -169,16 +169,15 @@ object ProtobufBuilder {
         // f21 — deriveF21(), default=41
         writeVarintField(inner, 21, 41L)
 
-        // f22=50, f24=\"[]\" — константы эталона
+        // f22=50, f23=dangerSign, f24 — константы эталона (порядок как в v88)
         if (full) {
             writeVarintField(inner, 22, 50L)
+            if (dangerSign > 0) writeVarintField(inner, 23, dangerSign.toLong())
             writeStringField(inner, 24, "[]")
-        } else if (speedLimit > 0) {
-            writeVarintField(inner, 24, speedLimit.toLong())
+        } else {
+            if (dangerSign > 0) writeVarintField(inner, 23, dangerSign.toLong())
+            if (speedLimit > 0) writeVarintField(inner, 24, speedLimit.toLong())
         }
-
-        // f23 — dangerSign (знак опасности)
-        if (dangerSign > 0) writeVarintField(inner, 23, dangerSign.toLong())
 
         // f25 — строка (в v88 это строка, НЕ submessage)
         if (full) writeStringField(inner, 25, "[]")
