@@ -102,7 +102,9 @@ object ProtobufBuilder {
         totalTimeSeconds: Int = 0,
         statusIcon: Int = 0,
         speedLimit: Int = 0,
+        curSpeed: Int = 45,            // f12 — текущая скорость (км/ч), deriveF12 default=45
         cameraDistance: Int = 0,       // дистанция до камеры/POI (f18), независима от f9
+        dangerSign: Int = 0,           // f23 — знак опасности
         arriveText: String = "",
         iconPngLarge: ByteArray? = null,
         iconPngSmall: ByteArray? = null,
@@ -145,6 +147,10 @@ object ProtobufBuilder {
         if (distance > 0) writeVarintField(inner, 9, distance.toLong())
         writeStringField(inner, 10, road)
 
+        // f11 — speedLimit, f12 — текущая скорость (deriveF12, default=45)
+        if (speedLimit > 0) writeVarintField(inner, 11, speedLimit.toLong())
+        writeVarintField(inner, 12, curSpeed.coerceIn(0, 200).toLong())
+
         writeVarintField(inner, 16, statusIcon.toLong())
 
         // f17 — флаг блока камеры/POI (=1), f18 — дистанция до камеры в метрах.
@@ -160,6 +166,9 @@ object ProtobufBuilder {
             writeDoubleField(inner, 20, lat)   // double, НЕ varint
         }
 
+        // f21 — deriveF21(), default=41
+        writeVarintField(inner, 21, 41L)
+
         // f22=50, f24=\"[]\" — константы эталона
         if (full) {
             writeVarintField(inner, 22, 50L)
@@ -168,8 +177,11 @@ object ProtobufBuilder {
             writeVarintField(inner, 24, speedLimit.toLong())
         }
 
-        // f25 — submessage-константа эталона (штамп), 100% кадров
-        if (full) writeF25Const(inner)
+        // f23 — dangerSign (знак опасности)
+        if (dangerSign > 0) writeVarintField(inner, 23, dangerSign.toLong())
+
+        // f25 — строка (в v88 это строка, НЕ submessage)
+        if (full) writeStringField(inner, 25, "[]")
 
         writeStringField(inner, 26, etaString)
 
@@ -182,8 +194,8 @@ object ProtobufBuilder {
 
         if (lat != 0.0 || lon != 0.0) {
             writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver, if (full) 7 else 6))
-            // f31 — строка-точка \"lon,lat,0\" (как в OLD и в 56% кадров эталона; msg-форма НЕ константа)
-            writeStringField(inner, 31, "$lon,$lat,0")
+            // f31 — submessage в full (эталон app-debug88), строка-точка в non-full
+            if (full) writeF31Const(inner) else writeStringField(inner, 31, "$lon,$lat,0")
         }
 
         // f33 — прогресс маршрута (double)
@@ -244,29 +256,30 @@ object ProtobufBuilder {
         stage: Int, counter: Int, maneuver: Int, distance: Int, road: String,
         lat: Double, lon: Double, etaString: String,
         totalDistMeters: Int = 0, totalTimeSeconds: Int = 0,
-        statusIcon: Int = 0, speedLimit: Int = 0, cameraDistance: Int = 0,
+        statusIcon: Int = 0, speedLimit: Int = 0, curSpeed: Int = 45,
+        cameraDistance: Int = 0, dangerSign: Int = 0,
         arriveText: String = "",
         iconPngLarge: ByteArray? = null, iconPngSmall: ByteArray? = null,
         testLanes: Boolean = false, laneLayout: String = ""
     ): ByteArray {
         // Попытка 1: полный кадр
         var payload = buildNew(stage, counter, maneuver, distance, road, lat, lon, etaString,
-            totalDistMeters, totalTimeSeconds, statusIcon, speedLimit, cameraDistance,
-            arriveText, iconPngLarge, iconPngSmall, testLanes, laneLayout)
+            totalDistMeters, totalTimeSeconds, statusIcon, speedLimit, curSpeed, cameraDistance,
+            dangerSign, arriveText, iconPngLarge, iconPngSmall, testLanes, laneLayout)
         if (payload.size <= MAX_PAYLOAD_BYTES) return payload
         Logger.w("SIZEGUARD", "payload ${payload.size}B > ${MAX_PAYLOAD_BYTES}B, dropping f7")
 
         // Попытка 2: без f7 (большая схема перекрёстка)
         payload = buildNew(stage, counter, maneuver, distance, road, lat, lon, etaString,
-            totalDistMeters, totalTimeSeconds, statusIcon, speedLimit, cameraDistance,
-            arriveText, iconPngLarge, iconPngSmall, testLanes, laneLayout, includeF7 = false)
+            totalDistMeters, totalTimeSeconds, statusIcon, speedLimit, curSpeed, cameraDistance,
+            dangerSign, arriveText, iconPngLarge, iconPngSmall, testLanes, laneLayout, includeF7 = false)
         if (payload.size <= MAX_PAYLOAD_BYTES) return payload
         Logger.w("SIZEGUARD", "payload ${payload.size}B > ${MAX_PAYLOAD_BYTES}B, dropping f8")
 
         // Попытка 3: без f7 и без f8
         payload = buildNew(stage, counter, maneuver, distance, road, lat, lon, etaString,
-            totalDistMeters, totalTimeSeconds, statusIcon, speedLimit, cameraDistance,
-            arriveText, null, null, testLanes, laneLayout, includeF7 = false, includeF8 = false)
+            totalDistMeters, totalTimeSeconds, statusIcon, speedLimit, curSpeed, cameraDistance,
+            dangerSign, arriveText, null, null, testLanes, laneLayout, includeF7 = false, includeF8 = false)
         Logger.w("SIZEGUARD", "final payload ${payload.size}B (no f7, no f8)")
         return payload
     }
@@ -346,12 +359,12 @@ object ProtobufBuilder {
         return sb.toString()
     }
 
-    /** f25 — выверенная submessage-константа эталона (одинакова во всех 3268 кадрах). */
-    private fun writeF25Const(o: ByteArrayOutputStream) {
+    /** f31 — submessage-константа из рабочей v88 (classes6.dex): ASCII-хардкод "16.41399"+"94444445". */
+    private fun writeF31Const(o: ByteArrayOutputStream) {
         val buf = ByteArrayOutputStream()
-        writeVarintField(buf, 6, 3833748802098837041L)
-        writeVarintField(buf, 6, 926168631L)
-        writeBytesField(o, 25, buf.toByteArray())
+        writeVarintField(buf, 6, 4123383220256257585L)   // = "16.41399" LE
+        writeVarintField(buf, 6, 3833746581617914937L)   // = "94444445" LE
+        writeBytesField(o, 31, buf.toByteArray())
     }
 
     private fun wrap(inner: ByteArrayOutputStream): ByteArray {
