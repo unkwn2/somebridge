@@ -145,8 +145,6 @@ object ProtobufBuilder {
         if (distance > 0) writeVarintField(inner, 9, distance.toLong())
         writeStringField(inner, 10, road)
 
-        if (speedLimit > 0) writeVarintField(inner, 11, speedLimit.toLong())
-
         writeVarintField(inner, 16, statusIcon.toLong())
 
         // f17 — флаг блока камеры/POI (=1), f18 — дистанция до камеры в метрах.
@@ -158,14 +156,16 @@ object ProtobufBuilder {
         }
 
         if (lat != 0.0 || lon != 0.0) {
-            writeDoubleAsVarintField(inner, 19, lon)
-            writeDoubleAsVarintField(inner, 20, lat)
+            writeDoubleField(inner, 19, lon)   // double, НЕ varint
+            writeDoubleField(inner, 20, lat)   // double, НЕ varint
         }
 
         // f22=50, f24=\"[]\" — константы эталона
         if (full) {
             writeVarintField(inner, 22, 50L)
             writeStringField(inner, 24, "[]")
+        } else if (speedLimit > 0) {
+            writeVarintField(inner, 24, speedLimit.toLong())
         }
 
         // f25 — submessage-константа эталона (штамп), 100% кадров
@@ -182,13 +182,14 @@ object ProtobufBuilder {
 
         if (lat != 0.0 || lon != 0.0) {
             writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver, if (full) 7 else 6))
-            if (full) writeF31Const(inner) else writeStringField(inner, 31, "$lon,$lat,0")
+            // f31 — строка-точка \"lon,lat,0\" (как в OLD и в 56% кадров эталона; msg-форма НЕ константа)
+            writeStringField(inner, 31, "$lon,$lat,0")
         }
 
         // f33 — прогресс маршрута (double)
         if (useF33 && totalDistMeters > 0 && distance > 0) {
             val progress = 1.0 - distance.toDouble() / totalDistMeters.toDouble()
-            writeDoubleAsVarintField(inner, 33, progress.coerceIn(0.0, 1.0))
+            writeDoubleField(inner, 33, progress.coerceIn(0.0, 1.0))
         }
 
         return wrap(inner)
@@ -353,15 +354,6 @@ object ProtobufBuilder {
         writeBytesField(o, 25, buf.toByteArray())
     }
 
-    /** f31 — submessage-константа эталона (из рабочей v88, коммит 4d18b9a). */
-    private fun writeF31Const(o: ByteArrayOutputStream) {
-        val buf = ByteArrayOutputStream()
-        writeVarintField(buf, 6, 3977302105389938225L)
-        writeVarintField(buf, 6, 775500588L)
-        writeVarintField(buf, 7, 3544673996688732209L)
-        writeBytesField(o, 31, buf.toByteArray())
-    }
-
     private fun wrap(inner: ByteArrayOutputStream): ByteArray {
         val innerBytes = inner.toByteArray()
         val outer = ByteArrayOutputStream()
@@ -385,12 +377,6 @@ object ProtobufBuilder {
         writeVarint(o, ((tag shl 3) or 1).toLong())
         val bits = java.lang.Double.doubleToLongBits(v)
         for (k in 0..7) o.write(((bits ushr (k * 8)) and 0xff).toInt())
-    }
-
-    /** double как varint (wire type 0) — как в эталоне yhud.log */
-    private fun writeDoubleAsVarintField(o: ByteArrayOutputStream, tag: Int, v: Double) {
-        writeVarint(o, (tag shl 3).toLong())
-        writeVarint(o, java.lang.Double.doubleToLongBits(v))
     }
 
     private fun writeVarintField(o: ByteArrayOutputStream, tag: Int, v: Long) {

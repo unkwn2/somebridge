@@ -12,3 +12,9 @@
 /app/debug
 /app/build
 /daemon
+app/build.txt
+app.zip
+app/src/main.txt
+Hud_build/
+HUD_DEAD_ENDS.md
+HUD_WORKING_CONSPECT.md
