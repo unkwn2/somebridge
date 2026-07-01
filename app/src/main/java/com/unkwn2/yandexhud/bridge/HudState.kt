@@ -72,11 +72,17 @@ object HudState {
             lastUpdateMs = System.currentTimeMillis())
     }
 
-    fun deactivate() = update {
-        it.copy(active = false, maneuver = ManeuverMapper.M_UNKNOWN,
-            maneuverGaode = 0, maneuverGaodeMs = 0L,
-            distanceMeters = 0, road = "", arriveText = "",
-            lastUpdateMs = System.currentTimeMillis())
+    fun deactivate() {
+        val now = System.currentTimeMillis()
+        val s = current
+        // Если данные свежие (< 10с) — не дезактивируем (a11y/нотиф могли обновиться недавно)
+        if (s.active && (now - s.lastUpdateMs) < 10_000L) return
+        update {
+            it.copy(active = false, maneuver = ManeuverMapper.M_UNKNOWN,
+                maneuverGaode = 0, maneuverGaodeMs = 0L,
+                distanceMeters = 0, road = "", arriveText = "",
+                lastUpdateMs = now)
+        }
     }
 
     fun clearManeuver() = deactivate()

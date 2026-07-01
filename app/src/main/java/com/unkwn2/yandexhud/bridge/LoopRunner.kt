@@ -62,8 +62,9 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                     val etaM = arrTotal % 60
                     val etaStr = String.format("%02d:%02d", etaH, etaM)
 
-                    val a11yFresh = s.maneuverGaode > 0 && (System.currentTimeMillis() - s.maneuverGaodeMs) < 5000
+                    val a11yFresh = s.maneuverGaode > 0 && (System.currentTimeMillis() - s.maneuverGaodeMs) < 10_000
                     val maneuverVal = if (a11yFresh) s.maneuverGaode
+                        else if (s.maneuverGaode > 0 && s.distanceMeters > 0) s.maneuverGaode
                         else toGaodeEnum(s.maneuver)
                     val statusIconVal = 2
 
