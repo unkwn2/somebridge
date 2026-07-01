@@ -56,9 +56,7 @@ class YandexNaviNotificationListener : NotificationListenerService() {
             Logger.i(TAG, "posted rv m=$maneuver(${ManeuverMapper.maneuverName(maneuver)}) d=${rv.distToManeuverM}m road='${rv.road}' eta=${etaSeconds}s tl=${rv.trafficLightColor}${if (rv.trafficLightSeconds > 0) " ${rv.trafficLightSeconds}s" else ""} cam='${rv.cameraAlert}' png=${if (rv.maneuverPng != null) "${rv.maneuverPng.size}B" else "none"}")
             removePostedMs = 0L
             HudState.update { prev ->
-                val roadChanged = rv.road.isNotEmpty() && prev.road != rv.road
-                val maneuverChanged = maneuver != ManeuverMapper.M_UNKNOWN && prev.maneuver != maneuver
-                val gaodeStale = roadChanged || maneuverChanged
+                val g = if (maneuver != ManeuverMapper.M_UNKNOWN) ManeuverMapper.toGaode(maneuver) else 0
                 prev.copy(
                     active = true,
                     maneuver = if (maneuver != ManeuverMapper.M_UNKNOWN) maneuver else prev.maneuver,
@@ -75,8 +73,8 @@ class YandexNaviNotificationListener : NotificationListenerService() {
                         else rv.cameraDistanceM.takeIf { it > 0 } ?: prev.cameraDistanceMeters,
                     cameraIconPng = if (rv.cameraAlert.isEmpty()) null
                         else rv.cameraIconPng ?: prev.cameraIconPng,
-                    maneuverGaode = prev.maneuverGaode,
-                    maneuverGaodeMs = if (gaodeStale) 0L else prev.maneuverGaodeMs,
+                    maneuverGaode = if (g > 0) g else prev.maneuverGaode,
+                    maneuverGaodeMs = if (g > 0) System.currentTimeMillis() else prev.maneuverGaodeMs,
                     lastUpdateMs = System.currentTimeMillis()
                 )
             }
@@ -119,9 +117,7 @@ class YandexNaviNotificationListener : NotificationListenerService() {
             }
             val mergeDist = if (distanceMeters > 0) distanceMeters else prev.distanceMeters
             val mergeRoad = if (road.isNotEmpty() && road != "Навигатор запущен") road else prev.road
-            val roadChanged = mergeRoad.isNotEmpty() && prev.road != mergeRoad
-            val maneuverChanged = notifManeuverKnown && prev.maneuver != maneuver
-            val gaodeStale = roadChanged || maneuverChanged
+            val g = if (mergeManeuver != ManeuverMapper.M_UNKNOWN) ManeuverMapper.toGaode(mergeManeuver) else 0
             prev.copy(
                 active = true,
                 maneuver = mergeManeuver,
@@ -129,8 +125,8 @@ class YandexNaviNotificationListener : NotificationListenerService() {
                 road = mergeRoad,
                 etaSeconds = mergeEta,
                 totalTimeSeconds = prev.totalTimeSeconds,
-                maneuverGaode = prev.maneuverGaode,
-                maneuverGaodeMs = if (gaodeStale) 0L else prev.maneuverGaodeMs,
+                maneuverGaode = if (g > 0) g else prev.maneuverGaode,
+                maneuverGaodeMs = if (g > 0) System.currentTimeMillis() else prev.maneuverGaodeMs,
                 lastUpdateMs = System.currentTimeMillis()
             )
         }
@@ -141,14 +137,23 @@ class YandexNaviNotificationListener : NotificationListenerService() {
         val now = System.currentTimeMillis()
         if (now - removePostedMs < REMOVE_DEBOUNCE_MS) return
         removePostedMs = now
+        scheduleDeactivateCheck()
+        Logger.i(TAG, "removed — debounce ${REMOVE_DEBOUNCE_MS}ms")
+    }
+
+    private fun scheduleDeactivateCheck() {
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            if (removePostedMs != 0L && System.currentTimeMillis() - removePostedMs >= REMOVE_DEBOUNCE_MS - 100) {
-                Logger.i(TAG, "removed after debounce — deactivating HUD")
+            if (removePostedMs == 0L) return@postDelayed
+            val s = HudState.snapshot()
+            if (!s.active) return@postDelayed
+            if (System.currentTimeMillis() - s.lastUpdateMs >= 10_000L) {
+                Logger.i(TAG, "deactivate check — grace expired, deactivating HUD")
                 HudState.deactivate()
                 removePostedMs = 0L
+            } else {
+                scheduleDeactivateCheck()
             }
-        }, REMOVE_DEBOUNCE_MS)
-        Logger.i(TAG, "removed — debounce ${REMOVE_DEBOUNCE_MS}ms")
+        }, 3_000L)
     }
 
     private fun resolveIconName(pkg: String, resId: Int): String {
