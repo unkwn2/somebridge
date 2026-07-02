@@ -11,6 +11,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import com.unkwn2.yandexhud.R
+import com.unkwn2.yandexhud.notif.YandexNaviNotificationListener
 import com.unkwn2.yandexhud.util.LocalAdb
 import com.unkwn2.yandexhud.util.Logger
 
@@ -114,6 +115,10 @@ class HudForegroundService : Service() {
                 Logger.e(TAG, "bind failed")
             }
         }
+        // Принудительный rebind NotificationListenerService если доступ уже выдан
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            tryRebindNotifListener()
+        }, 2000L)
         Logger.i(TAG, "created")
     }
 
@@ -128,6 +133,21 @@ class HudForegroundService : Service() {
 
     private var restartAttempt = 0
     private val MAX_RESTART_DELAY = 60_000L
+
+    private fun tryRebindNotifListener() {
+        try {
+            val cn = android.content.ComponentName(this, YandexNaviNotificationListener::class.java)
+            val enabled = androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
+            if (enabled) {
+                android.service.notification.NotificationListenerService.requestRebind(cn)
+                Logger.i(TAG, "requestRebind notif listener (permission granted)")
+            } else {
+                Logger.i(TAG, "skip rebind — notif permission not granted")
+            }
+        } catch (t: Throwable) {
+            Logger.w(TAG, "requestRebind failed: ${t.message}")
+        }
+    }
 
     override fun onDestroy() {
         _loopRunner?.stop()

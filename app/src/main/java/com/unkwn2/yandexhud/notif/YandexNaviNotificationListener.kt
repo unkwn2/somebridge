@@ -28,15 +28,20 @@ class YandexNaviNotificationListener : NotificationListenerService() {
     }
 
     override fun onListenerConnected() {
-        Logger.i(TAG, "listener connected")
+        Logger.i(TAG, "listener connected (pkg=${packageName})")
     }
 
     override fun onListenerDisconnected() {
-        Logger.w(TAG, "listener disconnected")
+        Logger.w(TAG, "listener disconnected (pkg=${packageName})")
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        if (sbn.packageName !in YANDEX_PKGS) return
+        // Диагностический лог: пишем ВСЕ нотификации (для отладки бинда)
+        val isYandex = sbn.packageName in YANDEX_PKGS
+        if (!isYandex) {
+            Logger.i(TAG, "posted foreign pkg=${sbn.packageName} id=${sbn.id} cat=${sbn.notification.category}")
+            return
+        }
 
         val n = sbn.notification
         val ext = n.extras ?: return

@@ -29,9 +29,11 @@ import com.unkwn2.yandexhud.bridge.ProtobufBuilder
 import com.unkwn2.yandexhud.mock.MockGpsService
 import com.unkwn2.yandexhud.notif.ManeuverMapper
 import com.unkwn2.yandexhud.notif.YandexA11yService
+import com.unkwn2.yandexhud.notif.YandexNaviNotificationListener
 import com.unkwn2.yandexhud.util.LocalAdb
 import com.unkwn2.yandexhud.util.LicenseManager
 import com.unkwn2.yandexhud.util.Logger
+import android.service.notification.NotificationListenerService
 import java.security.MessageDigest
 
 class MainActivity : AppCompatActivity() {
@@ -303,6 +305,7 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
                     val ok = LocalAdb.ensurePermissions(applicationContext, force = true)
                     runOnUiThread {
                         if (ok && isNotifAccessGranted()) {
+                            rebindNotifListener()
                             startYandex()
                         } else {
                             toast("Нужен доступ к уведомлениям — команда скопирована")
@@ -313,6 +316,7 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
                 }.apply { isDaemon = true; name = "Yandex-grant" }.start()
                 return
             }
+            rebindNotifListener()
             startYandex()
         } else {
             Logger.i("!YNDX", "=== YANDEX NAVI OFF ===")
@@ -609,12 +613,18 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
         Logger.i(TAG, "=== GRANT: ensurePermissions(force=true) ===")
         runOnUiThread { toast("Выдача прав...") }
         val ok = LocalAdb.ensurePermissions(applicationContext, force = true)
+        if (ok && isNotifAccessGranted()) {
+            rebindNotifListener()
+        }
         runOnUiThread { toast(if (ok) "Все права выданы ✓" else "ADB недоступен") }
     }.apply { isDaemon = true; name = "GRANT" }.start()
 
     private fun ensurePermissions() {
         Thread {
-            LocalAdb.ensurePermissions(applicationContext)
+            val ok = LocalAdb.ensurePermissions(applicationContext)
+            if (ok && isNotifAccessGranted()) {
+                rebindNotifListener()
+            }
         }.apply { isDaemon = true; name = "ensurePerms" }.start()
     }
 
@@ -643,6 +653,20 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
 
     private fun isNotifAccessGranted(): Boolean =
         NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
+
+    private fun rebindNotifListener() {
+        if (!isNotifAccessGranted()) {
+            Logger.i(TAG, "skip rebind — notif permission not granted")
+            return
+        }
+        try {
+            val cn = android.content.ComponentName(this, YandexNaviNotificationListener::class.java)
+            NotificationListenerService.requestRebind(cn)
+            Logger.i(TAG, "requestRebind called for $cn")
+        } catch (t: Throwable) {
+            Logger.w(TAG, "requestRebind failed: ${t.message}")
+        }
+    }
 
     private fun isA11yEnabled(): Boolean {
         val enabled = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: ""

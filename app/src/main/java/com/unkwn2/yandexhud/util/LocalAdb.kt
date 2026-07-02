@@ -208,7 +208,14 @@ object LocalAdb {
     }
 
     fun grantNotificationAccess(): Result =
-        exec("cmd notification allow_listener com.unkwn2.yandexhud/com.unkwn2.yandexhud.notif.YandexNaviNotificationListener")
+        exec("cmd notification allow_listener $COMPONENT_NOTIF")
+
+    /** Toggle (disallow → allow) чтобы система перeregистрировала listener. */
+    fun toggleNotifListener(): Result {
+        exec("cmd notification disallow_listener $COMPONENT_NOTIF")
+        try { Thread.sleep(500) } catch (_: InterruptedException) {}
+        return exec("cmd notification allow_listener $COMPONENT_NOTIF")
+    }
 
     fun grantAccessibility(): Result {
         val cur = exec("settings get secure enabled_accessibility_services").output
@@ -326,6 +333,13 @@ object LocalAdb {
 
             // 3. Ждём системе устаканиться
             try { Thread.sleep(500L) } catch (_: InterruptedException) {}
+
+            // 3b. Toggle notif listener чтобы система перeregистрировала его
+            if (checkNotificationAccess()) {
+                Logger.i(TAG, "ensurePermissions: toggling notif listener for rebind")
+                toggleNotifListener()
+                try { Thread.sleep(300L) } catch (_: InterruptedException) {}
+            }
 
             // 4. Перепроверяем
             permsSatisfied = checkNotificationAccess() && checkAccessibility() &&
