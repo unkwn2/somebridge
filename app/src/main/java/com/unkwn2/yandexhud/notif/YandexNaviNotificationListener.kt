@@ -73,7 +73,7 @@ class YandexNaviNotificationListener : NotificationListenerService() {
                     iconPng = rv.maneuverPng ?: prev.iconPng,
                     trafficLightColor = if (rv.trafficLightColor.isNotEmpty()) rv.trafficLightColor else prev.trafficLightColor,
                     trafficLightSeconds = if (rv.trafficLightSeconds > 0) rv.trafficLightSeconds else prev.trafficLightSeconds,
-                    cameraAlert = if (rv.cameraAlert.isNotEmpty()) rv.cameraAlert else prev.cameraAlert,
+                    cameraAlert = rv.cameraAlert,  // не тянем prev: пусто в rv => камера ушла
                     cameraDistanceMeters = if (rv.cameraAlert.isEmpty()) 0
                         else rv.cameraDistanceM.takeIf { it > 0 } ?: prev.cameraDistanceMeters,
                     cameraIconPng = if (rv.cameraAlert.isEmpty()) null

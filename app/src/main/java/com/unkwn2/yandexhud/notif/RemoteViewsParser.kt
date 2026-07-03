@@ -55,7 +55,9 @@ object RemoteViewsParser {
 
     private val ACTION_BUTTON_TEXTS = setOf(
         "завершить маршрут", "отмена", "отменить", "закрыть",
-        "без уведомлений", "выключить уведомления", "парковки", "обзор"
+        "без уведомлений", "выключить уведомления", "парковки", "обзор",
+        "finish the route", "cancel", "overview", "parking", "close",
+        "mute", "turn off notifications"
     )
 
     private val MAPS_PKGS = setOf(
@@ -138,6 +140,15 @@ object RemoteViewsParser {
                         && !TIME_HHMM.containsMatchIn(a.value)) {
                         road = a.value
                     }
+                }
+            }
+            // Улица из titleview: "<дистанция> · <улица>"
+            if (road == null && a.viewIdName == "titleview"
+                && a.op == RemoteViewsActionExtractor.Op.TEXT && a.value.isNotEmpty()) {
+                val sepIdx = a.value.indexOf('\u00B7')
+                if (sepIdx >= 0) {
+                    val street = a.value.substring(sepIdx + 1).trim()
+                    if (street.isNotEmpty()) road = street
                 }
             }
             if (a.viewIdName.startsWith("traffic_light")) {
@@ -254,6 +265,15 @@ object RemoteViewsParser {
                 val m = ManeuverMapper.fromRussianText(descVal)
                 if (m != ManeuverMapper.M_UNKNOWN) instruction = descVal
                 else if (!TIME_HHMM.containsMatchIn(descVal) && !isDurationText(descVal)) road = descVal
+            }
+        }
+
+        // Улица зашита в titleview: "<дистанция> · <улица>" (например "500 m · Agatangeghos Street")
+        if (road.isEmpty() && titleVal != null) {
+            val sepIdx = titleVal.indexOf('\u00B7')  // · MIDDLE DOT
+            if (sepIdx >= 0) {
+                val street = titleVal.substring(sepIdx + 1).trim()
+                if (street.isNotEmpty()) road = street
             }
         }
 

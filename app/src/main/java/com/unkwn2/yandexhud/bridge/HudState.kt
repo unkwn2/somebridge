@@ -69,6 +69,7 @@ object HudState {
             maneuver = ManeuverMapper.M_UNKNOWN,
             maneuverGaode = 0, maneuverGaodeMs = 0L,
             distanceMeters = 0, road = "", arriveText = "",
+            cameraAlert = "", cameraDistanceMeters = 0, cameraIconPng = null,
             lastUpdateMs = System.currentTimeMillis())
     }
 
@@ -81,6 +82,7 @@ object HudState {
             it.copy(active = false, maneuver = ManeuverMapper.M_UNKNOWN,
                 maneuverGaode = 0, maneuverGaodeMs = 0L,
                 distanceMeters = 0, road = "", arriveText = "",
+                cameraAlert = "", cameraDistanceMeters = 0, cameraIconPng = null,
                 lastUpdateMs = now)
         }
     }
