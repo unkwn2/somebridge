@@ -127,7 +127,6 @@ object ProtobufBuilder {
         val useF33    = stage >= 3
         val f2Const   = stage >= 4
         val f28Mapped = stage >= 5
-        val full      = stage >= 6
 
         val inner = ByteArrayOutputStream()
 
