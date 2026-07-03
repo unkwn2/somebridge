@@ -93,8 +93,6 @@ object ProtobufBuilder {
             writeStringField(inner, 29, laneLayout)
         }
         if (lat != 0.0 || lon != 0.0) {
-            writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver, 6))  // f30 guideLine %.6f
-            writeStringField(inner, 31, "$lon,$lat,0")             // f31 guidePoint строка
             writeDoubleField(inner, 19, lon)                       // f19 longitude
             writeDoubleField(inner, 20, lat)                       // f20 latitude
         }
@@ -172,8 +170,11 @@ object ProtobufBuilder {
         // f26 — ETA "ЧЧ:ММ"
         writeStringField(inner, 26, etaString)
 
-        // f28 — id манёвра (сырой GAODE или mapped)
-        writeVarintField(inner, 28, if (f28Mapped) gaodeToF28(maneuver).toLong() else maneuver.toLong())
+        // f28 — id манёвра. При камере (maneuver=0) не пишем — ROM рисует стрелку иначе.
+        // Донор: maneuver=0 = "нет стрелки"; наш gaodeToF28(0) → 1 (прямо) — лишняя 3D-стрелка.
+        if (maneuver != 0) {
+            writeVarintField(inner, 28, if (f28Mapped) gaodeToF28(maneuver).toLong() else maneuver.toLong())
+        }
 
         // f29 — строка полос "S,H|S,H|..." (шлём вместе с f7)
         if (hasLanes) writeStringField(inner, 29, laneLayout)
@@ -230,6 +231,15 @@ object ProtobufBuilder {
         return wrap(inner)
     }
 
+    /** Clear frame: f16=1 (clear) + f6=255 (final render-class). Как у донора. */
+    fun buildClearFrame(counter: Int): ByteArray {
+        val inner = ByteArrayOutputStream()
+        writeVarintField(inner, 2, counter.toLong())
+        writeVarintField(inner, 6, 255)
+        writeVarintField(inner, 16, 1)
+        return wrap(inner)
+    }
+
     /**
      * SIZEGUARD: собирает NEW-кадр и гарантирует payload <= MAX_PAYLOAD_BYTES.
      * Если кадр слишком большой — пересобирает без f7, потом без f8.
@@ -251,18 +261,12 @@ object ProtobufBuilder {
         if (payload.size <= MAX_PAYLOAD_BYTES) return payload
         Logger.w("SIZEGUARD", "payload ${payload.size}B > ${MAX_PAYLOAD_BYTES}B, dropping f7")
 
-        // Попытка 2: без f7 (лента полос)
+        // Попытка 2: без f7 (лента полос). f8 НЕ дропаем — иконка в 100% эталонных кадров.
         payload = buildNew(stage, counter, maneuver, distance, road, lat, lon, etaString,
             totalDistMeters, statusIcon, speedLimit, guideLine, guidePoint,
             iconPngSmall, testLanes, laneLayout, includeF7 = false)
         if (payload.size <= MAX_PAYLOAD_BYTES) return payload
-        Logger.w("SIZEGUARD", "payload ${payload.size}B > ${MAX_PAYLOAD_BYTES}B, dropping f8")
-
-        // Попытка 3: без f7 и без f8
-        payload = buildNew(stage, counter, maneuver, distance, road, lat, lon, etaString,
-            totalDistMeters, statusIcon, speedLimit, guideLine, guidePoint,
-            null, testLanes, laneLayout, includeF7 = false, includeF8 = false)
-        Logger.w("SIZEGUARD", "final payload ${payload.size}B (no f7, no f8)")
+        Logger.w("SIZEGUARD", "payload ${payload.size}B > ${MAX_PAYLOAD_BYTES}B even without f7 — sending as-is")
         return payload
     }
 

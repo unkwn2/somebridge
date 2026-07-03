@@ -147,13 +147,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                     }
                 } else {
                     if (wasActive) {
-                        val clearPayload = ProtobufBuilder.buildOld(
-                            counter = counter++, maneuver = 0,
-                            distance = 0, road = "", lat = 0.0, lon = 0.0, etaString = "",
-                            totalDistMeters = 0, totalTimeSeconds = 0,
-                            statusIcon = 1, speedLimit = 0, arriveText = "",
-                            testLanes = false, laneLayout = "", iconPng = null
-                        )
+                        val clearPayload = ProtobufBuilder.buildClearFrame(counter++)
                         bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, clearPayload)
                         wasActive = false
                         Logger.i(TAG, "sent HUD clear frame (statusIcon=1)")
