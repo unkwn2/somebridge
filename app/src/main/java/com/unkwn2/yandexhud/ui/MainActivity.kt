@@ -479,17 +479,15 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
 
             for ((label, triple) in testCases) {
                 val (gaode, dist, desc) = triple
-                val pngLarge = NaviIconLoader.loadLarge(gaode)
-                val pngSmall = NaviIconLoader.loadSmall(gaode) ?: pngLarge
-                val cameraDist = if (label == "CAMERA") 300 else 0
+                val pngSmall = NaviIconLoader.loadSmall(gaode)
 
                 val payload = ProtobufBuilder.buildNewSafe(
                     stage = ProtobufBuilder.STAGE_MAX,
                     counter = 0, maneuver = gaode, distance = dist,
                     road = "Selftest $desc", lat = 39.9, lon = 116.4,
-                    etaString = "12:00", totalDistMeters = 10000, totalTimeSeconds = 3600,
-                    statusIcon = 2, speedLimit = 0, cameraDistance = cameraDist,
-                    iconPngLarge = pngLarge, iconPngSmall = pngSmall
+                    etaString = "12:00", totalDistMeters = 10000,
+                    statusIcon = 2, speedLimit = 0,
+                    iconPngSmall = pngSmall
                 )
                 val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
                 val pngB = pngSmall?.size ?: 0
@@ -502,8 +500,8 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
                 stage = ProtobufBuilder.STAGE_MAX,
                 counter = 0, maneuver = 11, distance = 500,
                 road = "Huge PNG test", lat = 39.9, lon = 116.4,
-                etaString = "12:00", totalDistMeters = 10000, totalTimeSeconds = 3600,
-                statusIcon = 2, iconPngLarge = hugePng, iconPngSmall = hugePng
+                etaString = "12:00", totalDistMeters = 10000,
+                statusIcon = 2, iconPngSmall = hugePng
             )
             val rcHuge = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payloadHuge)
             Logger.i("SELFTEST", "case=SIZEGUARD_HUGE rc=$rcHuge bytes=${payloadHuge.size} guard=${if (payloadHuge.size <= ProtobufBuilder.MAX_PAYLOAD_BYTES) "OK" else "OVER"}")

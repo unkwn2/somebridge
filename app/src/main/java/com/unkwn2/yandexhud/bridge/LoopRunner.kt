@@ -88,21 +88,24 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                     val pngSmall = if (HudForegroundService.sendPngIcon && maneuverVal != 0)
                         NaviIconLoader.loadSmall(maneuverVal) ?: pngLarge else null
 
-                    // Камера: при cameraAlert используем значок камеры вместо стрелки манёвра
+                    // Камера: при cameraAlert подменяем иконку манёвра на иконку камеры (f8)
+                    // Дистанция до камеры идёт в f9 (как в эталоне discope: camera → f8+f9)
                     val isCameraActive = s.cameraAlert.isNotEmpty()
                     val effectivePngSmall = if (isCameraActive) s.cameraIconPng ?: pngSmall else pngSmall
-                    val effectivePngLarge = if (isCameraActive) null else pngLarge
                     val effectiveCameraDist = if (isCameraActive) s.cameraDistanceMeters else 0
 
                     val payload: ByteArray
                     val modeLabel: String
+                    // Дистанция: при камере — дистанция до камеры в f9, иначе — до манёвра
+                    val effectiveDist = if (isCameraActive && effectiveCameraDist > 0) effectiveCameraDist else s.distanceMeters
+
                     if (HudForegroundService.builderOld) {
                         // ── OLD: рабочий метод от 18 июня ──
                         val arriveTxt = if (maneuverVal == 48) s.arriveText.ifEmpty { "Прибытие" } else ""
                         payload = ProtobufBuilder.buildOld(
                             counter = counter++,
                             maneuver = if (isCameraActive) 0 else maneuverVal,
-                            distance = s.distanceMeters,
+                            distance = effectiveDist,
                             road = s.road,
                             lat = s.lat, lon = s.lon,
                             etaString = etaStr,
@@ -117,22 +120,19 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         )
                         modeLabel = "OLD"
                     } else {
-                        // ── NEW: формат эталона известен — шлём ПОЛНЫЙ корректный кадр ──
+                        // ── NEW: формат эталона discope (1779 событий) ──
                         val stage = fixedStage
                         payload = ProtobufBuilder.buildNewSafe(
                             stage = stage,
                             counter = counter++,
                             maneuver = if (isCameraActive) 0 else maneuverVal,
-                            distance = s.distanceMeters,
+                            distance = effectiveDist,
                             road = s.road,
                             lat = s.lat, lon = s.lon,
                             etaString = etaStr,
                             totalDistMeters = s.totalDistMeters,
-                            totalTimeSeconds = s.totalTimeSeconds,
                             statusIcon = statusIconVal,
                             speedLimit = s.speedLimit,
-                            cameraDistance = effectiveCameraDist,
-                            iconPngLarge = effectivePngLarge,
                             iconPngSmall = effectivePngSmall,
                             testLanes = s.testLanes,
                             laneLayout = laneLayout

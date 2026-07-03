@@ -9,18 +9,32 @@ import java.io.ByteArrayOutputStream
  *
  * Два режима:
  *  - buildOld(...)  — РАБОЧИЙ метод от 18 июня (b18d422). НЕ ТРОГАТЬ — контрольная кнопка OLD.
- *  - buildNew(stage) — НОВЫЙ метод. Формат эталона (нативный AMap/GAODE-поток на topic
- *                     0x4010a00018001) теперь ВЫВЕРЕН по логу 23.06 + фото. Стадии оставлены
- *                     для совместимости, но значения полей приведены к эталону.
- *                     LoopRunner шлёт стабильно stage=STAGE_MAX (полный корректный кадр).
+ *  - buildNew(stage) — Формат эталона discope (1779 событий штатной нав U7).
+ *                     Порядок полей КРИТИЧЕН — BYD-парсер нестандартный.
  *
- * Ключевые выверенные факты (лог 3268 кадров + фото с таймингом):
- *  - f28 (манёвр): 3=ЛЕВО, 2=ПРАВО, 1=ПРЯМО, 5=ШОССЕ/съезд, 9=РАЗВОРОТ.
- *    (НЕ generic-GAODE! У GAODE лево=1 — это и был баг: левые повороты уезжали как «прямо».)
- *  - f29 (полосы): "S,H|" на полосу, слева направо; f5 = число полос (= число записей).
- *    S=фигура (0 прямо,1/2 влево,3/4 вправо); H=255 полоса погашена, иначе направление (0/1/3).
- *  - f19/f20/f33 — double (fixed64, wire type 1), НЕ varint.
- *  - f22=50, f24="[]", f25=submessage-константа — присутствуют в 100% кадров эталона.
+ * Порядок полей (эталон): f2→f5→f6→f7→f8→f9→f10→f11→f16→f19→f20→f26→f28→f29→f30→f31→f33
+ *  - f2 counter
+ *  - f5 число полос (ДО f6!)
+ *  - f6 render-class: 1=без полос, 6=с полосами (ВСЕГДА, 1779/1779)
+ *  - f7 PNG-лента полос 68px/полосу × 100h (штатная нав, f29-текст ARHUD игнорирует)
+ *  - f8 PNG иконки манёвра 80×80
+ *  - f9 дистанция
+ *  - f10 дорога
+ *  - f11 speedLimit (если >0)
+ *  - f16 navigatingStatus (2=draw, 1=clear)
+ *  - f19/f20 lon/lat (fixed64 LE double)
+ *  - f26 ETA
+ *  - f28 id манёвра (сырой)
+ *  - f29 строка полос "S,H|..."
+ *  - f30 guideLine
+ *  - f31 guidePoint (СТРОКА, НЕ submessage)
+ *  - f33 progress 0..1 (fixed64 LE double)
+ *
+ * НЕ ОТПРАВЛЯЕТСЯ (подтверждено эталоном discope):
+ *  f3/f4 — ломают рендер f9/f26 на ROM Янванга
+ *  f12 — машина рисует свою скорость
+ *  f17/f18 — камера идёт через f8+f9
+ *  f21/f22/f23/f24/f25 — отсутствуют в рабочем кадре
  */
 object ProtobufBuilder {
 
@@ -88,7 +102,8 @@ object ProtobufBuilder {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // NEW — выверенный по эталону кадр. stage 0 ≈ OLD, stage 6 = полный эталон.
+    // NEW — формат эталона discope (1779 событий штатной нав U7).
+    // Порядок полей КРИТИЧЕН: f2→f5→f6→f7→f8→f9→f10→f11→f16→f19→f20→f26→f28→f29→f30→f31→f33
     // ─────────────────────────────────────────────────────────────────────
     fun buildNew(
         stage: Int,
@@ -99,21 +114,16 @@ object ProtobufBuilder {
         lat: Double, lon: Double,
         etaString: String,
         totalDistMeters: Int = 0,
-        totalTimeSeconds: Int = 0,
         statusIcon: Int = 0,
         speedLimit: Int = 0,
-        curSpeed: Int = 45,            // f12 — текущая скорость (км/ч), deriveF12 default=45
-        cameraDistance: Int = 0,       // дистанция до камеры/POI (f18), независима от f9
-        dangerSign: Int = 0,           // f23 — знак опасности
-        arriveText: String = "",
-        iconPngLarge: ByteArray? = null,
+        guideLine: String = "",        // f30 — пусто = не шлём (иначе регрессия Song L)
+        guidePoint: String = "",       // f31 — пусто = не шлём
         iconPngSmall: ByteArray? = null,
         testLanes: Boolean = false,
         laneLayout: String = "",
         includeF7: Boolean = true,     // SIZEGUARD: можно отключить
         includeF8: Boolean = true      // SIZEGUARD: можно отключить
     ): ByteArray {
-        val useF6     = stage >= 1
         val useF33    = stage >= 3
         val f2Const   = stage >= 4
         val f28Mapped = stage >= 5
@@ -124,83 +134,61 @@ object ProtobufBuilder {
         // f2 — константа 2 (эталон) / счётчик (ранние стадии)
         writeVarintField(inner, 2, if (f2Const) 2L else counter.toLong())
 
-        // f3/f4 — остаток до цели: дистанция (м) и время (с)
-        if (full) {
-            if (totalDistMeters > 0)  writeVarintField(inner, 3, totalDistMeters.toLong())
-            if (totalTimeSeconds > 0) writeVarintField(inner, 4, totalTimeSeconds.toLong())
-        }
-
-        // f5 — число полос (= число записей \"S,H|\" в f29)
-        if (testLanes && laneLayout.isNotEmpty())
+        // f5/f6/f7 — ПОРЯДОК КРИТИЧЕН (f5 ДО f6!)
+        // f5 = число полос; f6 = 1 (без полос) или 6 (с полосами); f7 = PNG-лента полос
+        val hasLanes = testLanes && laneLayout.isNotEmpty()
+        if (hasLanes) {
             writeVarintField(inner, 5, laneCount(laneLayout).toLong())
-
-        // f6 — render-class манёвра; f7 — большая схема перекрёстка (только если реально есть картинка)
-        val f6val = gaodeToF6(maneuver)
-        if (useF6) {
-            writeVarintField(inner, 6, f6val.toLong())
-            if (includeF7 && iconPngLarge != null && f6val == 7) writeBytesField(inner, 7, iconPngLarge)
+        }
+        // f6 — ВСЕГДА (1779/1779): 6=с полосами, 1=без
+        writeVarintField(inner, 6, if (hasLanes) 6L else 1L)
+        // f7 — PNG-лента полос (68px/полосу × 100h). Штатная нав шлёт f7 вместе с f29.
+        // f29-текст ARHUD игнорирует — чтобы полосы появились, нужен именно f7.
+        if (includeF7 && hasLanes) {
+            val lanePng = buildLaneStripPng(laneLayout)
+            if (lanePng != null) writeBytesField(inner, 7, lanePng)
         }
 
-        // f8 — PNG-стрелка манёвра (как в OLD; в 100% кадров эталона)
+        // f8 — PNG-иконка манёвра 80×80 (в 100% кадров эталона)
         if (includeF8 && iconPngSmall != null) writeBytesField(inner, 8, iconPngSmall)
 
+        // f9 — дистанция до манёвра, м
         if (distance > 0) writeVarintField(inner, 9, distance.toLong())
+
+        // f10 — имя дороги/улицы
         writeStringField(inner, 10, road)
 
-        // f11 — speedLimit, f12 — текущая скорость (deriveF12, default=45)
+        // f11 — ограничение скорости, км/ч (если >0)
         if (speedLimit > 0) writeVarintField(inner, 11, speedLimit.toLong())
-        writeVarintField(inner, 12, curSpeed.coerceIn(0, 200).toLong())
 
+        // f16 — navigatingStatus (2=активна, 1=очистить)
         writeVarintField(inner, 16, statusIcon.toLong())
 
-        // f17 — флаг блока камеры/POI (=1), f18 — дистанция до камеры в метрах.
-        // ПОДТВЕРЖДЕНО логом: f18 НЕЗАВИСИМА от f9 (свой отсчёт, 2015/3268 кадров).
-        // Шлём ТОЛЬКО при реальных данных от Яндекса (cameraDistance > 0) — иначе будет фантомная камера.
-        if (cameraDistance > 0) {
-            writeVarintField(inner, 17, 1L)
-            writeVarintField(inner, 18, cameraDistance.toLong())
-        }
-
+        // f19/f20 — lon/lat текущей позиции (fixed64 LE double)
         if (lat != 0.0 || lon != 0.0) {
-            writeDoubleField(inner, 19, lon)   // double, НЕ varint
-            writeDoubleField(inner, 20, lat)   // double, НЕ varint
+            writeFixed64Field(inner, 19, java.lang.Double.doubleToRawLongBits(lon))
+            writeFixed64Field(inner, 20, java.lang.Double.doubleToRawLongBits(lat))
         }
 
-        // f21 — deriveF21(), default=41
-        writeVarintField(inner, 21, 41L)
-
-        // f22=50, f23=dangerSign, f24 — константы эталона (порядок как в v88)
-        if (full) {
-            writeVarintField(inner, 22, 50L)
-            if (dangerSign > 0) writeVarintField(inner, 23, dangerSign.toLong())
-            writeStringField(inner, 24, "[]")
-        } else {
-            if (dangerSign > 0) writeVarintField(inner, 23, dangerSign.toLong())
-            if (speedLimit > 0) writeVarintField(inner, 24, speedLimit.toLong())
-        }
-
-        // f25 — строка (в v88 это строка, НЕ submessage)
-        if (full) writeStringField(inner, 25, "[]")
-
+        // f26 — ETA "ЧЧ:ММ"
         writeStringField(inner, 26, etaString)
 
-        if (!full && arriveText.isNotEmpty()) writeStringField(inner, 27, arriveText)
-
-        // f28 — манёвр в КОДАХ ЭТАЛОНА (3=лево,2=право,1=прямо,9=разворот,5=шоссе)
+        // f28 — id манёвра (сырой GAODE или mapped)
         writeVarintField(inner, 28, if (f28Mapped) gaodeToF28(maneuver).toLong() else maneuver.toLong())
 
-        if (testLanes && laneLayout.isNotEmpty()) writeStringField(inner, 29, laneLayout)
+        // f29 — строка полос "S,H|S,H|..." (шлём вместе с f7)
+        if (hasLanes) writeStringField(inner, 29, laneLayout)
 
-        if (lat != 0.0 || lon != 0.0) {
-            writeStringField(inner, 30, buildGuideLine(lat, lon, maneuver, if (full) 7 else 6))
-            // f31 — submessage в full (эталон app-debug88), строка-точка в non-full
-            if (full) writeF31Const(inner) else writeStringField(inner, 31, "$lon,$lat,0")
-        }
+        // f30/f31 — AR-геометрия. Шлём ТОЛЬКО если переданы явно (guideLine/guidePoint).
+        // В штатном потоке discope setGuideLine() не вызывается — кадры без них нормальны.
+        // ❗️ Всегда шлём f31 при наличии lat/lon → регрессия на Song L (28.06).
+        if (guideLine.isNotEmpty()) writeStringField(inner, 30, guideLine)
+        if (guidePoint.isNotEmpty()) writeStringField(inner, 31, guidePoint)
 
-        // f33 — прогресс маршрута (double)
+        // f33 — navigatingRatio, прогресс маршрута 0..1 (fixed64 LE double)
         if (useF33 && totalDistMeters > 0 && distance > 0) {
             val progress = 1.0 - distance.toDouble() / totalDistMeters.toDouble()
-            writeDoubleField(inner, 33, progress.coerceIn(0.0, 1.0))
+            writeFixed64Field(inner, 33, java.lang.Double.doubleToRawLongBits(progress.coerceIn(0.0, 1.0)))
         }
 
         return wrap(inner)
@@ -230,11 +218,8 @@ object ProtobufBuilder {
         lat = lat, lon = lon,
         etaString = etaString,
         totalDistMeters = totalDistMeters,
-        totalTimeSeconds = totalTimeSeconds,
         statusIcon = statusIcon,
         speedLimit = 0,
-        arriveText = "",
-        iconPngLarge = iconPngLarge,
         iconPngSmall = iconPngSmall,
         testLanes = testLanes,
         laneLayout = laneLayout
@@ -254,31 +239,30 @@ object ProtobufBuilder {
     fun buildNewSafe(
         stage: Int, counter: Int, maneuver: Int, distance: Int, road: String,
         lat: Double, lon: Double, etaString: String,
-        totalDistMeters: Int = 0, totalTimeSeconds: Int = 0,
-        statusIcon: Int = 0, speedLimit: Int = 0, curSpeed: Int = 45,
-        cameraDistance: Int = 0, dangerSign: Int = 0,
-        arriveText: String = "",
-        iconPngLarge: ByteArray? = null, iconPngSmall: ByteArray? = null,
+        totalDistMeters: Int = 0,
+        statusIcon: Int = 0, speedLimit: Int = 0,
+        guideLine: String = "", guidePoint: String = "",
+        iconPngSmall: ByteArray? = null,
         testLanes: Boolean = false, laneLayout: String = ""
     ): ByteArray {
         // Попытка 1: полный кадр
         var payload = buildNew(stage, counter, maneuver, distance, road, lat, lon, etaString,
-            totalDistMeters, totalTimeSeconds, statusIcon, speedLimit, curSpeed, cameraDistance,
-            dangerSign, arriveText, iconPngLarge, iconPngSmall, testLanes, laneLayout)
+            totalDistMeters, statusIcon, speedLimit, guideLine, guidePoint,
+            iconPngSmall, testLanes, laneLayout)
         if (payload.size <= MAX_PAYLOAD_BYTES) return payload
         Logger.w("SIZEGUARD", "payload ${payload.size}B > ${MAX_PAYLOAD_BYTES}B, dropping f7")
 
-        // Попытка 2: без f7 (большая схема перекрёстка)
+        // Попытка 2: без f7 (лента полос)
         payload = buildNew(stage, counter, maneuver, distance, road, lat, lon, etaString,
-            totalDistMeters, totalTimeSeconds, statusIcon, speedLimit, curSpeed, cameraDistance,
-            dangerSign, arriveText, iconPngLarge, iconPngSmall, testLanes, laneLayout, includeF7 = false)
+            totalDistMeters, statusIcon, speedLimit, guideLine, guidePoint,
+            iconPngSmall, testLanes, laneLayout, includeF7 = false)
         if (payload.size <= MAX_PAYLOAD_BYTES) return payload
         Logger.w("SIZEGUARD", "payload ${payload.size}B > ${MAX_PAYLOAD_BYTES}B, dropping f8")
 
         // Попытка 3: без f7 и без f8
         payload = buildNew(stage, counter, maneuver, distance, road, lat, lon, etaString,
-            totalDistMeters, totalTimeSeconds, statusIcon, speedLimit, curSpeed, cameraDistance,
-            dangerSign, arriveText, null, null, testLanes, laneLayout, includeF7 = false, includeF8 = false)
+            totalDistMeters, statusIcon, speedLimit, guideLine, guidePoint,
+            null, testLanes, laneLayout, includeF7 = false, includeF8 = false)
         Logger.w("SIZEGUARD", "final payload ${payload.size}B (no f7, no f8)")
         return payload
     }
@@ -298,16 +282,6 @@ object ProtobufBuilder {
         9, 10 -> 9          // разворот (эталон: 9=РАЗВОРОТ). TODO: выверить эмпирически по логу gaode_in->f28_out
         // 5 = шоссе/съезд на магистраль: отдельного gaode нет, выставляется вручную на трассе
         else -> 1           // кольцо/прибытие(M_ARRIVE=12->gaode48)/неизв. -> прямо. Защита от «протечки» сырого кода в f28
-    }
-
-    /** GAODE-код -> f6 render-class эталона (через f28): 6=шоссе, 7=поворот+схема(лево), 8=право/прямо, 9=разворот. */
-    private fun gaodeToF6(gaode: Int): Int = f28ToF6(gaodeToF28(gaode))
-
-    private fun f28ToF6(f28: Int): Int = when (f28) {
-        3 -> 7   // лево -> поворот со схемой перекрёстка
-        5 -> 6   // шоссе/съезд
-        9 -> 9   // разворот
-        else -> 8 // право / прямо / обычный
     }
 
     private fun laneCount(layout: String): Int = layout.split("|").count { it.isNotEmpty() }
@@ -358,12 +332,96 @@ object ProtobufBuilder {
         return sb.toString()
     }
 
-    /** f31 — submessage-константа из рабочей v88 (classes6.dex): ASCII-хардкод "16.41399"+"94444445". */
-    private fun writeF31Const(o: ByteArrayOutputStream) {
-        val buf = ByteArrayOutputStream()
-        writeVarintField(buf, 6, 4123383220256257585L)   // = "16.41399" LE
-        writeVarintField(buf, 6, 3833746581617914937L)   // = "94444445" LE
-        writeBytesField(o, 31, buf.toByteArray())
+    /**
+     * Генерирует PNG-ленту полос для f7.
+     * Формат: 68px на полосу × 100h (как в эталоне discope).
+     * Рисует стрелки направлений: прямо(0), влево(1), вправо(3).
+     */
+    private fun buildLaneStripPng(laneLayout: String): ByteArray? {
+        val entries = laneLayout.split("|").filter { it.isNotEmpty() }
+        if (entries.isEmpty()) return null
+        val laneCount = entries.size
+        val w = 68 * laneCount
+        val h = 100
+        try {
+            val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(bmp)
+            canvas.drawColor(android.graphics.Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
+
+            val arrowPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.WHITE
+                strokeWidth = 4f
+                style = android.graphics.Paint.Style.STROKE
+            }
+            val fillPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.WHITE
+                style = android.graphics.Paint.Style.FILL
+            }
+
+            for (i in entries.indices) {
+                val parts = entries[i].split(",")
+                if (parts.size < 2) continue
+                val dir = parts[0].toIntOrNull() ?: 0
+                val highlight = parts[1].toIntOrNull() ?: 0
+                val isActive = highlight != 255 && highlight > 0
+                val cx = i * 68 + 34f
+                val cy = 50f
+
+                if (isActive) {
+                    // Активная полоса — яркая стрелка
+                    fillPaint.alpha = 255
+                    arrowPaint.alpha = 255
+                } else {
+                    // Неактивная — приглушённая
+                    fillPaint.alpha = 80
+                    arrowPaint.alpha = 80
+                }
+
+                // Рисуем стрелку по направлению
+                val path = android.graphics.Path()
+                when (dir) {
+                    0 -> { // прямо — вертикальная стрелка вверх
+                        path.moveTo(cx, cy - 30)
+                        path.lineTo(cx, cy + 20)
+                        path.moveTo(cx - 12, cy - 10)
+                        path.lineTo(cx, cy - 25)
+                        path.lineTo(cx + 12, cy - 10)
+                    }
+                    1, 2 -> { // влево
+                        path.moveTo(cx - 25, cy)
+                        path.lineTo(cx + 15, cy)
+                        path.moveTo(cx - 10, cy - 12)
+                        path.lineTo(cx - 25, cy)
+                        path.lineTo(cx - 10, cy + 12)
+                    }
+                    3, 4 -> { // вправо
+                        path.moveTo(cx + 25, cy)
+                        path.lineTo(cx - 15, cy)
+                        path.moveTo(cx + 10, cy - 12)
+                        path.lineTo(cx + 25, cy)
+                        path.lineTo(cx + 10, cy + 12)
+                    }
+                    else -> { // прямо по умолчанию
+                        path.moveTo(cx, cy - 30)
+                        path.lineTo(cx, cy + 20)
+                        path.moveTo(cx - 12, cy - 10)
+                        path.lineTo(cx, cy - 25)
+                        path.lineTo(cx + 12, cy - 10)
+                    }
+                }
+                canvas.drawPath(path, arrowPaint)
+            }
+
+            val out = java.io.ByteArrayOutputStream()
+            bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+            bmp.recycle()
+            return out.toByteArray()
+        } catch (_: Exception) { return null }
+    }
+
+    private fun writeFixed64Field(o: ByteArrayOutputStream, tag: Int, v: Long) {
+        writeVarint(o, ((tag shl 3) or 1).toLong()) // wire type 1 = 64-bit
+        for (i in 0 until 8) o.write((v ushr (i * 8)).toInt() and 0xff)
     }
 
     private fun wrap(inner: ByteArrayOutputStream): ByteArray {
