@@ -46,6 +46,14 @@ class YandexNaviNotificationListener : NotificationListenerService() {
         val n = sbn.notification
         val ext = n.extras ?: return
 
+        // Отсекаем медиа/музыку (у неё есть MediaSession / MediaStyle / категория transport)
+        if (ext.containsKey(Notification.EXTRA_MEDIA_SESSION) ||
+            n.category == Notification.CATEGORY_TRANSPORT ||
+            ext.getString(Notification.EXTRA_TEMPLATE)?.contains("MediaStyle") == true) {
+            Logger.i(TAG, "skip media notification id=${sbn.id}")
+            return
+        }
+
         // RemoteViews — приоритетный источник (структурированные данные)
         val rv = try {
             RemoteViewsParser.parse(applicationContext, n, sbn.packageName, PROBE_RV)
@@ -55,6 +63,10 @@ class YandexNaviNotificationListener : NotificationListenerService() {
         }
 
         if (rv != null) {
+            val hasNaviSignal = rv.maneuverEnum != null || rv.distToManeuverM > 0 ||
+                rv.totalDistM > 0 || rv.road.isNotEmpty() || rv.cameraAlert.isNotEmpty()
+            if (!hasNaviSignal) { Logger.i(TAG, "skip non-navi rv"); return }
+
             val maneuver = rv.maneuverEnum ?: ManeuverMapper.fromRussianText(rv.instruction)
             val etaSeconds = if (rv.remainingTimeSec > 0) rv.remainingTimeSec
                 else parseEtaSeconds(ext.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: "")

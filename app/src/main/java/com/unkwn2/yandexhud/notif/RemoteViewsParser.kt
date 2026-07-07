@@ -193,9 +193,11 @@ object RemoteViewsParser {
             maneuverPng = render.maneuverPng ?: actions.maneuverPng,
             trafficLightColor = actions.trafficLightColor.ifEmpty { render.trafficLightColor },
             trafficLightSeconds = actions.trafficLightSeconds.takeIf { it > 0 } ?: render.trafficLightSeconds,
-            cameraAlert = actions.cameraAlert.ifEmpty { render.cameraAlert },
-            cameraDistanceM = actions.cameraDistanceM.takeIf { it > 0 } ?: render.cameraDistanceM,
-            cameraIconPng = render.cameraIconPng ?: actions.cameraIconPng,
+            cameraAlert = actions.cameraAlert,
+            cameraDistanceM = if (actions.cameraAlert.isEmpty()) 0
+                else actions.cameraDistanceM.takeIf { it > 0 } ?: render.cameraDistanceM,
+            cameraIconPng = if (actions.cameraAlert.isEmpty()) null
+                else render.cameraIconPng ?: actions.cameraIconPng,
             maneuverEnum = actions.maneuverEnum ?: render.maneuverEnum
         )
     }
@@ -287,10 +289,11 @@ object RemoteViewsParser {
         val trafficLightSeconds = texts.firstOrNull { "traffic_light" in it.name }
             ?.value?.filter { it.isDigit() }?.toIntOrNull() ?: 0
 
-        val cameraAlert = when {
-            images.any { it.name == "primaryicon" } -> "camera"
-            else -> ""
-        }
+        val cameraAlert = ""
+        // primaryicon во время алерта = значок камеры; сохраняем как кандидат,
+        // применится только если actions подтвердит камеру (см. mergePreferActions)
+        val cameraIconDrawable = images.firstOrNull { it.name == "primaryicon" }?.drawable
+        val cameraDistM = 0
 
         if (distManeuver == 0 || distTotal == 0 || arrival.isEmpty() || remaining == 0 || (road.isEmpty() && instruction.isEmpty())) {
             val values = texts.map { it.value }
@@ -329,12 +332,6 @@ object RemoteViewsParser {
                 if (w <= 0 || h <= 0) Double.MAX_VALUE
                 else kotlin.math.abs(w.toDouble() / h.toDouble() - 1.0)
             }?.drawable
-
-        // Камера: PNG из "primaryicon" + расстояние из titleview
-        val cameraIconDrawable = if (cameraAlert.isNotEmpty())
-            images.firstOrNull { it.name == "primaryicon" }?.drawable else null
-        val cameraDistM = if (cameraAlert.isNotEmpty())
-            distManeuver else 0 // titleview = расстояние до камеры когда камера активна
 
         return RvNaviInfo(
             instruction, road, distManeuver, distTotal, arrival, remaining,

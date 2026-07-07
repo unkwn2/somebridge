@@ -28,7 +28,7 @@ class HudForegroundService : Service() {
         const val DEBUG_ARROW_SCAN = false      // перебор стрелок f27 (только для отладки)
 
         // Режим сборщика протобафа: true = OLD (рабочий метод 18 июня), false = NEW (постадийный перебор)
-        @Volatile var builderOld: Boolean = true
+        @Volatile var builderOld: Boolean = false
 
         @Volatile var instance: HudForegroundService? = null
         val bridge: SomeIpBridge? get() = instance?._bridge
@@ -77,7 +77,7 @@ class HudForegroundService : Service() {
         }
 
         fun loadBuilderMode(ctx: Context): Boolean =
-            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_BUILDER, true)
+            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_BUILDER, false)
     }
 
     private var _bridge: SomeIpBridge? = null
