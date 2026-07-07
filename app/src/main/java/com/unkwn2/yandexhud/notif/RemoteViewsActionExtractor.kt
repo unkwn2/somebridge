@@ -46,17 +46,28 @@ object RemoteViewsActionExtractor {
             val viewIdName = resolveName(srcRes, viewId)
             val value = valueObject(fields, action)
 
+            // Яндекс шлёт значок камеры как Icon(TYPE_RESOURCE) — достаём resId
+            val iconResId: Int? = (value as? android.graphics.drawable.Icon)
+                ?.takeIf { it.type == android.graphics.drawable.Icon.TYPE_RESOURCE }?.resId
+
             return when (methodName) {
-                "setImageResource", "setBackgroundResource" -> {
-                    val resId = value as? Int ?: return null
-                    val op = if (methodName == "setImageResource") Op.IMAGE_RES else Op.BG_RES
+                "setImageResource", "setImageResourceAsync", "setBackgroundResource" -> {
+                    val resId = (value as? Int) ?: iconResId ?: return null
+                    val op = if (methodName == "setBackgroundResource") Op.BG_RES else Op.IMAGE_RES
                     RvAction(viewIdName, viewId, op, resolveName(srcRes, resId))
+                }
+                "setImageIcon", "setImageIconAsync" -> {
+                    val resId = iconResId ?: return null
+                    RvAction(viewIdName, viewId, Op.IMAGE_RES, resolveName(srcRes, resId))
                 }
                 "setText" -> RvAction(viewIdName, viewId, Op.TEXT, (value as? CharSequence)?.toString() ?: "")
                 "setVisibility" -> RvAction(viewIdName, viewId, Op.VISIBILITY, ((value as? Int) ?: -1).toString())
-                else -> when (value) {
-                    is CharSequence -> RvAction(viewIdName, viewId, Op.TEXT, value.toString())
-                    is Int -> {
+                else -> when {
+                    value is CharSequence -> RvAction(viewIdName, viewId, Op.TEXT, value.toString())
+                    iconResId != null -> RvAction(viewIdName, viewId,
+                        if (methodName?.contains("background", true) == true) Op.BG_RES else Op.IMAGE_RES,
+                        resolveName(srcRes, iconResId))
+                    value is Int -> {
                         val nm = resolveName(srcRes, value)
                         if (nm.isNotEmpty())
                             RvAction(viewIdName, viewId,
@@ -76,7 +87,7 @@ object RemoteViewsActionExtractor {
         for (f in fields) {
             if (f.name == "viewId" || f.name == "methodName" || f.type.isPrimitive) continue
             val v = try { f.get(action) } catch (_: Throwable) { null }
-            if (v is CharSequence || v is Int) return v
+            if (v is CharSequence || v is Int || v is android.graphics.drawable.Icon) return v
         }
         return null
     }

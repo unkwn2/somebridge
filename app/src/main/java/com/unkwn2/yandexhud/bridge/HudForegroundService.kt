@@ -42,6 +42,9 @@ class HudForegroundService : Service() {
         // f8 PNG from RemoteViews — true = ON (по умолчанию)
         @Volatile var sendPngIcon: Boolean = true
 
+        // знак скорости в f7 вместо ленты полос — true = ON (по умолчанию)
+        @Volatile var speedInLaneSlot: Boolean = true
+
         // nextNextManeuver field number — 0 = OFF (экспериментально)
         @Volatile var nextManeuverFieldNum: Int = 0
 

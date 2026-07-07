@@ -120,7 +120,8 @@ object ProtobufBuilder {
         testLanes: Boolean = false,
         laneLayout: String = "",
         includeF7: Boolean = true,     // SIZEGUARD: можно отключить
-        includeF8: Boolean = true      // SIZEGUARD: можно отключить
+        includeF8: Boolean = true,     // SIZEGUARD: можно отключить
+        speedInF7: Boolean = false     // знак скорости в f7 вместо полос
     ): ByteArray {
         val useF33    = stage >= 3
         val f2Const   = stage >= 4
@@ -132,18 +133,19 @@ object ProtobufBuilder {
         writeVarintField(inner, 2, if (f2Const) 2L else counter.toLong())
 
         // f5/f6/f7 — ПОРЯДОК КРИТИЧЕН (f5 ДО f6!)
-        // f5 = число полос; f6 = 1 (без полос) или 6 (с полосами); f7 = PNG-лента полос
+        // f5 = число полос; f6 = 1 (без полос) или 6 (с картинкой); f7 = PNG (полосы или знак скорости)
         val hasLanes = testLanes && laneLayout.isNotEmpty()
-        if (hasLanes) {
+        val speedPng = if (speedInF7 && speedLimit > 0) buildSpeedLimitPng(speedLimit) else null
+        val useSpeedInF7 = speedPng != null
+        if (hasLanes && !useSpeedInF7) {
             writeVarintField(inner, 5, laneCount(laneLayout).toLong())
         }
-        // f6 — ВСЕГДА (1779/1779): 6=с полосами, 1=без
-        writeVarintField(inner, 6, if (hasLanes) 6L else 1L)
-        // f7 — PNG-лента полос (68px/полосу × 100h). Штатная нав шлёт f7 вместе с f29.
-        // f29-текст ARHUD игнорирует — чтобы полосы появились, нужен именно f7.
-        if (includeF7 && hasLanes) {
-            val lanePng = buildLaneStripPng(laneLayout)
-            if (lanePng != null) writeBytesField(inner, 7, lanePng)
+        // f6 — ВСЕГДА (1779/1779): 6=с картинкой в нижнем слоте, 1=без
+        writeVarintField(inner, 6, if (hasLanes || useSpeedInF7) 6L else 1L)
+        // f7 — PNG: знак скорости (приоритет) или лента полос
+        if (includeF7) {
+            val f7png = if (useSpeedInF7) speedPng else if (hasLanes) buildLaneStripPng(laneLayout) else null
+            if (f7png != null) writeBytesField(inner, 7, f7png)
         }
 
         // f8 — PNG-иконка манёвра 80×80 (в 100% кадров эталона)
@@ -176,8 +178,8 @@ object ProtobufBuilder {
             writeVarintField(inner, 28, if (f28Mapped) gaodeToF28(maneuver).toLong() else maneuver.toLong())
         }
 
-        // f29 — строка полос "S,H|S,H|..." (шлём вместе с f7)
-        if (hasLanes) writeStringField(inner, 29, laneLayout)
+        // f29 — строка полос "S,H|S,H|..." (шлём вместе с f7, но НЕ при знаке скорости)
+        if (hasLanes && !useSpeedInF7) writeStringField(inner, 29, laneLayout)
 
         // f30/f31 — AR-геометрия. Шлём ТОЛЬКО если переданы явно (guideLine/guidePoint).
         // В штатном потоке discope setGuideLine() не вызывается — кадры без них нормальны.
@@ -252,25 +254,51 @@ object ProtobufBuilder {
         statusIcon: Int = 0, speedLimit: Int = 0,
         guideLine: String = "", guidePoint: String = "",
         iconPngSmall: ByteArray? = null,
-        testLanes: Boolean = false, laneLayout: String = ""
+        testLanes: Boolean = false, laneLayout: String = "",
+        speedInF7: Boolean = false
     ): ByteArray {
         // Попытка 1: полный кадр
         var payload = buildNew(stage, counter, maneuver, distance, road, lat, lon, etaString,
             totalDistMeters, statusIcon, speedLimit, guideLine, guidePoint,
-            iconPngSmall, testLanes, laneLayout)
+            iconPngSmall, testLanes, laneLayout, speedInF7 = speedInF7)
         if (payload.size <= MAX_PAYLOAD_BYTES) return payload
         Logger.w("SIZEGUARD", "payload ${payload.size}B > ${MAX_PAYLOAD_BYTES}B, dropping f7")
 
-        // Попытка 2: без f7 (лента полос). f8 НЕ дропаем — иконка в 100% эталонных кадров.
+        // Попытка 2: без f7 (лента полос / знак скорости). f8 НЕ дропаем — иконка в 100% эталонных кадров.
         payload = buildNew(stage, counter, maneuver, distance, road, lat, lon, etaString,
             totalDistMeters, statusIcon, speedLimit, guideLine, guidePoint,
-            iconPngSmall, testLanes, laneLayout, includeF7 = false)
+            iconPngSmall, testLanes, laneLayout, includeF7 = false, speedInF7 = speedInF7)
         if (payload.size <= MAX_PAYLOAD_BYTES) return payload
         Logger.w("SIZEGUARD", "payload ${payload.size}B > ${MAX_PAYLOAD_BYTES}B even without f7 — sending as-is")
         return payload
     }
 
     // ── helpers ───────────────────────────────────────────────────────────
+
+    /** PNG-знак ограничения скорости для слота f7 (вместо ленты полос). 100×100. */
+    fun buildSpeedLimitPng(speed: Int): ByteArray? {
+        if (speed <= 0) return null
+        val size = 100
+        return try {
+            val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+            val c = android.graphics.Canvas(bmp)
+            c.drawColor(android.graphics.Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
+            val cx = size / 2f; val cy = size / 2f
+            val red = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.rgb(0xD0, 0, 0); style = android.graphics.Paint.Style.FILL }
+            c.drawCircle(cx, cy, size * 0.48f, red)
+            val white = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.WHITE; style = android.graphics.Paint.Style.FILL }
+            c.drawCircle(cx, cy, size * 0.34f, white)
+            val txt = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.BLACK; textAlign = android.graphics.Paint.Align.CENTER
+                isFakeBoldText = true; textSize = if (speed >= 100) size * 0.36f else size * 0.44f }
+            val fm = txt.fontMetrics
+            c.drawText(speed.toString(), cx, cy - (fm.ascent + fm.descent) / 2f, txt)
+            val out = java.io.ByteArrayOutputStream()
+            bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out); out.toByteArray()
+        } catch (t: Throwable) { Logger.w("SPEEDSIGN", "render failed: ${t.message}"); null }
+    }
 
     /**
      * GAODE-код -> код манёвра f28 ЭТАЛОНА.

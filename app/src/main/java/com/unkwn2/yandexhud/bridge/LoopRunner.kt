@@ -135,7 +135,8 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                             speedLimit = s.speedLimit,
                             iconPngSmall = effectivePngSmall,
                             testLanes = s.testLanes,
-                            laneLayout = laneLayout
+                            laneLayout = laneLayout,
+                            speedInF7 = HudForegroundService.speedInLaneSlot
                         )
                         modeLabel = "NEW:${stageLabel()}"
                     }

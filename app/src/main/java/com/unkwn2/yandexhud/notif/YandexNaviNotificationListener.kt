@@ -92,6 +92,7 @@ class YandexNaviNotificationListener : NotificationListenerService() {
                         else rv.cameraIconPng ?: prev.cameraIconPng,
                     maneuverGaode = if (g > 0) g else prev.maneuverGaode,
                     maneuverGaodeMs = if (g > 0) System.currentTimeMillis() else prev.maneuverGaodeMs,
+                    speedLimit = prev.speedLimit,
                     lastUpdateMs = System.currentTimeMillis()
                 )
             }
@@ -142,6 +143,7 @@ class YandexNaviNotificationListener : NotificationListenerService() {
                 road = mergeRoad,
                 etaSeconds = mergeEta,
                 totalTimeSeconds = prev.totalTimeSeconds,
+                speedLimit = prev.speedLimit,
                 maneuverGaode = if (g > 0) g else prev.maneuverGaode,
                 maneuverGaodeMs = if (g > 0) System.currentTimeMillis() else prev.maneuverGaodeMs,
                 lastUpdateMs = System.currentTimeMillis()
