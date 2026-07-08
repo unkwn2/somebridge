@@ -60,7 +60,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                     val arrTotal = nowTotalMin + etaTotalMin
                     val etaH = (arrTotal / 60) % 24
                     val etaM = arrTotal % 60
-                    val etaStr = String.format("%02d:%02d", etaH, etaM)
+                    val etaStr = if (s.etaSeconds > 0) String.format("%02d:%02d", etaH, etaM) else ""
 
                     val a11yFresh = s.maneuverGaode > 0 && (System.currentTimeMillis() - s.maneuverGaodeMs) < 10_000
                     val a11yHold = s.maneuverGaode > 0 && s.distanceMeters > 0 && (System.currentTimeMillis() - s.maneuverGaodeMs) < 20_000

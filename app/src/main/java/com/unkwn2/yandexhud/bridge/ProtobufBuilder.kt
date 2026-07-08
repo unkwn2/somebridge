@@ -172,11 +172,10 @@ object ProtobufBuilder {
         // f26 — ETA "ЧЧ:ММ"
         writeStringField(inner, 26, etaString)
 
-        // f28 — id манёвра. При камере (maneuver=0) не пишем — ROM рисует стрелку иначе.
-        // Донор: maneuver=0 = "нет стрелки"; наш gaodeToF28(0) → 1 (прямо) — лишняя 3D-стрелка.
-        if (maneuver != 0) {
-            writeVarintField(inner, 28, if (f28Mapped) gaodeToF28(maneuver).toLong() else maneuver.toLong())
-        }
+        // f28 — id манёвра. При камере (maneuver=0) шлём f28=0 (как buildOld) —
+        // чистит устаревшую стрелку, не рисует фантомную "прямо".
+        val f28Val = if (f28Mapped) gaodeToF28(maneuver).toLong() else maneuver.toLong()
+        writeVarintField(inner, 28, f28Val)
 
         // f29 — строка полос "S,H|S,H|..." (шлём вместе с f7, но НЕ при знаке скорости)
         if (hasLanes && !useSpeedInF7) writeStringField(inner, 29, laneLayout)
