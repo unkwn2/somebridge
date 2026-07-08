@@ -119,9 +119,17 @@ class HudForegroundService : Service() {
                 Logger.e(TAG, "bind failed")
             }
         }
-        // Принудительный rebind NotificationListenerService если доступ уже выдан
+        // Принудительный rebind NotificationListenerService (disable→enable заставляет систему пересоздать биндинг)
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            tryRebindNotifListener()
+            try {
+                val cn = android.content.ComponentName(this, YandexNaviNotificationListener::class.java)
+                packageManager.setComponentEnabledSetting(cn,
+                    android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED, android.content.pm.PackageManager.DONT_KILL_APP)
+                packageManager.setComponentEnabledSetting(cn,
+                    android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED, android.content.pm.PackageManager.DONT_KILL_APP)
+                android.service.notification.NotificationListenerService.requestRebind(cn)
+                Logger.i(TAG, "listener rebind forced (disable→enable cycle)")
+            } catch (t: Throwable) { Logger.w(TAG, "rebind failed: ${t.message}") }
         }, 2000L)
         Logger.i(TAG, "created — cold start (pid=${android.os.Process.myPid()}, elapsedRealtime=${android.os.SystemClock.elapsedRealtime()}ms)")
     }

@@ -36,7 +36,7 @@ object HudState {
     @Volatile private var current = Snapshot()
     private val listeners = CopyOnWriteArrayList<(Snapshot) -> Unit>()
 
-    private const val ACTIVE_TIMEOUT_MS = 60_000L
+    private const val ACTIVE_TIMEOUT_MS = 90_000L
 
     fun snapshot(): Snapshot {
         val s = current
@@ -77,7 +77,7 @@ object HudState {
         val now = System.currentTimeMillis()
         val s = current
         // Если данные свежие (< 10с) — не дезактивируем (a11y/нотиф могли обновиться недавно)
-        if (s.active && (now - s.lastUpdateMs) < 60_000L) return
+        if (s.active && (now - s.lastUpdateMs) < 90_000L) return
         update {
             it.copy(active = false, maneuver = ManeuverMapper.M_UNKNOWN,
                 maneuverGaode = 0, maneuverGaodeMs = 0L,

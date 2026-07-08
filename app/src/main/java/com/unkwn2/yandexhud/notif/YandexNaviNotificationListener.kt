@@ -46,6 +46,15 @@ class YandexNaviNotificationListener : NotificationListenerService() {
         val n = sbn.notification
         val ext = n.extras ?: return
 
+        // Диагностический дамп: каждое уведомление Яндекса целиком
+        val tpl = ext.getString(Notification.EXTRA_TEMPLATE)
+        Logger.i(TAG, "YDUMP id=${sbn.id} ongoing=${sbn.isOngoing} tpl=$tpl " +
+            "cv=${n.contentView != null} bcv=${n.bigContentView != null} hcv=${n.headsUpContentView != null} " +
+            "title='${ext.getCharSequence(Notification.EXTRA_TITLE)}' " +
+            "text='${ext.getCharSequence(Notification.EXTRA_TEXT)}' " +
+            "sub='${ext.getCharSequence(Notification.EXTRA_SUB_TEXT)}' " +
+            "keys=${ext.keySet().joinToString(",")}")
+
         // Отсекаем медиа/музыку (у неё есть MediaSession / MediaStyle / категория transport)
         if (ext.containsKey(Notification.EXTRA_MEDIA_SESSION) ||
             n.category == Notification.CATEGORY_TRANSPORT ||
@@ -70,15 +79,30 @@ class YandexNaviNotificationListener : NotificationListenerService() {
             val maneuver = rv.maneuverEnum ?: ManeuverMapper.fromRussianText(rv.instruction)
             val etaSeconds = if (rv.remainingTimeSec > 0) rv.remainingTimeSec
                 else parseEtaSeconds(ext.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: "")
-            Logger.i(TAG, "posted rv m=$maneuver(${ManeuverMapper.maneuverName(maneuver)}) d=${rv.distToManeuverM}m road='${rv.road}' eta=${etaSeconds}s tl=${rv.trafficLightColor}${if (rv.trafficLightSeconds > 0) " ${rv.trafficLightSeconds}s" else ""} cam='${rv.cameraAlert}' png=${if (rv.maneuverPng != null) "${rv.maneuverPng.size}B" else "none"}")
+
+            // Road из extras (android.text), не из RV-дерева — RV может содержать "N мин"
+            val extrasRoad = ext.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim() ?: ""
+            val safeRoad = if (extrasRoad.isNotEmpty()
+                && !isDurationText(extrasRoad)
+                && !ManeuverMapper.isServicePhrase(extrasRoad)
+                && ManeuverMapper.fromRussianText(extrasRoad) == ManeuverMapper.M_UNKNOWN
+            ) extrasRoad else ""
+
+            // Distance из extras (android.title) если RV не дал
+            val extrasDist = if (rv.distToManeuverM <= 0) parseDistance(ext.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: "") ?: 0 else 0
+
+            Logger.i(TAG, "posted rv m=$maneuver(${ManeuverMapper.maneuverName(maneuver)}) d=${rv.distToManeuverM}m road='${rv.road}' extrasRoad='$safeRoad' eta=${etaSeconds}s tl=${rv.trafficLightColor}${if (rv.trafficLightSeconds > 0) " ${rv.trafficLightSeconds}s" else ""} cam='${rv.cameraAlert}' png=${if (rv.maneuverPng != null) "${rv.maneuverPng.size}B" else "none"}")
             removePostedMs = 0L
             HudState.update { prev ->
                 val g = if (maneuver != ManeuverMapper.M_UNKNOWN) ManeuverMapper.toGaode(maneuver) else 0
+                val mergedRoad = if (safeRoad.isNotEmpty()) safeRoad
+                    else if (rv.road.isNotEmpty() && !isDurationText(rv.road) && ManeuverMapper.fromRussianText(rv.road) == ManeuverMapper.M_UNKNOWN) rv.road
+                    else prev.road
                 prev.copy(
                     active = true,
                     maneuver = if (maneuver != ManeuverMapper.M_UNKNOWN) maneuver else prev.maneuver,
-                    distanceMeters = if (rv.distToManeuverM > 0) rv.distToManeuverM else prev.distanceMeters,
-                    road = if (rv.road.isNotEmpty()) rv.road else prev.road,
+                    distanceMeters = if (rv.distToManeuverM > 0) rv.distToManeuverM else if (extrasDist > 0) extrasDist else prev.distanceMeters,
+                    road = mergedRoad,
                     etaSeconds = if (etaSeconds > 0) etaSeconds else prev.etaSeconds,
                     totalDistMeters = if (rv.totalDistM > 0) rv.totalDistM else prev.totalDistMeters,
                     totalTimeSeconds = prev.totalTimeSeconds,
@@ -165,7 +189,7 @@ class YandexNaviNotificationListener : NotificationListenerService() {
             if (removePostedMs == 0L) return@postDelayed
             val s = HudState.snapshot()
             if (!s.active) return@postDelayed
-            if (System.currentTimeMillis() - s.lastUpdateMs >= 60_000L) {
+            if (System.currentTimeMillis() - s.lastUpdateMs >= 90_000L) {
                 Logger.i(TAG, "deactivate check — grace expired, deactivating HUD")
                 HudState.deactivate()
                 removePostedMs = 0L
@@ -185,6 +209,11 @@ class YandexNaviNotificationListener : NotificationListenerService() {
     private fun extractRoad(title: String, text: String): String {
         val hasDist = DIST_KM.containsMatchIn(title) || DIST_M.containsMatchIn(title)
         return if (hasDist) text.trim() else title.trim()
+    }
+
+    private fun isDurationText(s: String): Boolean {
+        val t = s.trim()
+        return t.contains("мин") || t.contains("ч") || Regex("""\b([01]?\d|2[0-3]):([0-5]\d)\b""").containsMatchIn(t)
     }
 
     private fun parseDistance(s: String): Int? {
