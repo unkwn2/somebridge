@@ -165,7 +165,7 @@ class YandexNaviNotificationListener : NotificationListenerService() {
             if (removePostedMs == 0L) return@postDelayed
             val s = HudState.snapshot()
             if (!s.active) return@postDelayed
-            if (System.currentTimeMillis() - s.lastUpdateMs >= 30_000L) {
+            if (System.currentTimeMillis() - s.lastUpdateMs >= 60_000L) {
                 Logger.i(TAG, "deactivate check — grace expired, deactivating HUD")
                 HudState.deactivate()
                 removePostedMs = 0L
