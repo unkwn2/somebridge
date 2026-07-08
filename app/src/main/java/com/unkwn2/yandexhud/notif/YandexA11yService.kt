@@ -244,12 +244,15 @@ class YandexA11yService : AccessibilityService() {
         if (desc == null) return 0
 
         val exitNode = byVid[VID_EXIT_NUM]
-        val isRoundaboutDesc = desc != null && ("кольцев" in desc.lowercase() || "выезд с кольца" in desc.lowercase() || "съезд" in desc.lowercase())
+        // Наличие exit_number_text с числом 1..10 — достаточный признак кольца,
+        // даже если desc балуна = "Поверните направо/правее" (Яндекс так делает на малых кольцах).
+        val exitNumParsed = exitNode?.text?.let { Regex("""\d+""").find(it)?.value }?.toIntOrNull()
+        if (exitNumParsed != null && exitNumParsed in 1..10) {
+            return 24
+        }
+
+        val isRoundaboutDesc = "кольцев" in desc.lowercase() || "выезд с кольца" in desc.lowercase() || "съезд" in desc.lowercase()
         if (isRoundaboutDesc && exitNode != null && exitNode.text.isNotEmpty()) {
-            val exitNum = exitNode.text.trim().toIntOrNull()
-            if (exitNum != null && exitNum in 1..10) {
-                return 24
-            }
             val fullDesc = "$desc ${exitNode.text}-й съезд"
             return ManeuverMapper.fromA11yDescription(fullDesc)
         }

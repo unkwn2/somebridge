@@ -43,7 +43,7 @@ object ProtobufBuilder {
     const val STAGE_MAX = 6
 
     // ── SIZEGUARD ─────────────────────────────────────────────────────────
-    const val MAX_PAYLOAD_BYTES = 3400
+    const val MAX_PAYLOAD_BYTES = 5000
 
     fun stageName(stage: Int): String = when (stage) {
         0 -> "0:OLD-base"
@@ -275,10 +275,10 @@ object ProtobufBuilder {
 
     // ── helpers ───────────────────────────────────────────────────────────
 
-    /** PNG-знак ограничения скорости для слота f7 (вместо ленты полос). 100×100. */
+    /** PNG-знак ограничения скорости для слота f7 (вместо ленты полос). 64×64. */
     fun buildSpeedLimitPng(speed: Int): ByteArray? {
         if (speed <= 0) return null
-        val size = 100
+        val size = 64
         return try {
             val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
             val c = android.graphics.Canvas(bmp)

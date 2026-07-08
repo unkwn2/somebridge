@@ -308,7 +308,7 @@ object RemoteViewsParser {
             val textual = values.filter { s ->
                 s.any { it.isLetter() } &&
                     parseDistance(s) == null &&
-                    !TIME_HHMM.matches(s) &&
+                    !TIME_HHMM.containsMatchIn(s) &&
                     ACTION_BUTTON_TEXTS.none { it in s.lowercase() }
             }.sortedByDescending { it.length }
 
