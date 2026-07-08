@@ -21,6 +21,7 @@ class HudForegroundService : Service() {
         private const val TAG = "FGS"
         private const val CH_ID = "yandexhud_fg"
         private const val NOTIF_ID = 1
+        private const val HEARTBEAT_INTERVAL_MS = 60_000L
         private const val PREFS = "yandexhud_prefs"
         private const val KEY_GAODE = "useGaodeEnum"
         private const val KEY_BUILDER = "builder_old"
@@ -122,7 +123,7 @@ class HudForegroundService : Service() {
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             tryRebindNotifListener()
         }, 2000L)
-        Logger.i(TAG, "created")
+        Logger.i(TAG, "created — cold start (pid=${android.os.Process.myPid()}, elapsedRealtime=${android.os.SystemClock.elapsedRealtime()}ms)")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -131,6 +132,10 @@ class HudForegroundService : Service() {
             restartAttempt = 0
             intentionalStop = false
         }
+        if (intent?.getBooleanExtra("HEARTBEAT", false) == true) {
+            Logger.i(TAG, "heartbeat tick — alive (pid=${android.os.Process.myPid()})")
+        }
+        scheduleHeartbeat()
         return START_STICKY
     }
 
@@ -164,6 +169,7 @@ class HudForegroundService : Service() {
         stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
         if (intentionalStop) {
+            cancelHeartbeat()
             Logger.i(TAG, "destroyed — intentional stop, no restart")
         } else {
             Logger.i(TAG, "destroyed — scheduling restart in 2s")
@@ -189,6 +195,26 @@ class HudForegroundService : Service() {
             val am = getSystemService(Context.ALARM_SERVICE) as AlarmManager
             am.set(AlarmManager.RTC, System.currentTimeMillis() + backoff, pi)
         } catch (t: Throwable) { Logger.w(TAG, "FGS restart blocked: ${t.message}") }
+    }
+
+    private fun scheduleHeartbeat() {
+        try {
+            val intent = Intent(this, HudForegroundService::class.java).putExtra("HEARTBEAT", true)
+            val pi = PendingIntent.getForegroundService(this, 1, intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+            val am = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,
+                System.currentTimeMillis() + HEARTBEAT_INTERVAL_MS, pi)
+        } catch (t: Throwable) { Logger.w(TAG, "heartbeat schedule failed: ${t.message}") }
+    }
+
+    private fun cancelHeartbeat() {
+        try {
+            val intent = Intent(this, HudForegroundService::class.java).putExtra("HEARTBEAT", true)
+            val pi = PendingIntent.getForegroundService(this, 1, intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+            (getSystemService(Context.ALARM_SERVICE) as AlarmManager).cancel(pi)
+        } catch (_: Throwable) {}
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

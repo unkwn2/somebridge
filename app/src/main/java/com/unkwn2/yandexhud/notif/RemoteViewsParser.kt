@@ -266,7 +266,8 @@ object RemoteViewsParser {
             } else {
                 val m = ManeuverMapper.fromRussianText(descVal)
                 if (m != ManeuverMapper.M_UNKNOWN) instruction = descVal
-                else if (!TIME_HHMM.containsMatchIn(descVal) && !isDurationText(descVal)) road = descVal
+                else if (!TIME_HHMM.containsMatchIn(descVal) && !isDurationText(descVal)
+                    && !ManeuverMapper.isServicePhrase(descVal)) road = descVal
             }
         }
 

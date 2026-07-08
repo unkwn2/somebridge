@@ -211,14 +211,16 @@ class YandexA11yService : AccessibilityService() {
 
         for ((vid, n) in byVid) {
             if (n.desc.isEmpty()) continue
-            if (n.vid == VID_NEXTSTREET || n.vid == VID_ROADSIGN || n.vid == "statusPanel") continue
+            if (vid == VID_NEXTSTREET || vid == VID_ROADSIGN || vid == "statusPanel" ||
+                vid == VID_THEN_ICON || vid == VID_THEN_DIST || vid == VID_THEN_ROAD) continue
             val m = ManeuverMapper.fromRussianText(n.desc)
             if (m != ManeuverMapper.M_UNKNOWN) return m
         }
 
         for ((vid, n) in byVid) {
             if (n.text.isEmpty()) continue
-            if (n.vid == VID_NEXTSTREET || n.vid == VID_ROADSIGN || n.vid == "statusPanel") continue
+            if (vid == VID_NEXTSTREET || vid == VID_ROADSIGN || vid == "statusPanel" ||
+                vid == VID_THEN_ICON || vid == VID_THEN_DIST || vid == VID_THEN_ROAD) continue
             val m = ManeuverMapper.fromRussianText(n.text)
             if (m != ManeuverMapper.M_UNKNOWN) return m
         }
