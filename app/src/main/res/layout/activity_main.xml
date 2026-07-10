@@ -192,14 +192,14 @@
                     android:textAllCaps="false" />
 
                 <Button
-                    android:id="@+id/btnCamera"
+                    android:id="@+id/btnSpeedSign"
                     style="@style/Widget.Button.Tonal"
                     android:layout_width="0dp"
                     android:layout_height="40dp"
                     android:layout_weight="1"
                     android:layout_marginStart="4dp"
                     android:layout_marginEnd="4dp"
-                    android:text="КАМЕРА: ВКЛ"
+                    android:text="ЗНАК СК: ВКЛ"
                     android:textSize="10sp"
                     android:textAllCaps="false" />
 

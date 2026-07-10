@@ -277,7 +277,7 @@ object ProtobufBuilder {
 
     // ── helpers ───────────────────────────────────────────────────────────
 
-    /** PNG-знак ограничения скорости для слота f7 (вместо ленты полос). 96×96. */
+    /** PNG-знак ограничения скорости для слота f7 (вместо ленты полос). 96×96, без AA на кругах. */
     fun buildSpeedLimitPng(speed: Int): ByteArray? {
         if (speed <= 0) return null
         val size = 96
@@ -286,10 +286,10 @@ object ProtobufBuilder {
             val c = android.graphics.Canvas(bmp)
             c.drawColor(android.graphics.Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
             val cx = size / 2f; val cy = size / 2f
-            val red = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            val red = android.graphics.Paint().apply {
                 color = android.graphics.Color.rgb(0xD0, 0, 0); style = android.graphics.Paint.Style.FILL }
             c.drawCircle(cx, cy, size * 0.48f, red)
-            val white = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            val white = android.graphics.Paint().apply {
                 color = android.graphics.Color.WHITE; style = android.graphics.Paint.Style.FILL }
             c.drawCircle(cx, cy, size * 0.34f, white)
             val txt = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {

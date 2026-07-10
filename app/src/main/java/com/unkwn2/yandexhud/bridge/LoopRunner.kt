@@ -86,7 +86,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
                         iconPngSmall = effectivePngSmall,
                         testLanes = s.testLanes,
                         laneLayout = laneLayout,
-                        speedInF7 = HudForegroundService.speedInLaneSlot
+                        speedInF7 = HudForegroundService.speedSignEnabled
                     )
                     val modeLabel = "NEW:${stageLabel()}"
                     val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)

@@ -45,7 +45,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnA11y: Button
     private lateinit var btnGrant: Button
     private lateinit var btnRvDump: Button
-    private lateinit var btnCamera: Button
+    private lateinit var btnSpeedSign: Button
     private lateinit var btnLogs: Button
     private lateinit var hiddenPanel: LinearLayout
     private var menuVisible = false
@@ -138,7 +138,7 @@ class MainActivity : AppCompatActivity() {
         btnA11y = findViewById(R.id.btnA11y)
         btnGrant = findViewById(R.id.btnGrant)
         btnRvDump = findViewById(R.id.btnRvDump)
-        btnCamera = findViewById(R.id.btnCamera)
+        btnSpeedSign = findViewById(R.id.btnSpeedSign)
         btnLogs = findViewById(R.id.btnLogs)
         hiddenPanel = findViewById(R.id.hiddenPanel)
 
@@ -148,7 +148,7 @@ class MainActivity : AppCompatActivity() {
         btnA11y.setOnClickListener { enableA11y() }
         btnGrant.setOnClickListener { grantPermissions() }
         btnRvDump.setOnClickListener { cycleRvDump() }
-        btnCamera.setOnClickListener { toggleCamera() }
+        btnSpeedSign.setOnClickListener { toggleSpeedSign() }
         btnLogs.setOnClickListener { toggleLogs() }
         findViewById<Button>(R.id.btnSaveLog).setOnClickListener { saveLog() }
         findViewById<Button>(R.id.btnNotifAccess).setOnClickListener {
@@ -163,7 +163,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnDonation).setOnClickListener { showDonationDialog() }
 
         // Initial button states
-        btnCamera.text = if (HudForegroundService.cameraEnabled) "КАМЕРА: ВКЛ" else "КАМЕРА: ВЫКЛ"
+        btnSpeedSign.text = if (HudForegroundService.speedSignEnabled) "ЗНАК СК: ВКЛ" else "ЗНАК СК: ВЫКЛ"
         btnLogs.text = if (Logger.enabled) "LOGS: ON" else "LOGS: OFF"
 
         Logger.observe { line ->
@@ -338,11 +338,11 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
         }
     }
 
-    private fun toggleCamera() {
-        val on = !HudForegroundService.cameraEnabled
-        HudForegroundService.setCamera(this, on)
-        btnCamera.text = if (on) "КАМЕРА: ВКЛ" else "КАМЕРА: ВЫКЛ"
-        toast("Камера: ${if (on) "ВКЛ" else "ВЫКЛ"}")
+    private fun toggleSpeedSign() {
+        val on = !HudForegroundService.speedSignEnabled
+        HudForegroundService.setSpeedSign(this, on)
+        btnSpeedSign.text = if (on) "ЗНАК СК: ВКЛ" else "ЗНАК СК: ВЫКЛ"
+        toast("Знак скорости в f7: ${if (on) "ВКЛ" else "ВЫКЛ"}")
     }
 
     private fun toggleLogs() {

@@ -23,7 +23,7 @@ class HudForegroundService : Service() {
         private const val NOTIF_ID = 1
         private const val HEARTBEAT_INTERVAL_MS = 60_000L
         private const val PREFS = "yandexhud_prefs"
-        private const val KEY_CAMERA = "cameraEnabled"
+        private const val KEY_SPEED_SIGN = "speedSignEnabled"
 
         @Volatile var instance: HudForegroundService? = null
         val bridge: SomeIpBridge? get() = instance?._bridge
@@ -33,19 +33,19 @@ class HudForegroundService : Service() {
         // f8 PNG from RemoteViews — true = ON (по умолчанию)
         @Volatile var sendPngIcon: Boolean = true
 
-        // знак скорости в f7 вместо ленты полос — true = ON (по умолчанию)
-        @Volatile var speedInLaneSlot: Boolean = true
-
         // RV dump in log — false = OFF (засоряет логи)
         @Volatile var probeRv: Boolean = false
 
-        // Camera icon toggle
-        @Volatile var cameraEnabled: Boolean = true
-        fun setCamera(ctx: Context, on: Boolean) {
-            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_CAMERA, on).apply()
-            cameraEnabled = on
+        // Speed sign in f7 toggle (red circle with number instead of lane strip)
+        @Volatile var speedSignEnabled: Boolean = true
+        fun setSpeedSign(ctx: Context, on: Boolean) {
+            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_SPEED_SIGN, on).apply()
+            speedSignEnabled = on
         }
-        fun getCamera(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_CAMERA, true)
+        fun getSpeedSign(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_SPEED_SIGN, true)
+
+        // Camera icon in f8 — always on (hardcoded)
+        @Volatile var cameraEnabled: Boolean = true
 
         fun start(ctx: Context) {
             try {
@@ -70,7 +70,7 @@ class HudForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         instance = this
-        cameraEnabled = getCamera(this)
+        speedSignEnabled = getSpeedSign(this)
         NaviIconLoader.init(this)
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val ch = NotificationChannel(CH_ID, getString(R.string.hud_fg_channel), NotificationManager.IMPORTANCE_LOW)
