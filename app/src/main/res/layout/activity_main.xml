@@ -36,7 +36,7 @@
             android:textIsSelectable="true" />
     </LinearLayout>
 
-    <!-- MAIN CONTROLS: YANDEX NAVI, GRANT, SAVE LOG, MENU, DONATION -->
+    <!-- MAIN CONTROLS -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -100,38 +100,6 @@
                 android:textAllCaps="false" />
         </LinearLayout>
 
-        <!-- BUILDER A/B: OLD (рабочий метод 18 июня) / NEW (постадийный перебор полей) -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/btnBuilderOld"
-                style="@style/Widget.Button.Tonal"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="4dp"
-                android:text="● OLD"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:textAllCaps="false" />
-
-            <Button
-                android:id="@+id/btnBuilderNew"
-                style="@style/Widget.Button.Tonal"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:text="NEW"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:textAllCaps="false" />
-        </LinearLayout>
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -164,6 +132,7 @@
                 android:background="#21262D"
                 android:layout_marginBottom="6dp" />
 
+            <!-- Row 1: MOCK GPS | SNIFFER | A11Y -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -204,6 +173,7 @@
                     android:textAllCaps="false" />
             </LinearLayout>
 
+            <!-- Row 2: NOTIF | КАМЕРА | LOGS -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -222,144 +192,35 @@
                     android:textAllCaps="false" />
 
                 <Button
-                    android:id="@+id/btnTestLeft"
-                    style="@style/Widget.Button.Outlined"
+                    android:id="@+id/btnCamera"
+                    style="@style/Widget.Button.Tonal"
                     android:layout_width="0dp"
                     android:layout_height="40dp"
                     android:layout_weight="1"
                     android:layout_marginStart="4dp"
                     android:layout_marginEnd="4dp"
-                    android:text="LEFT"
+                    android:text="КАМЕРА: ВКЛ"
                     android:textSize="10sp"
                     android:textAllCaps="false" />
 
                 <Button
-                    android:id="@+id/btnDumpTree"
-                    style="@style/Widget.Button.Outlined"
+                    android:id="@+id/btnLogs"
+                    style="@style/Widget.Button.Tonal"
                     android:layout_width="0dp"
                     android:layout_height="40dp"
                     android:layout_weight="1"
                     android:layout_marginStart="4dp"
-                    android:text="DUMP"
+                    android:text="LOGS: OFF"
                     android:textSize="10sp"
                     android:textAllCaps="false" />
             </LinearLayout>
 
+            <!-- Row 3: RV ON -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
                 android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/btnIconScan"
-                    style="@style/Widget.Button.Tonal"
-                    android:layout_width="0dp"
-                    android:layout_height="40dp"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="4dp"
-                    android:text="ICON: OFF"
-                    android:textSize="10sp"
-                    android:textStyle="bold"
-                    android:textAllCaps="false" />
-
-                <Button
-                    android:id="@+id/btnPngIcon"
-                    style="@style/Widget.Button.Tonal"
-                    android:layout_width="0dp"
-                    android:layout_height="40dp"
-                    android:layout_weight="1"
-                    android:layout_marginStart="4dp"
-                    android:layout_marginEnd="4dp"
-                    android:text="PNG: ON"
-                    android:textSize="10sp"
-                    android:textStyle="bold"
-                    android:textAllCaps="false" />
-
-                <Button
-                    android:id="@+id/btnTestLanes"
-                    style="@style/Widget.Button.Outlined"
-                    android:layout_width="0dp"
-                    android:layout_height="40dp"
-                    android:layout_weight="1"
-                    android:layout_marginStart="4dp"
-                    android:text="LANES"
-                    android:textSize="10sp"
-                    android:textAllCaps="false" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/btnTestNextNext"
-                    style="@style/Widget.Button.Outlined"
-                    android:layout_width="0dp"
-                    android:layout_height="40dp"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="4dp"
-                    android:text="NEXT+NEXT"
-                    android:textSize="10sp"
-                    android:textAllCaps="false" />
-
-                <Button
-                    android:id="@+id/btnTestNavMap"
-                    style="@style/Widget.Button.Outlined"
-                    android:layout_width="0dp"
-                    android:layout_height="40dp"
-                    android:layout_weight="1"
-                    android:layout_marginStart="4dp"
-                    android:layout_marginEnd="4dp"
-                    android:text="NAVMAP"
-                    android:textSize="10sp"
-                    android:textAllCaps="false" />
-
-                <Button
-                    android:id="@+id/btnArrowScan"
-                    style="@style/Widget.Button.Outlined"
-                    android:layout_width="0dp"
-                    android:layout_height="40dp"
-                    android:layout_weight="1"
-                    android:layout_marginStart="4dp"
-                    android:text="ARROW SCAN"
-                    android:textSize="10sp"
-                    android:textStyle="bold"
-                    android:textAllCaps="false" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/btnTogglePacked"
-                    style="@style/Widget.Button.Tonal"
-                    android:layout_width="0dp"
-                    android:layout_height="40dp"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="4dp"
-                    android:text="PACKED"
-                    android:textSize="10sp"
-                    android:textStyle="bold"
-                    android:textAllCaps="false" />
-
-                <Button
-                    android:id="@+id/btnHudMode"
-                    style="@style/Widget.Button.Tonal"
-                    android:layout_width="0dp"
-                    android:layout_height="40dp"
-                    android:layout_weight="1"
-                    android:layout_marginStart="4dp"
-                    android:layout_marginEnd="4dp"
-                    android:text="HUD MODE"
-                    android:textSize="10sp"
-                    android:textStyle="bold"
-                    android:textAllCaps="false" />
 
                 <Button
                     android:id="@+id/btnRvDump"
@@ -367,27 +228,8 @@
                     android:layout_width="0dp"
                     android:layout_height="40dp"
                     android:layout_weight="1"
-                    android:layout_marginStart="4dp"
                     android:text="RV: OFF"
                     android:textSize="10sp"
-                    android:textStyle="bold"
-                    android:textAllCaps="false" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/btnSelftest"
-                    style="@style/Widget.Button.Tonal"
-                    android:layout_width="0dp"
-                    android:layout_height="40dp"
-                    android:layout_weight="1"
-                    android:text="SELFTEST"
-                    android:textSize="11sp"
                     android:textStyle="bold"
                     android:textAllCaps="false" />
             </LinearLayout>

@@ -1,7 +1,6 @@
 package com.unkwn2.yandexhud.ui
 
 import com.unkwn2.yandexhud.R
-import com.unkwn2.yandexhud.bridge.NaviIconLoader
 import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -24,10 +23,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.unkwn2.yandexhud.BuildConfig
 import com.unkwn2.yandexhud.bridge.HudForegroundService
 import com.unkwn2.yandexhud.bridge.HudState
-import com.unkwn2.yandexhud.bridge.SomeIpBridge
-import com.unkwn2.yandexhud.bridge.ProtobufBuilder
 import com.unkwn2.yandexhud.mock.MockGpsService
-import com.unkwn2.yandexhud.notif.ManeuverMapper
 import com.unkwn2.yandexhud.notif.YandexA11yService
 import com.unkwn2.yandexhud.notif.YandexNaviNotificationListener
 import com.unkwn2.yandexhud.util.LocalAdb
@@ -39,7 +35,6 @@ import java.security.MessageDigest
 class MainActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "UI"
-        private const val PREFS = "yandexhud_prefs"
     }
     private lateinit var statusBar: TextView
     private lateinit var logText: TextView
@@ -48,31 +43,20 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnMockGps: Button
     private lateinit var btnSniffer: Button
     private lateinit var btnA11y: Button
-    private lateinit var btnTestLanes: Button
-    private lateinit var btnTestNavMap: Button
-    private lateinit var btnTestNextNext: Button
-    private lateinit var btnTogglePacked: Button
-    private lateinit var btnHudMode: Button
-    private lateinit var btnBuilderOld: Button
-    private lateinit var btnBuilderNew: Button
     private lateinit var btnGrant: Button
-    private lateinit var btnIconScan: Button
-    private lateinit var btnPngIcon: Button
     private lateinit var btnRvDump: Button
-    private lateinit var btnArrowScan: Button
+    private lateinit var btnCamera: Button
+    private lateinit var btnLogs: Button
     private lateinit var hiddenPanel: LinearLayout
     private var menuVisible = false
     private var yandexOn = false
     private var mockOn = false
     private var snifferOn = false
-    private var useGaodeEnum = true
     private var statusRefreshThread: Thread? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Logger.init(applicationContext)
-        useGaodeEnum = HudForegroundService.loadGaode(this)
-        HudForegroundService.builderOld = HudForegroundService.loadBuilderMode(this)
 
         if (BuildConfig.DEBUG) {
             initUI()
@@ -152,38 +136,20 @@ class MainActivity : AppCompatActivity() {
         btnMockGps = findViewById(R.id.btnMockGps)
         btnSniffer = findViewById(R.id.btnSniffer)
         btnA11y = findViewById(R.id.btnA11y)
-        btnTestLanes = findViewById(R.id.btnTestLanes)
-        btnTestNavMap = findViewById(R.id.btnTestNavMap)
-        btnTestNextNext = findViewById(R.id.btnTestNextNext)
-        btnTogglePacked = findViewById(R.id.btnTogglePacked)
-        btnHudMode = findViewById(R.id.btnHudMode)
-        btnBuilderOld = findViewById(R.id.btnBuilderOld)
-        btnBuilderNew = findViewById(R.id.btnBuilderNew)
         btnGrant = findViewById(R.id.btnGrant)
-        btnIconScan = findViewById(R.id.btnIconScan)
-        btnPngIcon = findViewById(R.id.btnPngIcon)
         btnRvDump = findViewById(R.id.btnRvDump)
-        btnArrowScan = findViewById(R.id.btnArrowScan)
+        btnCamera = findViewById(R.id.btnCamera)
+        btnLogs = findViewById(R.id.btnLogs)
         hiddenPanel = findViewById(R.id.hiddenPanel)
 
         btnYandex.setOnClickListener { toggleYandex() }
         btnMockGps.setOnClickListener { toggleMockGps() }
         btnSniffer.setOnClickListener { toggleSniffer() }
         btnA11y.setOnClickListener { enableA11y() }
-        btnTestLanes.setOnClickListener { testLanes() }
-        btnTestNavMap.setOnClickListener { testNavMap() }
-        btnTestNextNext.setOnClickListener { testNextNext() }
-        btnTogglePacked.setOnClickListener { togglePacked() }
-        btnHudMode.setOnClickListener { toggleHudMode() }
-        btnHudMode.text = if (useGaodeEnum) "GAODE" else "v33"
-        btnBuilderOld.setOnClickListener { setBuilderOld(true) }
-        btnBuilderNew.setOnClickListener { setBuilderOld(false) }
-        updateBuilderButtons()
         btnGrant.setOnClickListener { grantPermissions() }
-        btnIconScan.setOnClickListener { cycleIconField() }
-        btnPngIcon.setOnClickListener { cyclePngIcon() }
         btnRvDump.setOnClickListener { cycleRvDump() }
-        btnArrowScan.setOnClickListener { toggleArrowScan() }
+        btnCamera.setOnClickListener { toggleCamera() }
+        btnLogs.setOnClickListener { toggleLogs() }
         findViewById<Button>(R.id.btnSaveLog).setOnClickListener { saveLog() }
         findViewById<Button>(R.id.btnNotifAccess).setOnClickListener {
             try {
@@ -193,14 +159,12 @@ class MainActivity : AppCompatActivity() {
                 toast("Copied ADB command to clipboard")
             }
         }
-        findViewById<Button>(R.id.btnTestLeft).setOnClickListener { testManeuver(ManeuverMapper.M_LEFT, "LEFT") }
-        findViewById<Button>(R.id.btnDumpTree).setOnClickListener {
-            YandexA11yService.dumpRequested = true
-            toast("Tree dump requested")
-        }
         findViewById<Button>(R.id.btnMenu).setOnClickListener { toggleMenu() }
         findViewById<Button>(R.id.btnDonation).setOnClickListener { showDonationDialog() }
-        findViewById<Button>(R.id.btnSelftest).setOnClickListener { runSelftest() }
+
+        // Initial button states
+        btnCamera.text = if (HudForegroundService.cameraEnabled) "КАМЕРА: ВКЛ" else "КАМЕРА: ВЫКЛ"
+        btnLogs.text = if (Logger.enabled) "LOGS: ON" else "LOGS: OFF"
 
         Logger.observe { line ->
             runOnUiThread {
@@ -208,14 +172,7 @@ class MainActivity : AppCompatActivity() {
                 logScroll.post { logScroll.fullScroll(ScrollView.FOCUS_DOWN) }
             }
         }
-        HudState.observe { s ->
-            updateStatusBar()
-            runOnUiThread {
-                if (s.arrowScanActive && ::btnArrowScan.isInitialized) {
-                    btnArrowScan.text = "ARROW: ${s.arrowScanIndex}"
-                }
-            }
-        }
+        HudState.observe { updateStatusBar() }
         startStatusRefresh()
         checkLicense()
         ensurePermissions()
@@ -299,7 +256,6 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
                 checkLicense()
                 return
             }
-            // Грантим через ADB если права не выданы
             if (!isNotifAccessGranted()) {
                 Thread {
                     val ok = LocalAdb.ensurePermissions(applicationContext, force = true)
@@ -382,199 +338,19 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
         }
     }
 
-    private fun forceActiveForTest(maneuver: Int = ManeuverMapper.M_RIGHT) {
-        HudState.update {
-            it.copy(active = true, maneuver = maneuver, distanceMeters = 500,
-                road = "Test", etaSeconds = 300, lastUpdateMs = System.currentTimeMillis())
-        }
-        HudState.setTestLatch(30000L)
+    private fun toggleCamera() {
+        val on = !HudForegroundService.cameraEnabled
+        HudForegroundService.setCamera(this, on)
+        btnCamera.text = if (on) "КАМЕРА: ВКЛ" else "КАМЕРА: ВЫКЛ"
+        toast("Камера: ${if (on) "ВКЛ" else "ВЫКЛ"}")
     }
 
-    private fun testLanes() {
-        if (!yandexOn) { toast("Start YANDEX NAVI first"); return }
-        val current = HudState.snapshot().testLanes
-        val newVal = !current
-        HudState.update { it.copy(testLanes = newVal) }
-        if (!HudState.snapshot().active) forceActiveForTest()
-        btnTestLanes.text = if (newVal) "LANES ON" else "LANES"
-        toast("Test lanes: ${if (newVal) "ON" else "OFF"}")
-        Logger.i("TEST", "testLanes=$newVal")
-    }
-
-    private fun testNavMap() {
-        if (!yandexOn) { toast("Start YANDEX NAVI first"); return }
-        val s = HudState.snapshot()
-        if (!s.active) forceActiveForTest()
-        val fresh = HudState.snapshot()
-        val maneuverVal = if (useGaodeEnum) toGaodeDisplay(fresh.maneuver) else fresh.maneuver
-        val nextVal = if (maneuverVal == 2) 1 else 2
-        val packed = fresh.usePacked
-        val navmap = ProtobufBuilder.buildNavMap(intArrayOf(maneuverVal, nextVal), packed)
-        val rc = HudForegroundService.bridge?.fireEvent(SomeIpBridge.TOPIC_NAVMAP, navmap) ?: -1
-        Logger.i("TEST", "navmap(0x8002) fire rc=$rc maneuvers=[$maneuverVal, $nextVal] packed=$packed")
-        toast("NAVMAP 0x8002 rc=$rc [$maneuverVal,$nextVal]")
-    }
-
-    private fun testNextNext() {
-        if (!yandexOn) { toast("Start YANDEX NAVI first"); return }
-        val s = HudState.snapshot()
-        if (!s.active) forceActiveForTest()
-        val fresh = HudState.snapshot()
-        val cur = fresh.nextNextManeuver
-        val rev = if (fresh.maneuver == ManeuverMapper.M_LEFT) ManeuverMapper.M_RIGHT else ManeuverMapper.M_LEFT
-        val newVal = if (cur > 0) 0 else rev
-        HudState.update { it.copy(nextNextManeuver = newVal) }
-        btnTestNextNext.text = if (newVal > 0) "NXT:${ManeuverMapper.maneuverName(newVal)}" else "NEXT+NEXT"
-        toast("Next-next: ${if (newVal > 0) ManeuverMapper.maneuverName(newVal) else "OFF"}")
-        Logger.i("TEST", "nextNextManeuver=$newVal (M_${ManeuverMapper.maneuverName(newVal)})")
-    }
-
-    private fun togglePacked() {
-        val current = HudState.snapshot().usePacked
-        HudState.update { it.copy(usePacked = !current) }
-        btnTogglePacked.text = if (!current) "PACKED" else "NON-PK"
-        toast("Encoding: ${if (!current) "packed" else "non-packed"}")
-        Logger.i("UI", "usePacked=${!current}")
-    }
-
-    private fun toggleHudMode() {
-        useGaodeEnum = !useGaodeEnum
-        HudForegroundService.loopRunner?.useGaodeEnum = useGaodeEnum
-        HudForegroundService.saveSettings(this, useGaodeEnum)
-        val label = if (useGaodeEnum) "GAODE" else "v33"
-        runOnUiThread { btnHudMode.text = label }
-        toast("Protocol: $label")
-        Logger.i("UI", "useGaodeEnum=$useGaodeEnum ($label)")
-    }
-
-    private fun testManeuver(maneuver: Int, name: String) {
-        if (!yandexOn) { toast("Start YANDEX NAVI first"); return }
-        val enumLabel = if (useGaodeEnum) "GAODE" else "v33"
-        val gaodeVal = if (useGaodeEnum) toGaodeDisplay(maneuver) else maneuver
-        Logger.i("TEST", "maneuver=$name code=$maneuver gaode=$gaodeVal enum=$enumLabel")
-        HudState.update {
-            it.copy(active = true, maneuver = maneuver, distanceMeters = 500,
-                road = "Test $name", etaSeconds = 300, lastUpdateMs = System.currentTimeMillis())
-        }
-        HudState.setTestLatch(10000L)
-        toast("TEST $name → HUD $gaodeVal (latch 10s)")
-    }
-
-    private fun runSelftest() {
-        if (!yandexOn) { toast("Start YANDEX NAVI first"); return }
-        val bridge = HudForegroundService.bridge
-        if (bridge == null) { toast("Bridge not ready"); return }
-
-        Thread {
-            Logger.i("SELFTEST", "=== HUD SELFTEST START ===")
-            val testCases = listOf(
-                "m=0(NONE)" to Triple(0, 0, "нет манёвра"),
-                "m=11(STRAIGHT)" to Triple(11, 500, "прямо"),
-                "m=1(LEFT)" to Triple(1, 300, "влево"),
-                "m=2(RIGHT)" to Triple(2, 400, "вправо"),
-                "m=9(UTURN)" to Triple(9, 200, "разворот"),
-                "m=5(HARD_RIGHT)" to Triple(5, 350, "шоссе"),
-                "CAMERA" to Triple(0, 490, "камера")
-            )
-
-            for ((label, triple) in testCases) {
-                val (gaode, dist, desc) = triple
-                val pngSmall = NaviIconLoader.loadSmall(gaode)
-
-                val payload = ProtobufBuilder.buildNewSafe(
-                    stage = ProtobufBuilder.STAGE_MAX,
-                    counter = 0, maneuver = gaode, distance = dist,
-                    road = "Selftest $desc", lat = 39.9, lon = 116.4,
-                    etaString = "12:00", totalDistMeters = 10000,
-                    statusIcon = 2, speedLimit = 0,
-                    iconPngSmall = pngSmall
-                )
-                val rc = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payload)
-                val pngB = pngSmall?.size ?: 0
-                Logger.i("SELFTEST", "case=$label rc=$rc bytes=${payload.size} png=${pngB}B guard=${if (payload.size <= ProtobufBuilder.MAX_PAYLOAD_BYTES) "OK" else "OVER"}")
-            }
-
-            // SIZEGUARD test: oversized PNG
-            val hugePng = ByteArray(4000) { 0x89.toByte() }
-            val payloadHuge = ProtobufBuilder.buildNewSafe(
-                stage = ProtobufBuilder.STAGE_MAX,
-                counter = 0, maneuver = 11, distance = 500,
-                road = "Huge PNG test", lat = 39.9, lon = 116.4,
-                etaString = "12:00", totalDistMeters = 10000,
-                statusIcon = 2, iconPngSmall = hugePng
-            )
-            val rcHuge = bridge.fireEvent(SomeIpBridge.TOPIC_NAVI, payloadHuge)
-            Logger.i("SELFTEST", "case=SIZEGUARD_HUGE rc=$rcHuge bytes=${payloadHuge.size} guard=${if (payloadHuge.size <= ProtobufBuilder.MAX_PAYLOAD_BYTES) "OK" else "OVER"}")
-
-            Logger.i("SELFTEST", "=== HUD SELFTEST DONE ===")
-            runOnUiThread { toast("Selftest done — check logcat SELFTEST") }
-        }.apply { isDaemon = true; name = "SELFTEST" }.start()
-    }
-
-    private fun toggleArrowScan() {
-        if (!HudForegroundService.DEBUG_ARROW_SCAN) { toast("Arrow scan disabled"); return }
-        if (!yandexOn) { toast("Start YANDEX NAVI first"); return }
-        val s = HudState.snapshot()
-        if (!s.arrowScanActive) {
-            if (!s.active) forceActiveForTest()
-            HudState.update { it.copy(arrowScanActive = true, arrowScanIndex = 0) }
-            toast("Arrow scan started: idx=0")
-            Logger.i("TEST", "arrowScan ON (f27 texture 0..47)")
-        } else {
-            HudState.update { it.copy(arrowScanActive = false) }
-            runOnUiThread { btnArrowScan.text = "ARROW SCAN" }
-            val clearPayload = ProtobufBuilder.buildOld(
-                counter = 0, maneuver = 0, distance = 0, road = "",
-                lat = 0.0, lon = 0.0, etaString = "",
-                totalDistMeters = 0, totalTimeSeconds = 0,
-                statusIcon = 1, speedLimit = 0, arriveText = "",
-                testLanes = false, laneLayout = "", iconPng = null
-            )
-            HudForegroundService.bridge?.fireEvent(SomeIpBridge.TOPIC_NAVI, clearPayload)
-            toast("Arrow scan stopped")
-            Logger.i("TEST", "arrowScan OFF — sent clear f16=1")
-        }
-    }
-
-    private fun setBuilderOld(old: Boolean) {
-        HudForegroundService.builderOld = old
-        HudForegroundService.saveBuilderMode(this, old)
-        HudForegroundService.loopRunner?.resetNewStage()
-        updateBuilderButtons()
-        toast(if (old) "Builder: OLD (рабочий метод)" else "Builder: NEW (перебор полей, +1 каждые 5с)")
-        Logger.i("UI", "builderOld=$old")
-        updateStatusBar()
-    }
-
-    private fun updateBuilderButtons() {
-        val old = HudForegroundService.builderOld
-        runOnUiThread {
-            btnBuilderOld.text = if (old) "● OLD" else "OLD"
-            btnBuilderNew.text = if (!old) "● NEW" else "NEW"
-        }
-    }
-
-    private fun toGaodeDisplay(m: Int): Int = ManeuverMapper.toGaode(m)
-
-    private var iconScanIdx = -1
-
-    private fun cycleIconField() {
-        val candidates = HudForegroundService.ICON_CANDIDATES
-        iconScanIdx = (iconScanIdx + 1) % (candidates.size + 1)
-        val fieldNum = if (iconScanIdx < candidates.size) candidates[iconScanIdx] else 0
-        HudForegroundService.iconFieldNum = fieldNum
-        val label = if (fieldNum > 0) "ICON: f$fieldNum" else "ICON: OFF"
-        runOnUiThread { btnIconScan.text = label }
-        Logger.i("TEST", "iconFieldNum=$fieldNum (${if (fieldNum > 0) "scanning f$fieldNum" else "OFF"})")
-        toast("Small arrow field: ${if (fieldNum > 0) "f$fieldNum" else "OFF"}")
-    }
-
-    private fun cyclePngIcon() {
-        HudForegroundService.sendPngIcon = !HudForegroundService.sendPngIcon
-        val label = if (HudForegroundService.sendPngIcon) "PNG: ON" else "PNG: OFF"
-        runOnUiThread { btnPngIcon.text = label }
-        Logger.i("TEST", "sendPngIcon=${HudForegroundService.sendPngIcon}")
-        toast("f8 PNG: ${if (HudForegroundService.sendPngIcon) "ON" else "OFF"}")
+    private fun toggleLogs() {
+        val on = !Logger.enabled
+        Logger.setEnabled(applicationContext, on)
+        btnLogs.text = if (on) "LOGS: ON" else "LOGS: OFF"
+        if (!on) logText.text = ""
+        toast("Логи: ${if (on) "ВКЛ" else "ВЫКЛ"}")
     }
 
     private fun cycleRvDump() {
@@ -638,14 +414,9 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
         val fgsReady = HudForegroundService.isReady
         val navStatus = if (s.active) "$maneuverStr ${s.distanceMeters}m" else "idle"
         val a11yStatus = if (isA11yEnabled()) "ON" else "OFF"
-        val packLabel = if (s.usePacked) "pk" else "np"
-        val lanesLabel = if (s.testLanes) "L" else ""
-        val nnLabel = if (s.nextNextManeuver > 0) "N${s.nextNextManeuver}" else ""
-        val builderLabel = if (HudForegroundService.builderOld) "OLD"
-            else "NEW:${HudForegroundService.loopRunner?.stageLabel() ?: "?"}"
 
         runOnUiThread {
-            statusBar.text = "Y:$yStatus FGS:$fgsReady | $navStatus | $builderLabel | $packLabel${lanesLabel}${nnLabel} | A11y:$a11yStatus"
+            statusBar.text = "Y:$yStatus FGS:$fgsReady | $navStatus | NEW | A11y:$a11yStatus"
         }
     }
 

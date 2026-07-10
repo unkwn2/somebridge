@@ -46,15 +46,6 @@ class YandexNaviNotificationListener : NotificationListenerService() {
         val n = sbn.notification
         val ext = n.extras ?: return
 
-        // Диагностический дамп: каждое уведомление Яндекса целиком
-        val tpl = ext.getString(Notification.EXTRA_TEMPLATE)
-        Logger.i(TAG, "YDUMP id=${sbn.id} ongoing=${sbn.isOngoing} tpl=$tpl " +
-            "cv=${n.contentView != null} bcv=${n.bigContentView != null} hcv=${n.headsUpContentView != null} " +
-            "title='${ext.getCharSequence(Notification.EXTRA_TITLE)}' " +
-            "text='${ext.getCharSequence(Notification.EXTRA_TEXT)}' " +
-            "sub='${ext.getCharSequence(Notification.EXTRA_SUB_TEXT)}' " +
-            "keys=${ext.keySet().joinToString(",")}")
-
         // Отсекаем медиа/музыку (у неё есть MediaSession / MediaStyle / категория transport)
         if (ext.containsKey(Notification.EXTRA_MEDIA_SESSION) ||
             n.category == Notification.CATEGORY_TRANSPORT ||

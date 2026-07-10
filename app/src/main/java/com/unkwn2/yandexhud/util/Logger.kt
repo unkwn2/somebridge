@@ -14,12 +14,17 @@ object Logger {
     private const val APP_TAG = "YandexHUD"
     private const val LOG_DIR = "yandexhud/logs"
     private const val MAX_LOG_AGE_MS = 7 * 24 * 3600 * 1000L
+    private const val KEY_LOGS = "logsEnabled"
+    private const val PREFS = "yandexhud_prefs"
     private val fmt = ThreadLocal.withInitial { SimpleDateFormat("HH:mm:ss.SSS", Locale.US) }
     private val dateFmt = ThreadLocal.withInitial { SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US) }
     private val listeners = CopyOnWriteArrayList<(String) -> Unit>()
     @Volatile private var logWriter: PrintWriter? = null
+    @Volatile var enabled: Boolean = false
+        private set
 
     fun init(ctx: Context) {
+        enabled = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_LOGS, false)
         try {
             val dir = File(ctx.getExternalFilesDir(null)?.parentFile, LOG_DIR)
             if (!dir.exists()) dir.mkdirs()
@@ -34,11 +39,17 @@ object Logger {
         }
     }
 
+    fun setEnabled(ctx: Context, on: Boolean) {
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_LOGS, on).apply()
+        enabled = on
+    }
+
     fun i(tag: String, msg: String) = log(Log.INFO, tag, msg)
     fun w(tag: String, msg: String) = log(Log.WARN, tag, msg)
     fun e(tag: String, msg: String) = log(Log.ERROR, tag, msg)
 
     private fun log(level: Int, tag: String, msg: String) {
+        if (!enabled) return
         val line = "${fmt.get().format(Date())}\t${levelChar(level)}\t$tag\t$msg"
         Log.println(level, APP_TAG, "[$tag] $msg")
         listeners.forEach { it(line) }

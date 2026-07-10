@@ -28,9 +28,7 @@ object HudState {
         val cameraDistanceMeters: Int = 0,   // дистанция до камеры/POI от Яндекса (f18). 0 = нет камеры
         val cameraIconPng: ByteArray? = null, // PNG-значок камеры из Яндекса (флаг в f8 при камере)
         val maneuverGaode: Int = 0,
-        val maneuverGaodeMs: Long = 0L,
-        val arrowScanActive: Boolean = false,
-        val arrowScanIndex: Int = 0
+        val maneuverGaodeMs: Long = 0L
     )
 
     @Volatile private var current = Snapshot()

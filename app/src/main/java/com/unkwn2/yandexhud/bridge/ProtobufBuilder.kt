@@ -277,10 +277,10 @@ object ProtobufBuilder {
 
     // ── helpers ───────────────────────────────────────────────────────────
 
-    /** PNG-знак ограничения скорости для слота f7 (вместо ленты полос). 64×64. */
+    /** PNG-знак ограничения скорости для слота f7 (вместо ленты полос). 96×96. */
     fun buildSpeedLimitPng(speed: Int): ByteArray? {
         if (speed <= 0) return null
-        val size = 64
+        val size = 96
         return try {
             val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
             val c = android.graphics.Canvas(bmp)
