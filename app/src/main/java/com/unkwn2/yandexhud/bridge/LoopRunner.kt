@@ -63,7 +63,7 @@ class LoopRunner(private val bridge: SomeIpBridge) {
 
                     // Камера: при cameraAlert подменяем иконку манёвра на иконку камеры (f8)
                     // Дистанция до камеры идёт в f9 (как в эталоне discope: camera → f8+f9)
-                    val isCameraActive = HudForegroundService.cameraEnabled && s.cameraAlert.isNotEmpty()
+                    val isCameraActive = s.cameraAlert.isNotEmpty()
                     val effectivePngSmall = if (isCameraActive) s.cameraIconPng ?: pngSmall else pngSmall
                     val effectiveCameraDist = if (isCameraActive) s.cameraDistanceMeters else 0
 

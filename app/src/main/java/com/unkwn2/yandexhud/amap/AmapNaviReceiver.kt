@@ -45,7 +45,6 @@ class AmapNaviReceiver : BroadcastReceiver() {
         Logger.i(TAG, "turnIcon=$turnIcon nextNext=$nextTurnIcon segDist=$segDist routeDist=$routeDist routeTime=$routeTime road='$nextRoad'")
 
         if (turnIcon < 0) return
-        if (HudState.isTestLatched()) return
 
         val internal = autoNaviToInternal(turnIcon)
         val nextInternal = if (nextTurnIcon > 0) autoNaviToInternal(nextTurnIcon) else 0

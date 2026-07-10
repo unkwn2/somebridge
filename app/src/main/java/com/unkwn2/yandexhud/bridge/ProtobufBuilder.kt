@@ -1,16 +1,13 @@
 package com.unkwn2.yandexhud.bridge
 
-import com.unkwn2.yandexhud.notif.ManeuverMapper
 import com.unkwn2.yandexhud.util.Logger
 import java.io.ByteArrayOutputStream
 
 /**
  * Сборщик HudRoadInfoNotifyStruct.
  *
- * Два режима:
- *  - buildOld(...)  — РАБОЧИЙ метод от 18 июня (b18d422). НЕ ТРОГАТЬ — контрольная кнопка OLD.
- *  - buildNew(stage) — Формат эталона discope (1779 событий штатной нав U7).
- *                     Порядок полей КРИТИЧЕН — BYD-парсер нестандартный.
+ * buildNew(stage) — Формат эталона discope (1779 событий штатной нав U7).
+ *                   Порядок полей КРИТИЧЕН — BYD-парсер нестандартный.
  *
  * Порядок полей (эталон): f2→f5→f6→f7→f8→f9→f10→f11→f16→f19→f20→f26→f28→f29→f30→f31→f33
  *  - f2 counter
@@ -57,49 +54,6 @@ object ProtobufBuilder {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // OLD — рабочий метод от 18 июня (стрелки работают). НЕ ТРОГАТЬ.
-    // ─────────────────────────────────────────────────────────────────────
-    fun buildOld(
-        counter: Int,
-        maneuver: Int,                 // GAODE
-        distance: Int,
-        road: String,
-        lat: Double, lon: Double,
-        etaString: String,
-        totalDistMeters: Int = 0,
-        totalTimeSeconds: Int = 0,
-        statusIcon: Int = 0,
-        speedLimit: Int = 0,
-        arriveText: String = "",
-        testLanes: Boolean = false,
-        laneLayout: String = "",
-        iconPng: ByteArray? = null      // f8 PNG иконки манёвра
-    ): ByteArray {
-        val inner = ByteArrayOutputStream()
-
-        writeVarintField(inner, 2, counter.toLong())               // f2  counter (живость кадра)
-        if (iconPng != null) writeBytesField(inner, 8, iconPng)    // f8  PNG иконки (если есть)
-        writeVarintField(inner, 9, distance.toLong())              // f9  distance2Intersection
-        writeStringField(inner, 10, road)                          // f10 nextRoadName
-        writeVarintField(inner, 16, statusIcon.toLong())           // f16 navigatingStatus: 2=draw, 1=clear
-        writeStringField(inner, 26, etaString)                     // f26 ETA \"HH:MM\"
-        if (totalDistMeters > 0)  writeVarintField(inner, 22, totalDistMeters.toLong())
-        if (totalTimeSeconds > 0) writeVarintField(inner, 23, totalTimeSeconds.toLong())
-        if (speedLimit > 0)       writeVarintField(inner, 24, speedLimit.toLong())
-        if (arriveText.isNotEmpty()) writeStringField(inner, 27, arriveText)
-        writeVarintField(inner, 28, maneuver.toLong())             // f28 сырой gaode
-        if (testLanes && laneLayout.isNotEmpty()) {
-            writeVarintField(inner, 5, laneLayout.split(",").size.toLong())
-            writeStringField(inner, 29, laneLayout)
-        }
-        if (lat != 0.0 || lon != 0.0) {
-            writeDoubleField(inner, 19, lon)                       // f19 longitude
-            writeDoubleField(inner, 20, lat)                       // f20 latitude
-        }
-        return wrap(inner)
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
     // NEW — формат эталона discope (1779 событий штатной нав U7).
     // Порядок полей КРИТИЧЕН: f2→f5→f6→f7→f8→f9→f10→f11→f16→f19→f20→f26→f28→f29→f30→f31→f33
     // ─────────────────────────────────────────────────────────────────────
@@ -135,7 +89,7 @@ object ProtobufBuilder {
         // f5/f6/f7 — ПОРЯДОК КРИТИЧЕН (f5 ДО f6!)
         // f5 = число полос; f6 = 1 (без полос) или 6 (с картинкой); f7 = PNG (полосы или знак скорости)
         val hasLanes = testLanes && laneLayout.isNotEmpty()
-        val speedPng = if (speedInF7 && speedLimit > 0) buildSpeedLimitPng(speedLimit) else null
+        val speedPng = if (speedInF7 && speedLimit > 0) speedPngCached(speedLimit) else null
         val useSpeedInF7 = speedPng != null
         if (hasLanes && !useSpeedInF7) {
             writeVarintField(inner, 5, laneCount(laneLayout).toLong())
@@ -195,43 +149,6 @@ object ProtobufBuilder {
             writeFixed64Field(inner, 33, java.lang.Double.doubleToRawLongBits(progress.coerceIn(0.0, 1.0)))
         }
 
-        return wrap(inner)
-    }
-
-    // Совместимость со старыми вызовами (arrowScan, clear-кадры): полный эталон.
-    fun build(
-        counter: Int,
-        maneuver: Int,
-        distance: Int,
-        road: String,
-        lat: Double, lon: Double,
-        etaString: String,
-        totalDistMeters: Int = 0,
-        totalTimeSeconds: Int = 0,
-        statusIcon: Int = 0,
-        iconPngLarge: ByteArray? = null,
-        iconPngSmall: ByteArray? = null,
-        testLanes: Boolean = false,
-        laneLayout: String = ""
-    ): ByteArray = buildNew(
-        stage = STAGE_MAX,
-        counter = counter,
-        maneuver = maneuver,
-        distance = distance,
-        road = road,
-        lat = lat, lon = lon,
-        etaString = etaString,
-        totalDistMeters = totalDistMeters,
-        statusIcon = statusIcon,
-        speedLimit = 0,
-        iconPngSmall = iconPngSmall,
-        testLanes = testLanes,
-        laneLayout = laneLayout
-    )
-
-    fun buildNavMap(maneuvers: IntArray, usePacked: Boolean = true): ByteArray {
-        val inner = ByteArrayOutputStream()
-        writeRepeated(inner, 1, maneuvers, usePacked)
         return wrap(inner)
     }
 
@@ -302,6 +219,13 @@ object ProtobufBuilder {
         } catch (t: Throwable) { Logger.w("SPEEDSIGN", "render failed: ${t.message}"); null }
     }
 
+    private var cachedSpeed = -1
+    private var cachedSpeedPng: ByteArray? = null
+    private fun speedPngCached(speed: Int): ByteArray? {
+        if (speed != cachedSpeed) { cachedSpeed = speed; cachedSpeedPng = buildSpeedLimitPng(speed) }
+        return cachedSpeedPng
+    }
+
     /**
      * GAODE-код -> код манёвра f28 ЭТАЛОНА.
      * Эталон (подтверждено фото 23.06): 3=ЛЕВО, 2=ПРАВО, 1=ПРЯМО, 9=РАЗВОРОТ, 5=шоссе/съезд.
@@ -333,35 +257,6 @@ object ProtobufBuilder {
         for (i in 0 until numLanes) {
             if (i == recommendedIdx) sb.append("$dir,$dir|") else sb.append("0,255|")
         }
-        return sb.toString()
-    }
-
-    private fun buildGuideLine(lat: Double, lon: Double, maneuver: Int, decimals: Int): String {
-        val g = if (maneuver in 1..13 || maneuver == 48) maneuver else ManeuverMapper.toGaode(maneuver)
-        val fmt = "[%.${decimals}f,%.${decimals}f,0]"
-        val sb = StringBuilder("[")
-        val step = 0.0002
-        val turnStart = 5
-        for (i in 0..9) {
-            val iLat = lat + i * step
-            val turn = if (i > turnStart) (i - turnStart) * step else 0.0
-            val iLon = when (g) {
-                1 -> lon - turn
-                2 -> lon + turn
-                3 -> lon - turn * 0.5
-                4 -> lon + turn * 0.5
-                7 -> lon - turn * 1.5
-                8 -> lon + turn * 1.5
-                9 -> lon - turn * 2
-                10 -> lon + turn * 2
-                11 -> lon
-                13 -> lon + turn * 0.5
-                else -> lon
-            }
-            if (i > 0) sb.append(",")
-            sb.append(String.format(fmt, iLon, iLat))
-        }
-        sb.append("]")
         return sb.toString()
     }
 

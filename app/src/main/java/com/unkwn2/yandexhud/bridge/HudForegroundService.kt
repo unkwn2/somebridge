@@ -44,9 +44,6 @@ class HudForegroundService : Service() {
         }
         fun getSpeedSign(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_SPEED_SIGN, true)
 
-        // Camera icon in f8 — always on (hardcoded)
-        @Volatile var cameraEnabled: Boolean = true
-
         fun start(ctx: Context) {
             try {
                 ctx.startForegroundService(Intent(ctx, HudForegroundService::class.java))
@@ -59,7 +56,6 @@ class HudForegroundService : Service() {
             if (i != null) i.intentionalStop = true
             ctx.stopService(Intent(ctx, HudForegroundService::class.java))
         }
-
     }
 
     private var _bridge: SomeIpBridge? = null
