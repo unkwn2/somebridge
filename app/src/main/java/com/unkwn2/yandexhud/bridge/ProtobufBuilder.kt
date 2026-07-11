@@ -40,7 +40,7 @@ object ProtobufBuilder {
     const val STAGE_MAX = 6
 
     // ── SIZEGUARD ─────────────────────────────────────────────────────────
-    const val MAX_PAYLOAD_BYTES = 5000
+    const val MAX_PAYLOAD_BYTES = 65536
 
     fun stageName(stage: Int): String = when (stage) {
         0 -> "0:OLD-base"
@@ -194,7 +194,7 @@ object ProtobufBuilder {
 
     // ── helpers ───────────────────────────────────────────────────────────
 
-    /** PNG-знак ограничения скорости для слота f7 (вместо ленты полос). 96×96, без AA на кругах. */
+    /** PNG-знак ограничения скорости для слота f7 (вместо ленты полос). 96×96, без AA. */
     fun buildSpeedLimitPng(speed: Int): ByteArray? {
         if (speed <= 0) return null
         val size = 96
