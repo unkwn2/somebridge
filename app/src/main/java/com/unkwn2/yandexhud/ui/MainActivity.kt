@@ -6,7 +6,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import android.os.Bundle
 import android.provider.Settings
 import android.text.Html
@@ -20,21 +19,19 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationManagerCompat
-import com.unkwn2.yandexhud.BuildConfig
 import com.unkwn2.yandexhud.bridge.HudForegroundService
 import com.unkwn2.yandexhud.bridge.HudState
 import com.unkwn2.yandexhud.mock.MockGpsService
 import com.unkwn2.yandexhud.notif.YandexA11yService
 import com.unkwn2.yandexhud.notif.YandexNaviNotificationListener
 import com.unkwn2.yandexhud.util.LocalAdb
-import com.unkwn2.yandexhud.util.LicenseManager
 import com.unkwn2.yandexhud.util.Logger
 import android.service.notification.NotificationListenerService
-import java.security.MessageDigest
 
 class MainActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "UI"
+        const val APP_PASSWORD = "сделано @rbgboost"
     }
     private lateinit var statusBar: TextView
     private lateinit var logText: TextView
@@ -58,73 +55,27 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         Logger.init(applicationContext)
 
-        if (BuildConfig.DEBUG) {
-            initUI()
-        } else {
-            checkPasswordAndInit()
-        }
+        checkPasswordAndInit()
     }
-
-    // ── Password lock (release only) ───────────────────────────────────────────
 
     private fun checkPasswordAndInit() {
-        val prefs = getSharedPreferences("app_lock", MODE_PRIVATE)
-        val hash = prefs.getString("password_hash", null)
-        if (hash == null) {
-            showSetPasswordDialog(prefs)
-        } else {
-            showEnterPasswordDialog(prefs, hash)
-        }
-    }
-
-    private fun showSetPasswordDialog(prefs: SharedPreferences) {
         val input = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
         }
         AlertDialog.Builder(this)
-            .setTitle("Set Password")
-            .setMessage("First launch — create an app password")
-            .setView(input)
-            .setCancelable(false)
-            .setPositiveButton("Set") { _, _ ->
-                val pwd = input.text.toString()
-                if (pwd.length < 4) {
-                    toast("Password must be at least 4 characters")
-                    showSetPasswordDialog(prefs)
-                    return@setPositiveButton
-                }
-                prefs.edit().putString("password_hash", sha256(pwd)).apply()
-                toast("Password set")
-                initUI()
-            }
-            .show()
-    }
-
-    private fun showEnterPasswordDialog(prefs: SharedPreferences, hash: String) {
-        val input = EditText(this).apply {
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-        }
-        AlertDialog.Builder(this)
-            .setTitle("Enter Password")
-            .setMessage("App is locked")
+            .setTitle("YandexHUD")
             .setView(input)
             .setCancelable(false)
             .setPositiveButton("OK") { _, _ ->
-                val pwd = input.text.toString()
-                if (sha256(pwd) == hash) {
-                    toast("Access granted")
+                if (input.text.toString() == APP_PASSWORD) {
                     initUI()
                 } else {
-                    toast("Wrong password")
-                    showEnterPasswordDialog(prefs, hash)
+                    toast("Неверный пароль")
+                    checkPasswordAndInit()
                 }
             }
             .show()
     }
-
-    private fun sha256(s: String): String = MessageDigest.getInstance("SHA-256")
-        .digest(s.toByteArray(Charsets.UTF_8))
-        .joinToString("") { "%02x".format(it) }
 
     private fun initUI() {
         setContentView(R.layout.activity_main)
@@ -174,34 +125,7 @@ class MainActivity : AppCompatActivity() {
         }
         HudState.observe { updateStatusBar() }
         startStatusRefresh()
-        checkLicense()
         ensurePermissions()
-    }
-
-    private fun checkLicense() {
-        if (LicenseManager.isLicenseValid(applicationContext)) return
-        val input = EditText(this).apply {
-            hint = "Введите ключ лицензии"
-            setSingleLine()
-            setPadding(48, 24, 48, 24)
-            textSize = 16f
-        }
-        AlertDialog.Builder(this)
-            .setTitle("Активация YandexHUD")
-            .setView(input)
-            .setCancelable(false)
-            .setPositiveButton("Активировать") { _, _ ->
-                val key = input.text.toString().trim()
-                if (LicenseManager.saveLicense(applicationContext, key)) {
-                    toast("Лицензия активирована")
-                    Logger.i(TAG, "license activated")
-                } else {
-                    toast("Неверный ключ")
-                    Logger.w(TAG, "license key invalid")
-                    checkLicense()
-                }
-            }
-            .show()
     }
 
     private fun toggleMenu() {
@@ -251,11 +175,6 @@ USDT TRC20: TYcEkN1x2UU6BUssBxwLBAuKsbJHy3SUtR"""
 
     private fun toggleYandex() {
         if (!yandexOn) {
-            if (!LicenseManager.isLicenseValid(applicationContext)) {
-                toast("Требуется активация")
-                checkLicense()
-                return
-            }
             if (!isNotifAccessGranted()) {
                 Thread {
                     val ok = LocalAdb.ensurePermissions(applicationContext, force = true)
